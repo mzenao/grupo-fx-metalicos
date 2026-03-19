@@ -1,15 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, LogIn } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/fenix.png";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // Troque manualmente para testar o comportamento visual sem autenticação real.
+  // Valores aceitos: null | "user" | "funcionario"
+  const userRole = null;
 
   const handleLoginClick = (event) => {
     event.preventDefault();
   };
+
+  const goTo = (path) => {
+    navigate(path);
+    setIsMobileMenuOpen(false);
+  };
+
+  const actionButtonClass =
+    "rounded-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white shadow-[0_8px_18px_rgba(184,137,31,0.35)] hover:from-[#a67917] hover:to-[#c79a39]";
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -43,7 +58,8 @@ export default function Navbar() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center gap-0">
+          <div className="flex items-center gap-0 scale-125">
+            <img src={logo} alt="Logo Fenix Metalicos" className="navbar-logo" />
             <div className="font-bold text-xl">
               <span
                 className={`font-semibold text-lg ${
@@ -74,14 +90,33 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="hidden md:flex items-center gap-3">
-            <Button
-              type="button"
-              onClick={handleLoginClick}
-              className="rounded-full px-6 bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white shadow-[0_8px_18px_rgba(184,137,31,0.35)] hover:from-[#a67917] hover:to-[#c79a39] disabled:cursor-not-allowed disabled:opacity-90"
-            >
-              <LogIn className="w-4 h-4 mr-2" />
-              Login
-            </Button>
+            {userRole === "user" && (
+              <>
+                <Button type="button" onClick={() => goTo("/sells")} className={`${actionButtonClass} px-6`}>
+                  Minhas Vendas
+                </Button>
+                <Button type="button" onClick={() => goTo("/account")} className={`${actionButtonClass} px-6`}>
+                  Conta
+                </Button>
+              </>
+            )}
+
+            {userRole === "funcionario" && (
+              <Button type="button" onClick={() => goTo("/dashboard")} className={`${actionButtonClass} px-6`}>
+                Dashboard
+              </Button>
+            )}
+
+            {!userRole && (
+              <Button
+                type="button"
+                onClick={handleLoginClick}
+                className={`${actionButtonClass} px-6 disabled:cursor-not-allowed disabled:opacity-90`}
+              >
+                <LogIn className="w-4 h-4 mr-2" />
+                Login
+              </Button>
+            )}
           </div>
 
           {/* Mobile Button */}
@@ -120,14 +155,45 @@ export default function Navbar() {
                 </button>
               ))}
 
-              <Button
-                type="button"
-                onClick={handleLoginClick}
-                className="rounded-full w-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white disabled:cursor-not-allowed disabled:opacity-90"
-              >
-                <LogIn className="w-4 h-4 mr-2" />
-                Login
-              </Button>
+              {userRole === "user" && (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => goTo("/sells")}
+                    className={`${actionButtonClass} w-full`}
+                  >
+                    Minhas Vendas
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => goTo("/account")}
+                    className={`${actionButtonClass} w-full`}
+                  >
+                    Conta
+                  </Button>
+                </>
+              )}
+
+              {userRole === "funcionario" && (
+                <Button
+                  type="button"
+                  onClick={() => goTo("/dashboard")}
+                  className={`${actionButtonClass} w-full`}
+                >
+                  Dashboard
+                </Button>
+              )}
+
+              {!userRole && (
+                <Button
+                  type="button"
+                  onClick={handleLoginClick}
+                  className={`${actionButtonClass} w-full disabled:cursor-not-allowed disabled:opacity-90`}
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Login
+                </Button>
+              )}
             </div>
           </motion.div>
         )}

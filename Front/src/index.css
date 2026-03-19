@@ -23,3 +23,12 @@ body {
     var(--paper);
   color: var(--ink);
 }
+
+.navbar-logo {
+  width: 36px;
+  height: 36px;
+  margin-right: 8px;
+  object-fit: contain;
+  transform: scale(1.2);
+  transform-origin: center;
+}
