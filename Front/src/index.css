@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --gold-700: #8a6417;
+  --gold-600: #b8891f;
+  --gold-500: #d6ab4a;
+  --paper: #ffffff;
+  --paper-soft: #f9fafb;
+  --ink: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background:
+    radial-gradient(circle at 14% -10%, rgba(214, 171, 74, 0.22), transparent 44%),
+    radial-gradient(circle at 88% 4%, rgba(184, 137, 31, 0.12), transparent 38%),
+    var(--paper);
+  color: var(--ink);
+}
