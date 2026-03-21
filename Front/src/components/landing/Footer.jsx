@@ -26,7 +26,7 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-3">
             <span className="font-bold text-2xl tracking-tight text-slate-900">
-              Fenix<span className="text-[#b8891f]">Metálicos</span>
+              FX<span className="text-[#b8891f]">Metálicos</span>
             </span>
           </div>
 
@@ -57,7 +57,7 @@ export default function Footer() {
 
         <div className="border-t border-amber-100/70 mt-8 pt-6 text-center">
           <p className="text-slate-600 text-sm">
-            © {new Date().getFullYear()} Fenix Metálicos. Todos os direitos reservados.
+            © {new Date().getFullYear()} FX Metálicos. Todos os direitos reservados.
           </p>
         </div>
       </div>
