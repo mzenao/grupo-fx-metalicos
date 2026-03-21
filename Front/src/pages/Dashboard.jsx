@@ -14,7 +14,7 @@ const TODAY_ISO = `${TODAY.getFullYear()}-${String(TODAY.getMonth() + 1).padStar
 const PURCHASES = [
 	{
 		id: 412,
-		sellerName: "Joao Pedro Lima",
+		SupplierName: "Joao Pedro Lima",
 		employeeName: "Ana Souza",
 		weight: 980,
 		value: 2120,
@@ -23,7 +23,7 @@ const PURCHASES = [
 	},
 	{
 		id: 413,
-		sellerName: "Distribuidora Vale Sul",
+		SupplierName: "Distribuidora Vale Sul",
 		employeeName: "Carlos Mendes",
 		weight: 1350,
 		value: 3540,
@@ -32,7 +32,7 @@ const PURCHASES = [
 	},
 	{
 		id: 414,
-		sellerName: "Marcos Almeida",
+		SupplierName: "Marcos Almeida",
 		employeeName: "Juliana Nogueira",
 		weight: 760,
 		value: 1680,
@@ -41,7 +41,7 @@ const PURCHASES = [
 	},
 	{
 		id: 415,
-		sellerName: "Sucatas Norte Ltda",
+		SupplierName: "Sucatas Norte Ltda",
 		employeeName: "Carlos Mendes",
 		weight: 1890,
 		value: 4725,
@@ -235,7 +235,7 @@ export default function Dashboard() {
 									</div>
 
 									<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2 text-sm">
-										<p><span className="text-gray-500">Vendedor:</span> {purchase.sellerName}</p>
+										<p><span className="text-gray-500">Fornecedor:</span> {purchase.SupplierName}</p>
 										<p><span className="text-gray-500">Funcionario:</span> {purchase.employeeName}</p>
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
 										<p><span className="text-gray-500">Valor:</span> {fmtMoney(purchase.value)}</p>

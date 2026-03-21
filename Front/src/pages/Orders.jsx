@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import "react-datepicker/dist/react-datepicker.css";
 
-const SELLERS = [
+const Suppliers = [
 	{ id: 1, label: "Joao Pedro Lima (PF)" },
 	{ id: 2, label: "Distribuidora Vale Sul (PJ)" },
 	{ id: 3, label: "Marcos Almeida (PF)" },
@@ -32,8 +32,8 @@ const EMPLOYEES = [
 const INITIAL_PURCHASES = [
 	{
 		id: 317,
-		sellerId: 1,
-		sellerName: "Joao Pedro Lima (PF)",
+		SupplierId: 1,
+		SupplierName: "Joao Pedro Lima (PF)",
 		employeeId: 1,
 		employeeName: "Ana Souza",
 		weight: "820",
@@ -43,8 +43,8 @@ const INITIAL_PURCHASES = [
 	},
 	{
 		id: 301,
-		sellerId: 1,
-		sellerName: "Joao Pedro Lima (PF)",
+		SupplierId: 1,
+		SupplierName: "Joao Pedro Lima (PF)",
 		employeeId: 2,
 		employeeName: "Carlos Mendes",
 		weight: "1450",
@@ -126,7 +126,7 @@ export default function Orders() {
 	const fileInputRef = useRef(null);
 	const hashId = Number((location.hash || "").replace("#", "")) || null;
 
-	const [sellerId, setSellerId] = useState(null);
+	const [SupplierId, setSupplierId] = useState(null);
 	const [employeeId, setEmployeeId] = useState(null);
 	const [weight, setWeight] = useState("");
 	const [value, setValue] = useState("");
@@ -139,7 +139,7 @@ export default function Orders() {
 	const [showAllPurchases, setShowAllPurchases] = useState(Boolean(hashId));
 	const [editingPurchaseId, setEditingPurchaseId] = useState(null);
 	const [isEditOpen, setIsEditOpen] = useState(false);
-	const [editSellerId, setEditSellerId] = useState(null);
+	const [editSupplierId, setEditSupplierId] = useState(null);
 	const [editEmployeeId, setEditEmployeeId] = useState(null);
 	const [editWeight, setEditWeight] = useState("");
 	const [editValue, setEditValue] = useState("");
@@ -191,7 +191,7 @@ export default function Orders() {
 		const safeDate = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null;
 
 		setEditingPurchaseId(purchase.id);
-		setEditSellerId(purchase.sellerId || null);
+		setEditSupplierId(purchase.SupplierId || null);
 		setEditEmployeeId(purchase.employeeId || null);
 		setEditWeight(purchase.weight || "");
 		setEditValue(purchase.value || "");
@@ -225,8 +225,8 @@ export default function Orders() {
 			return;
 		}
 
-		if (!editSellerId) {
-			setEditError("Selecione um vendedor.");
+		if (!editSupplierId) {
+			setEditError("Selecione um Fornecedor.");
 			return;
 		}
 
@@ -255,7 +255,7 @@ export default function Orders() {
 			return;
 		}
 
-		const selectedSeller = SELLERS.find((item) => item.id === editSellerId);
+		const selectedSupplier = Suppliers.find((item) => item.id === editSupplierId);
 		const selectedEmployee = EMPLOYEES.find((item) => item.id === editEmployeeId);
 
 		setPurchases((prev) =>
@@ -263,8 +263,8 @@ export default function Orders() {
 				purchase.id === editingPurchaseId
 					? {
 						...purchase,
-						sellerId: editSellerId,
-						sellerName: selectedSeller?.label || "",
+						SupplierId: editSupplierId,
+						SupplierName: selectedSupplier?.label || "",
 						employeeId: editEmployeeId,
 						employeeName: selectedEmployee?.label || "",
 						weight: editWeight,
@@ -281,8 +281,8 @@ export default function Orders() {
 		e.preventDefault();
 		setError("");
 
-		if (!sellerId) {
-			setError("Selecione um vendedor.");
+		if (!SupplierId) {
+			setError("Selecione um Fornecedor.");
 			return;
 		}
 
@@ -311,15 +311,15 @@ export default function Orders() {
 			return;
 		}
 
-		const selectedSeller = SELLERS.find((item) => item.id === sellerId);
+		const selectedSupplier = Suppliers.find((item) => item.id === SupplierId);
 		const selectedEmployee = EMPLOYEES.find((item) => item.id === employeeId);
 
 		const nextId = purchases.length > 0 ? Math.max(...purchases.map((p) => p.id)) + 1 : 1;
 
 		const newPurchase = {
 			id: nextId,
-			sellerId,
-			sellerName: selectedSeller?.label || "",
+			SupplierId,
+			SupplierName: selectedSupplier?.label || "",
 			employeeId,
 			employeeName: selectedEmployee?.label || "",
 			weight,
@@ -329,7 +329,7 @@ export default function Orders() {
 		};
 
 		setPurchases((prev) => [newPurchase, ...prev]);
-		setSellerId(null);
+		setSupplierId(null);
 		setEmployeeId(null);
 		setWeight("");
 		setValue("");
@@ -376,11 +376,11 @@ export default function Orders() {
 						<form onSubmit={handleSubmit} className="space-y-5 mt-4">
 					<div className="grid md:grid-cols-2 gap-4">
 						<SearchSelect
-							label="Vendedor"
-							placeholder="Pesquisar vendedor..."
-							options={SELLERS}
-							selectedId={sellerId}
-							onSelect={setSellerId}
+							label="Fornecedor"
+							placeholder="Pesquisar Fornecedor..."
+							options={Suppliers}
+							selectedId={SupplierId}
+							onSelect={setSupplierId}
 						/>
 
 						<SearchSelect
@@ -560,7 +560,7 @@ export default function Orders() {
 										</div>
 									</div>
 									<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm mt-2">
-										<p><span className="text-gray-500">Vendedor:</span> {purchase.sellerName}</p>
+										<p><span className="text-gray-500">Fornecedor:</span> {purchase.SupplierName}</p>
 										<p><span className="text-gray-500">Funcionario:</span> {purchase.employeeName}</p>
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
 										<p><span className="text-gray-500">Valor:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
@@ -581,11 +581,11 @@ export default function Orders() {
 										<form onSubmit={handleEditSubmit} className="space-y-5 mt-4" onClick={(e) => e.stopPropagation()}>
 											<div className="grid md:grid-cols-2 gap-4">
 												<SearchSelect
-													label="Vendedor"
-													placeholder="Pesquisar vendedor..."
-													options={SELLERS}
-													selectedId={editSellerId}
-													onSelect={setEditSellerId}
+													label="Fornecedor"
+													placeholder="Pesquisar Fornecedor..."
+													options={Suppliers}
+													selectedId={editSupplierId}
+													onSelect={setEditSupplierId}
 												/>
 
 												<SearchSelect

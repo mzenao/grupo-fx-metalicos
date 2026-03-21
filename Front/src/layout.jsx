@@ -14,7 +14,7 @@ import {
 const navItems = [
 	{ name: "Dashboard", icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
 	{ name: "Orders", icon: ShoppingCart, label: "Compras", to: "/orders" },
-	{ name: "Sellers", icon: ContactRound, label: "Vendedores", to: "/sellers" },
+	{ name: "Suppliers", icon: ContactRound, label: "Fornecedores", to: "/suppliers" },
     { name: "Employees", icon: Users, label: "Funcionarios", to: "/employees" },
 ];
 

@@ -4,7 +4,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Employees from "./pages/Employees.jsx";
 import Orders from "./pages/Orders.jsx";
 import Sells from "./pages/Sells.jsx";
-import Sellers from "./pages/Sellers.jsx";
+import Suppliers from "./pages/Suppliers.jsx";
 import Account from "./pages/Account.jsx";
 import InternalLayout from "./layout.jsx";
 import Navbar from "./components/landing/Navbar.jsx";
@@ -62,10 +62,10 @@ function App() {
         }
       />
       <Route
-        path="/sellers"
+        path="/suppliers"
         element={
           <InternalLayout>
-            <Sellers />
+            <Suppliers />
           </InternalLayout>
         }
       />
