@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
 	Calendar,
 	Scale,
@@ -63,8 +64,13 @@ const fmtDateTime = (iso) => {
 };
 
 export default function Dashboard() {
+	const navigate = useNavigate();
 	const [activeCard, setActiveCard] = useState("resumo-dia");
 	const [showAllMovements, setShowAllMovements] = useState(false);
+
+	const openPurchaseInOrders = (purchaseId) => {
+		navigate(`/orders#${purchaseId}`);
+	};
 
 	const summary = useMemo(() => {
 		const totalPurchases = PURCHASES.length;
@@ -214,7 +220,12 @@ export default function Dashboard() {
 					) : (
 						<div className="divide-y divide-gray-100">
 							{visiblePurchases.map((purchase) => (
-								<div key={purchase.id} className="p-4 hover:bg-amber-50/40 transition-colors">
+								<button
+									key={purchase.id}
+									type="button"
+									onClick={() => openPurchaseInOrders(purchase.id)}
+									className="w-full p-4 text-left hover:bg-amber-50/40 transition-colors"
+								>
 									<div className="flex items-center justify-between gap-2">
 										<p className="font-semibold text-gray-900">Compra #{purchase.id}</p>
 										<p className="text-xs text-gray-500 flex items-center gap-1">
@@ -229,7 +240,7 @@ export default function Dashboard() {
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
 										<p><span className="text-gray-500">Valor:</span> {fmtMoney(purchase.value)}</p>
 									</div>
-								</div>
+								</button>
 							))}
 
 							{hasMoreMovements && (
