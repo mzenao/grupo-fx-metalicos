@@ -49,7 +49,7 @@ export default function InternalLayout({ children }) {
 					<img src={logo} alt="Logo Fenix Metalicos" className="w-10 h-10 object-contain scale-175" />
 					<div>
 						<p className="font-bold text-lg">
-							Fenix<span className="text-[#d6ab4a]">Metálicos</span>
+							FX<span className="text-[#d6ab4a]">Metálicos</span>
 						</p>
 						<p className="text-amber-100/70 text-xs">Sistema Interno</p>
 					</div>

@@ -66,7 +66,7 @@ export default function Navbar() {
                   isScrolled ? "text-slate-900" : "text-slate-900"
                 }`}
               >
-                Fenix<span className="text-[#b8891f]">Metálicos</span>
+                FX<span className="text-[#b8891f]">Metálicos</span>
               </span>
             </div>
           </div>
