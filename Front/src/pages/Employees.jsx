@@ -36,6 +36,7 @@ export default function Employees() {
 	const [search, setSearch] = useState("");
 	const [showModal, setShowModal] = useState(false);
 	const [editingEmployee, setEditingEmployee] = useState(null);
+	const [showAllEmployees, setShowAllEmployees] = useState(false);
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -54,6 +55,11 @@ export default function Employees() {
 			);
 		});
 	}, [employees, search]);
+
+	const visibleEmployees = useMemo(() => {
+		if (showAllEmployees) return filtered;
+		return filtered.slice(0, 5);
+	}, [filtered, showAllEmployees]);
 
 	const handleDelete = (id) => {
 		if (!window.confirm("Remover este funcionario?")) return;
@@ -113,7 +119,7 @@ export default function Employees() {
 					</div>
 				) : (
 					<div className="divide-y divide-gray-100">
-						{filtered.map((employee) => (
+						{visibleEmployees.map((employee) => (
 							<div key={employee.id} className="flex items-center gap-4 p-4 hover:bg-amber-50/40 transition-colors">
 								<div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#b8891f] to-[#d6ab4a] flex items-center justify-center flex-shrink-0">
 									<span className="text-white font-bold">{employee.name?.[0] || "F"}</span>
@@ -168,6 +174,30 @@ export default function Employees() {
 								</div>
 							</div>
 						))}
+
+						{!showAllEmployees && filtered.length > 5 && (
+							<div className="p-3 flex justify-center">
+								<button
+									type="button"
+									onClick={() => setShowAllEmployees(true)}
+									className="text-xs text-gray-500 hover:text-[#b8891f] underline underline-offset-2"
+								>
+									Exibir mais funcionarios
+								</button>
+							</div>
+						)}
+
+						{showAllEmployees && filtered.length > 5 && (
+							<div className="p-3 flex justify-center">
+								<button
+									type="button"
+									onClick={() => setShowAllEmployees(false)}
+									className="text-xs text-gray-400 hover:text-[#b8891f] underline underline-offset-2"
+								>
+									Exibir menos
+								</button>
+							</div>
+						)}
 					</div>
 				)}
 			</section>
