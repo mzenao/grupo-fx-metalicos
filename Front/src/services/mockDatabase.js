@@ -1,5 +1,13 @@
 // Camada central de dados mock para facilitar futura migracao para backend/banco.
 
+// CREDENCIAIS MOCK PARA TESTE (aparecem no localStorage com fx_registered_users):
+//  Fornecedor PF: joao.lima@fornecedor.com / senha123
+//  Fornecedor PJ: contato@valesul.com.br / valesul123
+//  Fornecedor PF: marcos.almeida@fornecedor.com / marcosalmeida123
+//  Funcionário: ana@fenix.com.br / anasouza123
+//  Funcionário: carlos@fenix.com.br / carlosmendes123
+//  Funcionário: juliana@fenix.com.br / juliananogueira123
+
 export const STORAGE_KEYS = {
   purchases: "fx_orders_purchases",
   employees: "fx_employees_records",
@@ -16,12 +24,14 @@ export const MOCK_USERS = [
     role: "user",
     accountType: "pf",
     supplierId: 1,
+    password: "senha123",
   },
   {
     id: 2,
     name: "Ana Souza",
     email: "ana@fenix.com.br",
     role: "funcionario",
+    password: "anasouza123",
   },
 ];
 
@@ -44,7 +54,7 @@ export const MOCK_EMPLOYEES_DETAILED = [
     phone: "(32) 99999-0001",
     email: "ana@fenix.com.br",
     ocupance: "Gerente",
-    password: "",
+    password: "anafenix123",
   },
   {
     id: 2,
@@ -52,7 +62,7 @@ export const MOCK_EMPLOYEES_DETAILED = [
     phone: "(32) 98888-0002",
     email: "carlos@fenix.com.br",
     ocupance: "Colaborador",
-    password: "",
+    password: "carlosmendes123",
   },
   {
     id: 3,
@@ -60,7 +70,7 @@ export const MOCK_EMPLOYEES_DETAILED = [
     phone: "(32) 97777-0003",
     email: "juliana@fenix.com.br",
     ocupance: "Colaboradora",
-    password: "",
+    password: "juliananogueira123",
   },
 ];
 
@@ -76,7 +86,7 @@ export const MOCK_SUPPLIERS_DETAILED = [
     referenceAddress: "Rua das Palmeiras, 120 - Centro",
     email: "joao.lima@fornecedor.com",
     phone: "(32) 98888-1234",
-    password: "",
+    password: "joaolima123",
   },
   {
     id: 2,
@@ -89,7 +99,7 @@ export const MOCK_SUPPLIERS_DETAILED = [
     referenceAddress: "Avenida Industrial, 455 - Distrito 2",
     email: "contato@valesul.com.br",
     phone: "(32) 3777-9000",
-    password: "",
+    password: "valesul123",
   },
   {
     id: 3,
@@ -102,7 +112,7 @@ export const MOCK_SUPPLIERS_DETAILED = [
     referenceAddress: "Rua da Usina, 40 - Bairro Novo",
     email: "marcos.almeida@fornecedor.com",
     phone: "(32) 97777-1010",
-    password: "",
+    password: "marcosalmeida123",
   },
 ];
 
@@ -132,7 +142,22 @@ export const MOCK_PURCHASES = [
 ];
 
 export function getActiveUser() {
-  return MOCK_USERS.find((user) => user.id === ACTIVE_USER_ID) || MOCK_USERS[0] || null;
+  // Verifica localStorage primeiro para usuários registrados dinamicamente
+  const storedUserId = typeof window !== "undefined" ? localStorage.getItem("fx_active_user_id") : null;
+  
+  if (storedUserId) {
+    // Se há ID no localStorage, procura nos usuários registrados + mock users
+    const userId = parseInt(storedUserId);
+    const registeredUsers = typeof window !== "undefined" ? 
+      JSON.parse(localStorage.getItem("fx_registered_users") || "[]") : [];
+    
+    const user = registeredUsers.find((u) => u.id === userId) || 
+                 MOCK_USERS.find((u) => u.id === userId);
+    return user || null;
+  }
+  
+  // Se não há localStorage, começa deslogado (não usa ACTIVE_USER_ID fallback)
+  return null;
 }
 
 export function readStorageArray(storageKey, fallback) {
@@ -159,4 +184,42 @@ export function writeStorageArray(storageKey, records) {
   } catch {
     // Ignora falhas de persistencia local no ambiente de desenvolvimento.
   }
+}
+
+// Obtém todos os usuários (registrados dinamicamente + mock users)
+export function getAllUsers() {
+  const registeredUsers = typeof window !== "undefined" ? 
+    JSON.parse(localStorage.getItem("fx_registered_users") || "[]") : [];
+  
+  return [...registeredUsers, ...MOCK_USERS];
+}
+
+// Inicializa usuários mock no localStorage na primeira carga
+export function initializeMockUsers() {
+  if (typeof window === "undefined") return;
+  
+  const existing = localStorage.getItem("fx_registered_users");
+  if (existing) return; // Já inicializado
+  
+  // Cria usuários baseados nos dados mock
+  const mockRegisteredUsers = [
+    {
+      id: 1,
+      name: "Joao Pedro Lima",
+      email: "joao.lima@fornecedor.com",
+      role: "user",
+      accountType: "pf",
+      supplierId: 1,
+      password: "senha123",
+    },
+    {
+      id: 2,
+      name: "Ana Souza",
+      email: "ana@fenix.com.br",
+      role: "funcionario",
+      password: "anasouza123",
+    },
+  ];
+  
+  localStorage.setItem("fx_registered_users", JSON.stringify(mockRegisteredUsers));
 }

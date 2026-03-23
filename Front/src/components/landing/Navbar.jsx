@@ -1,21 +1,53 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, LogIn } from "lucide-react";
+import { Menu, X, LogIn, LogOut } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import LoginModal from "@/components/internal/loginModal";
+import RegisterModal from "@/components/internal/registerModal";
 import logo from "@/assets/fenix.png";
 import { mockSession } from "@/services/mockSession";
+import { getActiveUser } from "@/services/mockDatabase";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(mockSession.isLoggedIn);
+  const [userRole, setUserRole] = useState(mockSession.role);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  
   const navigate = useNavigate();
   const location = useLocation();
 
-  const userRole = mockSession.role;
+  const handleLoginClick = () => {
+    setShowLoginModal(true);
+    setIsMobileMenuOpen(false);
+  };
 
-  const handleLoginClick = (event) => {
-    event.preventDefault();
+  const handleRegisterClick = () => {
+    setShowRegisterModal(true);
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleLoginSuccess = (user) => {
+    setIsLoggedIn(true);
+    setUserRole(user.role);
+    window.location.reload();
+  };
+
+  const handleRegisterSuccess = (user) => {
+    setIsLoggedIn(true);
+    setUserRole(user.role);
+    window.location.reload();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("fx_active_user_id");
+    setIsLoggedIn(false);
+    setUserRole(null);
+    setIsMobileMenuOpen(false);
+    navigate("/");
   };
 
   const goTo = (path) => {
@@ -30,6 +62,17 @@ export default function Navbar() {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const activeUser = getActiveUser();
+      setIsLoggedIn(activeUser !== null);
+      setUserRole(activeUser?.role || null);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const navItems = [
@@ -110,24 +153,44 @@ export default function Navbar() {
                 <Button type="button" onClick={() => goTo("/account")} className={`${actionButtonClass} px-6`}>
                   Conta
                 </Button>
+                <Button
+                  type="button"
+                  onClick={handleLogout}
+                  className={`${actionButtonClass} px-6`}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
               </>
             )}
 
             {userRole === "funcionario" && (
-              <Button type="button" onClick={() => goTo("/dashboard")} className={`${actionButtonClass} px-6`}>
-                Dashboard
-              </Button>
+              <>
+                <Button type="button" onClick={() => goTo("/dashboard")} className={`${actionButtonClass} px-6`}>
+                  Dashboard
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleLogout}
+                  className={`${actionButtonClass} px-6`}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
+              </>
             )}
 
             {!userRole && (
-              <Button
-                type="button"
-                onClick={handleLoginClick}
-                className={`${actionButtonClass} px-6 disabled:cursor-not-allowed disabled:opacity-90`}
-              >
-                <LogIn className="w-4 h-4 mr-2" />
-                Login
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  onClick={handleLoginClick}
+                  className={`${actionButtonClass} px-6`}
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Login
+                </Button>
+              </div>
             )}
           </div>
 
@@ -183,33 +246,71 @@ export default function Navbar() {
                   >
                     Conta
                   </Button>
+                  <Button
+                    type="button"
+                    onClick={handleLogout}
+                    className={`${actionButtonClass} w-full`}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sair
+                  </Button>
                 </>
               )}
 
               {userRole === "funcionario" && (
-                <Button
-                  type="button"
-                  onClick={() => goTo("/dashboard")}
-                  className={`${actionButtonClass} w-full`}
-                >
-                  Dashboard
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => goTo("/dashboard")}
+                    className={`${actionButtonClass} w-full`}
+                  >
+                    Dashboard
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleLogout}
+                    className={`${actionButtonClass} w-full`}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sair
+                  </Button>
+                </>
               )}
 
               {!userRole && (
-                <Button
-                  type="button"
-                  onClick={handleLoginClick}
-                  className={`${actionButtonClass} w-full disabled:cursor-not-allowed disabled:opacity-90`}
-                >
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Login
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    onClick={handleLoginClick}
+                    className={`${actionButtonClass} w-full`}
+                  >
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Login
+                  </Button>
+                </div>
               )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showLoginModal && (
+        <LoginModal
+          onClose={() => setShowLoginModal(false)}
+          onSuccess={handleLoginSuccess}
+          onSwitchToRegister={() => {
+            setShowLoginModal(false);
+            setShowRegisterModal(true);
+          }}
+        />
+      )}
+
+      {showRegisterModal && (
+        <RegisterModal
+          onClose={() => setShowRegisterModal(false)}
+          onSuccess={handleRegisterSuccess}
+        />
+      )}
     </>
   );
 }

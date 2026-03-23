@@ -4,6 +4,7 @@ import { getActiveUser } from "@/services/mockDatabase";
 const activeUser = getActiveUser();
 
 export const mockSession = {
+  isLoggedIn: activeUser !== null,
   role: activeUser?.role || null,
   accountType: activeUser?.accountType || "pf",
   currentSupplierId: activeUser?.supplierId || null,

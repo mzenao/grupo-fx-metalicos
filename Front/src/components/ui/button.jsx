@@ -15,6 +15,7 @@ export function Button({
     destructive: "bg-red-600 text-white hover:bg-red-700",
     outline: "border border-gray-300 hover:bg-gray-100",
     ghost: "hover:bg-gray-100",
+    cancel: "border-2 border-[#d6ab4a] bg-transparent text-[#b8891f] font-semibold hover:bg-[#d6ab4a] hover:text-white",
   };
 
   const sizes = {
