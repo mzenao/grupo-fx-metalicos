@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { ptBR } from "date-fns/locale";
@@ -15,44 +15,13 @@ import {
 	Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+	Suppliers,
+	EMPLOYEES,
+	getStoredPurchases,
+	savePurchases,
+} from "@/services/ordersData";
 import "react-datepicker/dist/react-datepicker.css";
-
-const Suppliers = [
-	{ id: 1, label: "Joao Pedro Lima (PF)" },
-	{ id: 2, label: "Distribuidora Vale Sul (PJ)" },
-	{ id: 3, label: "Marcos Almeida (PF)" },
-];
-
-const EMPLOYEES = [
-	{ id: 1, label: "Ana Souza" },
-	{ id: 2, label: "Carlos Mendes" },
-	{ id: 3, label: "Juliana Nogueira" },
-];
-
-const INITIAL_PURCHASES = [
-	{
-		id: 317,
-		SupplierId: 1,
-		SupplierName: "Joao Pedro Lima (PF)",
-		employeeId: 1,
-		employeeName: "Ana Souza",
-		weight: "820",
-		value: "1790",
-		datetime: "2026-03-03T14:20",
-		attachmentNames: ["ticket-balanca-317.pdf", "comprovante-pagamento-317.jpg"],
-	},
-	{
-		id: 301,
-		SupplierId: 1,
-		SupplierName: "Joao Pedro Lima (PF)",
-		employeeId: 2,
-		employeeName: "Carlos Mendes",
-		weight: "1450",
-		value: "4280.5",
-		datetime: "2026-02-14T09:10",
-		attachmentNames: ["ticket-balanca-301.pdf"],
-	},
-];
 
 registerLocale("pt-BR", ptBR);
 
@@ -134,7 +103,7 @@ export default function Orders() {
 	const [attachments, setAttachments] = useState([]);
 	const [dragActive, setDragActive] = useState(false);
 	const [error, setError] = useState("");
-	const [purchases, setPurchases] = useState(INITIAL_PURCHASES);
+	const [purchases, setPurchases] = useState(() => getStoredPurchases());
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
 	const [showAllPurchases, setShowAllPurchases] = useState(Boolean(hashId));
 	const [editingPurchaseId, setEditingPurchaseId] = useState(null);
@@ -148,6 +117,10 @@ export default function Orders() {
 	const [editDragActive, setEditDragActive] = useState(false);
 	const [editError, setEditError] = useState("");
 	const editFileInputRef = useRef(null);
+
+	useEffect(() => {
+		savePurchases(purchases);
+	}, [purchases]);
 
 	const hashPurchase = useMemo(() => {
 		if (!hashId) return null;

@@ -28,10 +28,6 @@ function App() {
       {/* Rotas públicas com estrutura da landing page */}
       <Route element={<LandingLayout />}>
         <Route path="/" element={<Home />} />
-      </Route>
-
-      {/* Rotas para usuários autenticados */}
-      <Route>
         <Route path="/account" element={<Account />} />
         <Route path="/sells" element={<Sells />} />
       </Route>

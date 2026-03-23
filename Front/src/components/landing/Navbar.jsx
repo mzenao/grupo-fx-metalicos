@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, LogIn } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/fenix.png";
+import { mockSession } from "@/services/mockSession";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Troque manualmente para testar o comportamento visual sem autenticação real.
-  // Valores aceitos: null | "user" | "funcionario"
-  const userRole = null;
+  const userRole = mockSession.role;
 
   const handleLoginClick = (event) => {
     event.preventDefault();
@@ -41,7 +41,19 @@ export default function Navbar() {
 
   const scrollToSection = (id) => {
     const element = document.getElementById(id);
-    if (element) element.scrollIntoView({ behavior: "smooth" });
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+      setIsMobileMenuOpen(false);
+      return;
+    }
+
+    // Se a secao nao existir na pagina atual, voltamos para a home.
+    if (location.pathname !== "/") {
+      navigate("/");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
     setIsMobileMenuOpen(false);
   };
 

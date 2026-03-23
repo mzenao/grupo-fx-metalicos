@@ -122,7 +122,7 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
 
 							{!employee && (
 								<div>
-									<label className="block text-sm font-medium mb-1 text-[#4a3918]">Senha *</label>
+									<label className="block text-sm font-medium mb-1 text-[#4a3918]">Senha para login*</label>
 									<input
 										type="password"
 										required

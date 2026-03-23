@@ -7,48 +7,7 @@ import {
 	Clock3,
 	Receipt,
 } from "lucide-react";
-
-const TODAY = new Date();
-const TODAY_ISO = `${TODAY.getFullYear()}-${String(TODAY.getMonth() + 1).padStart(2, "0")}-${String(TODAY.getDate()).padStart(2, "0")}`;
-
-const PURCHASES = [
-	{
-		id: 412,
-		SupplierName: "Joao Pedro Lima",
-		employeeName: "Ana Souza",
-		weight: 980,
-		value: 2120,
-		datetime: `${TODAY_ISO}T08:35`,
-		attachments: 2,
-	},
-	{
-		id: 413,
-		SupplierName: "Distribuidora Vale Sul",
-		employeeName: "Carlos Mendes",
-		weight: 1350,
-		value: 3540,
-		datetime: `${TODAY_ISO}T10:05`,
-		attachments: 1,
-	},
-	{
-		id: 414,
-		SupplierName: "Marcos Almeida",
-		employeeName: "Juliana Nogueira",
-		weight: 760,
-		value: 1680,
-		datetime: `${TODAY_ISO}T14:20`,
-		attachments: 0,
-	},
-	{
-		id: 415,
-		SupplierName: "Sucatas Norte Ltda",
-		employeeName: "Carlos Mendes",
-		weight: 1890,
-		value: 4725,
-		datetime: `${TODAY_ISO}T16:10`,
-		attachments: 2,
-	},
-];
+import { getStoredPurchases } from "@/services/ordersData";
 
 const fmtMoney = (value) =>
 	Number(value || 0).toLocaleString("pt-BR", {
@@ -67,16 +26,17 @@ export default function Dashboard() {
 	const navigate = useNavigate();
 	const [activeCard, setActiveCard] = useState("resumo-dia");
 	const [showAllMovements, setShowAllMovements] = useState(false);
+	const purchases = useMemo(() => getStoredPurchases(), []);
 
 	const openPurchaseInOrders = (purchaseId) => {
 		navigate(`/orders#${purchaseId}`);
 	};
 
 	const summary = useMemo(() => {
-		const totalPurchases = PURCHASES.length;
-		const totalWeight = PURCHASES.reduce((sum, p) => sum + (Number(p.weight) || 0), 0);
-		const totalValue = PURCHASES.reduce((sum, p) => sum + (Number(p.value) || 0), 0);
-		const withAttachments = PURCHASES.filter((p) => p.attachments > 0).length;
+		const totalPurchases = purchases.length;
+		const totalWeight = purchases.reduce((sum, p) => sum + (Number(p.weight) || 0), 0);
+		const totalValue = purchases.reduce((sum, p) => sum + (Number(p.value) || 0), 0);
+		const withAttachments = purchases.filter((p) => (p.attachmentNames || []).length > 0).length;
 		const pendingAttachments = totalPurchases - withAttachments;
 
 		return {
@@ -86,14 +46,14 @@ export default function Dashboard() {
 			pendingAttachments,
 			avgTicket: totalPurchases > 0 ? totalValue / totalPurchases : 0,
 		};
-	}, []);
+	}, [purchases]);
 
 	const purchaseGroupCards = [
 		{
 			id: "compras",
-			title: "Compras de hoje",
+			title: "Compras registradas",
 			value: summary.totalPurchases,
-			sub: "Registros no dia",
+			sub: "Total acumulado",
 			icon: Calendar,
 			color: "from-[#b8891f] to-[#d6ab4a]",
 			bg: "bg-amber-50",
@@ -131,11 +91,11 @@ export default function Dashboard() {
 	const filteredPurchases = useMemo(() => {
 		switch (activeCard) {
 			case "comprovantes":
-				return PURCHASES.filter((p) => p.attachments === 0);
+				return purchases.filter((p) => (p.attachmentNames || []).length === 0);
 			default:
-				return PURCHASES;
+				return purchases;
 		}
-	}, [activeCard]);
+	}, [activeCard, purchases]);
 
 	useEffect(() => {
 		setShowAllMovements(false);
@@ -208,7 +168,7 @@ export default function Dashboard() {
 			<div className="grid lg:grid-cols-1 gap-6">
 				<section className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
 					<div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between">
-						<h3 className="font-semibold text-gray-900">Movimentacao do dia</h3>
+						<h3 className="font-semibold text-gray-900">Movimentacao registrada</h3>
 						<span className="text-xs text-gray-500">{filteredPurchases.length} itens</span>
 					</div>
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	Plus,
 	Search,
@@ -11,32 +11,18 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmployeeModal from "@/components/internal/employeeModal.jsx";
-
-const INITIAL_EMPLOYEES = [
-	{
-		id: 1,
-		name: "Ana Souza",
-		phone: "(32) 99999-0001",
-		email: "ana@fenix.com.br",
-		ocupance: "Gerente",
-		password: "",
-	},
-	{
-		id: 2,
-		name: "Carlos Mendes",
-		phone: "(32) 98888-0002",
-		email: "carlos@fenix.com.br",
-		ocupance: "Colaborador",
-		password: "",
-	},
-];
+import { getStoredEmployees, saveEmployees } from "@/services/entityData";
 
 export default function Employees() {
-	const [employees, setEmployees] = useState(INITIAL_EMPLOYEES);
+	const [employees, setEmployees] = useState(() => getStoredEmployees());
 	const [search, setSearch] = useState("");
 	const [showModal, setShowModal] = useState(false);
 	const [editingEmployee, setEditingEmployee] = useState(null);
 	const [showAllEmployees, setShowAllEmployees] = useState(false);
+
+	useEffect(() => {
+		saveEmployees(employees);
+	}, [employees]);
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
