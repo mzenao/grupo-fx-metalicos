@@ -38,6 +38,11 @@ export default function InternalLayout({ children }) {
 		navigate("/", { replace: true });
 	};
 
+	const handleBrandClick = () => {
+		setSidebarOpen(false);
+		navigate("/#hero");
+	};
+
 	return (
 		<div className="flex h-screen bg-white overflow-hidden">
 			<aside
@@ -45,7 +50,11 @@ export default function InternalLayout({ children }) {
 					sidebarOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
 			>
-				<div className="flex items-center gap-3 p-6 border-b border-amber-900/40">
+				<button
+					type="button"
+					onClick={handleBrandClick}
+					className="flex items-center gap-3 p-6 border-b border-amber-900/40 text-left hover:bg-amber-900/20 transition-colors"
+				>
 					<img src={logo} alt="Logo Fenix Metalicos" className="w-10 h-10 object-contain scale-175" />
 					<div>
 						<p className="font-bold text-lg">
@@ -53,7 +62,7 @@ export default function InternalLayout({ children }) {
 						</p>
 						<p className="text-amber-100/70 text-xs">Sistema Interno</p>
 					</div>
-				</div>
+				</button>
 
 				<nav className="flex-1 p-4 space-y-1 overflow-y-auto">
 					{navItems.map((item) => {

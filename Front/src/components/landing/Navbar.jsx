@@ -55,6 +55,17 @@ export default function Navbar() {
     setIsMobileMenuOpen(false);
   };
 
+  const handleBrandClick = () => {
+    setIsMobileMenuOpen(false);
+
+    if (location.pathname === "/") {
+      scrollToSection("hero");
+      return;
+    }
+
+    navigate("/#hero");
+  };
+
   const actionButtonClass =
     "rounded-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white shadow-[0_8px_18px_rgba(184,137,31,0.35)] hover:from-[#a67917] hover:to-[#c79a39]";
 
@@ -113,7 +124,11 @@ export default function Navbar() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center gap-0 scale-125">
+          <button
+            type="button"
+            onClick={handleBrandClick}
+            className="flex items-center gap-0 scale-125 cursor-pointer"
+          >
             <img src={logo} alt="Logo Fenix Metalicos" className="navbar-logo" />
             <div className="font-bold text-xl">
               <span
@@ -124,7 +139,7 @@ export default function Navbar() {
                 <span className={isScrolled ? "text-black" : "text-white"}>FX</span><span className="text-[#b8891f]">Metálicos</span>
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
