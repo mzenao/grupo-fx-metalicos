@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { ptBR } from "date-fns/locale";
+import { materialTypes } from "@/services/mockDatabase";
 import {
 	Search,
 	PackagePlus,
@@ -122,6 +123,7 @@ export default function Orders() {
 
 	const [SupplierId, setSupplierId] = useState(null);
 	const [employeeId, setEmployeeId] = useState(null);
+	const [materialTypeId, setMaterialTypeId] = useState(null);
 	const [weight, setWeight] = useState("");
 	const [valuePerKg, setValuePerKg] = useState("");
 	const [totalValue, setTotalValue] = useState("");
@@ -136,6 +138,7 @@ export default function Orders() {
 	const [isEditOpen, setIsEditOpen] = useState(false);
 	const [editSupplierId, setEditSupplierId] = useState(null);
 	const [editEmployeeId, setEditEmployeeId] = useState(null);
+	const [editMaterialTypeId, setEditMaterialTypeId] = useState(null);
 	const [editWeight, setEditWeight] = useState("");
 	const [editValuePerKg, setEditValuePerKg] = useState("");
 	const [editTotalValue, setEditTotalValue] = useState("");
@@ -259,6 +262,7 @@ export default function Orders() {
 		setEditingPurchaseId(purchase.id);
 		setEditSupplierId(purchase.SupplierId || null);
 		setEditEmployeeId(purchase.employeeId || null);
+		setEditMaterialTypeId(purchase.materialTypeId || null);
 		setEditWeight(purchase.weight || "");
 		const purchaseWeight = parsePositiveNumber(purchase.weight);
 		const purchaseTotalValue = parsePositiveNumber(purchase.value);
@@ -397,6 +401,9 @@ export default function Orders() {
 						SupplierName: selectedSupplier?.label || "",
 						employeeId: editEmployeeId,
 						employeeName: selectedEmployee?.label || "",
+						materialTypeId: editMaterialTypeId,
+						materialTypeName:
+							materialTypes.find((item) => item.id === editMaterialTypeId)?.label || "",
 						weight: editWeight,
 						valuePerKg: editValuePerKg,
 						value: editTotalValue,
@@ -458,6 +465,9 @@ export default function Orders() {
 			SupplierName: selectedSupplier?.label || "",
 			employeeId,
 			employeeName: selectedEmployee?.label || "",
+			materialTypeId,
+			materialTypeName:
+				materialTypes.find((item) => item.id === materialTypeId)?.label || "",
 			weight,
 			valuePerKg,
 			value: totalValue,
@@ -468,6 +478,7 @@ export default function Orders() {
 		setPurchases((prev) => [newPurchase, ...prev]);
 		setSupplierId(null);
 		setEmployeeId(null);
+		setMaterialTypeId(null);
 		setWeight("");
 		setValuePerKg("");
 		setTotalValue("");
@@ -529,25 +540,33 @@ export default function Orders() {
 							onSelect={setEmployeeId}
 						/>
 
-						<div>
-							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
-							<div className="relative">
-								<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-								<input
-									type="number"
-									step="0.01"
-									min="0"
-									value={weight}
-									onChange={(e) => handleWeightChange(e.target.value)}
-									placeholder="Ex.: 820"
-									className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
-								/>
+						<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-3">
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
+								<div className="relative">
+									<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+									<input
+										type="number"
+										step="0.01"
+										min="0"
+										value={weight}
+										onChange={(e) => handleWeightChange(e.target.value)}
+										placeholder="Ex.: 820"
+										className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
+									/>
+								</div>
 							</div>
-						</div>
 
-						<div>
-							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valores (R$) *</label>
-							<div className="grid grid-cols-2 gap-2">
+							<SearchSelect
+								label="Tipo de sucata"
+								placeholder="Pesquisar tipo de sucata..."
+								options={materialTypes}
+								selectedId={materialTypeId}
+								onSelect={setMaterialTypeId}
+							/>
+
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
 								<input
 									type="number"
 									step="0.01"
@@ -557,6 +576,10 @@ export default function Orders() {
 									placeholder="Valor por kg"
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 								/>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor total (R$) *</label>
 								<input
 									type="number"
 									step="0.01"
@@ -712,6 +735,7 @@ export default function Orders() {
 										<p><span className="text-gray-500">Fornecedor:</span> {supplierLabelById.get(purchase.SupplierId) || purchase.SupplierName}</p>
 										<p><span className="text-gray-500">Funcionario:</span> {purchase.employeeName}</p>
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
+										<p><span className="text-gray-500">Tipo de Sucata:</span> {materialTypes.find((t) => t.id === purchase.materialTypeId)?.label || "Não especificado"}</p>
 										<p><span className="text-gray-500">Valor/kg:</span> {Number(purchase.valuePerKg || (Number(purchase.value) / Number(purchase.weight) || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 										<p><span className="text-gray-500">Valor total:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 									</div>
@@ -746,25 +770,33 @@ export default function Orders() {
 													onSelect={setEditEmployeeId}
 												/>
 
-												<div>
-													<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
-													<div className="relative">
-														<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-														<input
-															type="number"
-															step="0.01"
-															min="0"
-															value={editWeight}
-															onChange={(e) => handleEditWeightChange(e.target.value)}
-															placeholder="Ex.: 820"
-															className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
-														/>
+												<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-3">
+													<div>
+														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
+														<div className="relative">
+															<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+															<input
+																type="number"
+																step="0.01"
+																min="0"
+																value={editWeight}
+																onChange={(e) => handleEditWeightChange(e.target.value)}
+																placeholder="Ex.: 820"
+																className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
+															/>
+														</div>
 													</div>
-												</div>
 
-												<div>
-													<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valores (R$) *</label>
-													<div className="grid grid-cols-2 gap-2">
+													<SearchSelect
+														label="Tipo de sucata"
+														placeholder="Pesquisar tipo de sucata..."
+														options={materialTypes}
+														selectedId={editMaterialTypeId}
+														onSelect={setEditMaterialTypeId}
+													/>
+
+													<div>
+														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
 														<input
 															type="number"
 															step="0.01"
@@ -774,6 +806,10 @@ export default function Orders() {
 															placeholder="Valor por kg"
 															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 														/>
+													</div>
+
+													<div>
+														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor total (R$) *</label>
 														<input
 															type="number"
 															step="0.01"
@@ -785,7 +821,6 @@ export default function Orders() {
 														/>
 													</div>
 												</div>
-
 												<div className="md:col-span-2">
 													<label className="block text-sm font-medium mb-1 text-[#4a3918]">Dia e hora *</label>
 													<div className="relative max-w-sm">

@@ -9,7 +9,7 @@
 //  Funcionário: juliana@fenix.com.br / juliananogueira123
 
 export const STORAGE_KEYS = {
-  purchases: "fx_orders_purchases",
+  purchases: "",
   employees: "fx_employees_records",
   suppliers: "fx_suppliers_records",
 };
@@ -127,6 +127,7 @@ export const MOCK_PURCHASES = [
     employeeId: 1,
     employeeName: "Ana Souza",
     weight: "820",
+    materialTypeId: 1,
     value: "1790",
     valuePerKg: "2.18",
     datetime: "2026-03-03T14:20",
@@ -139,11 +140,19 @@ export const MOCK_PURCHASES = [
     employeeId: 2,
     employeeName: "Carlos Mendes",
     weight: "1450",
+    materialTypeId: 1,
     value: "4280.5",
     valuePerKg: "2.95",
     datetime: "2026-02-14T09:10",
     attachmentNames: ["ticket-balanca-301.pdf"],
   },
+];
+
+export const materialTypes = [
+  { id: 1, label: "Sucata Metálica" },
+  { id: 2, label: "Sucata Plástica" },
+  { id: 3, label: "Sucata de Papel" },
+  { id: 4, label: "Sucata Eletrônica" },
 ];
 
 export function getActiveUser() {

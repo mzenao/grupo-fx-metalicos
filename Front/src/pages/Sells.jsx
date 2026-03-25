@@ -160,9 +160,21 @@ export default function Sells() {
 														<div className="mt-1 flex flex-wrap items-center gap-2">
 															<p className="text-sm font-semibold text-slate-800">
 																{saleSupplier
-																	? `${saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName}${saleSupplier.supplierCode ? ` #${saleSupplier.supplierCode}` : ""}`
+																	? saleSupplier.personType === "PF"
+																		? saleSupplier.name
+																		: saleSupplier.companyName
 																	: purchase.SupplierName || "-"}
 															</p>
+															{saleSupplier?.supplierCode && (
+																<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[saleSupplier.personType]}`}>
+																	{saleSupplier.supplierCode}
+																</span>
+															)}
+															{saleSupplier?.personType && (
+																<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[saleSupplier.personType]}`}>
+																	{saleSupplier.personType}
+																</span>
+															)}
 														</div>
 													</div>
 													<InfoItem icon={CalendarDays} label="Data e hora" value={formatDate(purchase.datetime)} />
