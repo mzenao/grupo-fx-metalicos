@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { validarCPF, validarCNPJ } from "@/services/validators";
 
 export default function SupplierModal({ Supplier, onClose, onSave }) {
 	const initial = useMemo(() => {
@@ -58,8 +59,18 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			return;
 		}
 
+		if (form.personType === "PF" && !validarCPF(form.cpf)) {
+			setError("CPF invalido.");
+			return;
+		}
+
 		if (form.personType === "PJ" && !form.cnpj.trim()) {
 			setError("CNPJ e obrigatorio para pessoa juridica.");
+			return;
+		}
+
+		if (form.personType === "PJ" && !validarCNPJ(form.cnpj)) {
+			setError("CNPJ invalido.");
 			return;
 		}
 

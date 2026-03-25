@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { validarCPF, validarCNPJ } from "@/services/validators";
 import { MOCK_SUPPLIERS_DETAILED } from "@/services/mockDatabase";
 
 export default function RegisterModal({ onClose, onSuccess }) {
@@ -54,8 +55,18 @@ export default function RegisterModal({ onClose, onSuccess }) {
       return;
     }
 
+    if (form.personType === "PF" && !validarCPF(form.cpf)) {
+      setError("CPF inválido.");
+      return;
+    }
+
     if (form.personType === "PJ" && !form.cnpj.trim()) {
       setError("CNPJ é obrigatório para pessoa jurídica.");
+      return;
+    }
+
+    if (form.personType === "PJ" && !validarCNPJ(form.cnpj)) {
+      setError("CNPJ inválido.");
       return;
     }
 
