@@ -108,8 +108,8 @@ export default function Navbar() {
         transition={{ duration: 0.6 }}
         className={`fixed top-0 left-0 right-0 z-40 transition-all duration-500 ${
           isScrolled
-            ? "bg-white/90 backdrop-blur-xl shadow-[0_10px_28px_rgba(30,22,8,0.14)] border-b border-amber-200/70 py-3"
-            : "bg-white/80 backdrop-blur-lg border-b border-amber-100/70 py-5"
+            ? "bg-[#f8f6f1]/90 backdrop-blur-xl shadow-[0_10px_28px_rgba(30,22,8,0.14)] border-b border-amber-200/70 py-3"
+            : "bg-transparent backdrop-blur-none border-b border-transparent py-5"
         }`}
       >
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
@@ -121,7 +121,7 @@ export default function Navbar() {
                   isScrolled ? "text-slate-900" : "text-slate-900"
                 }`}
               >
-                FX<span className="text-[#b8891f]">Metálicos</span>
+                <span className={isScrolled ? "text-black" : "text-white"}>FX</span><span className="text-[#b8891f]">Metálicos</span>
               </span>
             </div>
           </div>
@@ -134,8 +134,8 @@ export default function Navbar() {
                 onClick={() => scrollToSection(item.id)}
                 className={`text-sm font-medium transition-colors ${
                   isScrolled
-                    ? "text-slate-600 hover:text-[#b8891f]"
-                    : "text-slate-700 hover:text-[#b8891f]"
+                    ? "text-black hover:text-[#b8891f]"
+                    : "text-white hover:text-[#f0d79a]"
                 }`}
               >
                 {item.label}
@@ -198,7 +198,7 @@ export default function Navbar() {
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className={`md:hidden ${
-              isScrolled ? "text-gray-900" : "text-gray-900"
+              isScrolled ? "text-black" : "text-white"
             }`}
           >
             {isMobileMenuOpen ? (

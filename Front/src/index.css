@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -31,4 +32,29 @@ body {
   object-fit: contain;
   transform: scale(1.2);
   transform-origin: center;
+}
+
+@keyframes heroTextEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.985);
+    filter: blur(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.hero-title-entrance {
+  animation: heroTextEntrance 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms both;
+  will-change: transform, opacity, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-title-entrance {
+    animation: none;
+  }
 }

@@ -11,7 +11,6 @@ import {
 const socialLinks = [
   { icon: Instagram, href: '#' },
   { icon: Facebook, href: '#' },
-  { icon: MessageCircle, href: '#' },
   { icon: Youtube, href: '#' }
 ];
 
@@ -21,7 +20,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="bg-white border-t border-amber-100/70 relative overflow-hidden">
+    <footer className="bg-[#f8f6f1] border-t border-amber-100/70 relative overflow-hidden">
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-12">
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-3">
