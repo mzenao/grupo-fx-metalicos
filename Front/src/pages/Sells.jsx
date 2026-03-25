@@ -12,6 +12,7 @@ import {
 import { mockSession } from "@/services/mockSession";
 import { getStoredPurchases } from "@/services/ordersData";
 import { getStoredSuppliers } from "@/services/entityData";
+import { materialTypes } from "@/services/mockDatabase";
 
 const personTypeBadge = {
 	PF: "bg-sky-100 text-sky-800",
@@ -29,6 +30,12 @@ function formatDate(dateTime) {
 	const parsed = new Date(dateTime);
 	if (Number.isNaN(parsed.getTime())) return dateTime;
 	return parsed.toLocaleString("pt-BR");
+}
+
+function formatMaterialType(purchase) {
+	if (purchase?.materialTypeName) return purchase.materialTypeName;
+	const found = materialTypes.find((type) => type.id === purchase?.materialTypeId);
+	return found?.label || "Nao especificado";
 }
 
 export default function Sells() {
@@ -152,8 +159,8 @@ export default function Sells() {
 
 										{expanded && (
 											<div className="px-5 pb-5 border-t border-amber-100 bg-amber-50/35">
-												<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 text-sm">
-													<div className="rounded-xl border border-amber-100 bg-white px-3 py-2 lg:col-span-2">
+												<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 mt-4 text-sm">
+													<div className="rounded-xl border border-amber-100 bg-white px-3 py-2">
 														<p className="text-xs text-gray-500 flex items-center gap-1">
 															<Receipt className="w-3.5 h-3.5 text-amber-700" /> Fornecedor
 														</p>
@@ -179,7 +186,9 @@ export default function Sells() {
 													</div>
 													<InfoItem icon={CalendarDays} label="Data e hora" value={formatDate(purchase.datetime)} />
 													<InfoItem icon={Scale} label="Peso" value={`${purchase.weight || "0"} kg`} />
-													<InfoItem icon={CircleDollarSign} label="Valor" value={formatMoney(purchase.value)} />
+													<InfoItem icon={Receipt} label="Tipo de sucata" value={formatMaterialType(purchase)} />
+													<InfoItem icon={CircleDollarSign} label="Valor/kg" value={formatMoney(purchase.valuePerKg)} />
+													<InfoItem icon={CircleDollarSign} label="Valor total" value={formatMoney(purchase.value)} />
 												</div>
 
 												<div className="mt-4">
