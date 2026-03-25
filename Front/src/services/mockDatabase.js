@@ -149,10 +149,10 @@ export const MOCK_PURCHASES = [
 ];
 
 export const materialTypes = [
-  { id: 1, label: "Sucata Metálica" },
-  { id: 2, label: "Sucata Plástica" },
-  { id: 3, label: "Sucata de Papel" },
-  { id: 4, label: "Sucata Eletrônica" },
+  { id: 1, label: "Sucata Mista" },
+  { id: 2, label: "Sucata Pesada" },
+  { id: 3, label: "Sucata Leve" },
+  { id: 4, label: "Sucata Graúda" },
 ];
 
 export function getActiveUser() {

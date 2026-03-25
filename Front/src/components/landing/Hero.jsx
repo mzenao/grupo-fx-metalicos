@@ -13,9 +13,8 @@ export default function Hero() {
 
 			<div className="absolute inset-0 flex items-center justify-begin px-6 md:px-10 lg:px-16">
 				<h1 className="hero-title-entrance max-w-[22ch] text-left text-white text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight drop-shadow-[0_3px_10px_rgba(0,0,0,0.65)]">
-					Transformamos sucata em oportunidade
-					<br />
-					Valorizando quem faz acontecer
+					<span className="block font-light">Transformamos sucata em oportunidade</span>
+					<span className="block font-semibold">Valorizando quem faz acontecer</span>
 				</h1>
 			</div>
 		</section>
