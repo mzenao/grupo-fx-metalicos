@@ -3,7 +3,16 @@ import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
-import { MOCK_SUPPLIERS_DETAILED } from "@/services/mockDatabase";
+
+function getNextSupplierCode(suppliers) {
+  const maxCode = (Array.isArray(suppliers) ? suppliers : []).reduce((max, supplier) => {
+    const code = Number(supplier?.supplierCode);
+    if (!Number.isFinite(code) || code < 200) return max;
+    return Math.max(max, code);
+  }, 199);
+
+  return maxCode + 1;
+}
 
 export default function RegisterModal({ onClose, onSuccess }) {
   const initial = useMemo(() => ({
@@ -104,9 +113,13 @@ export default function RegisterModal({ onClose, onSuccess }) {
 
     setSaving(true);
     try {
+      const existingSuppliers = JSON.parse(localStorage.getItem("fx_suppliers_records") || "[]");
+      const nextSupplierCode = getNextSupplierCode(existingSuppliers);
+
       // Criar novo supplier
       const newSupplier = {
         id: Date.now(),
+        supplierCode: nextSupplierCode,
         personType: form.personType,
         name: form.personType === "PF" ? form.name : "",
         companyName: form.personType === "PJ" ? form.companyName : "",
@@ -120,7 +133,6 @@ export default function RegisterModal({ onClose, onSuccess }) {
       };
 
       // Salvar supplier em localStorage
-      const existingSuppliers = JSON.parse(localStorage.getItem("fx_suppliers_records") || "[]");
       const updatedSuppliers = [...existingSuppliers, newSupplier];
       localStorage.setItem("fx_suppliers_records", JSON.stringify(updatedSuppliers));
 

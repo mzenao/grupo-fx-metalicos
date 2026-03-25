@@ -22,6 +22,16 @@ const personTypeBadge = {
 	PJ: "bg-amber-100 text-amber-800",
 };
 
+function getNextSupplierCode(suppliers) {
+	const maxCode = (Array.isArray(suppliers) ? suppliers : []).reduce((max, supplier) => {
+		const code = Number(supplier?.supplierCode);
+		if (!Number.isFinite(code) || code < 200) return max;
+		return Math.max(max, code);
+	}, 199);
+
+	return maxCode + 1;
+}
+
 export default function Suppliers() {
 	const navigate = useNavigate();
 	const [suppliers, setSuppliers] = useState(() => getStoredSuppliers());
@@ -62,6 +72,7 @@ export default function Suppliers() {
 		return suppliers.filter((supplier) => {
 			const primaryName = (supplier.personType === "PF" ? supplier.name : supplier.companyName) || "";
 			const normalized = [
+				supplier.supplierCode,
 				primaryName,
 				supplier.personType,
 				supplier.phone,
@@ -102,8 +113,9 @@ export default function Suppliers() {
 				suppliers.length > 0
 					? Math.max(...suppliers.map((supplier) => Number(supplier.id) || 0)) + 1
 					: 1;
+			const nextSupplierCode = getNextSupplierCode(suppliers);
 
-			const newSupplier = { ...SupplierData, id: nextId };
+			const newSupplier = { ...SupplierData, id: nextId, supplierCode: nextSupplierCode };
 			setSuppliers((prev) =>
 				[...prev, newSupplier].sort((a, b) => {
 					const aKey = (a.personType === "PF" ? a.name : a.companyName) || "";
@@ -188,6 +200,11 @@ export default function Suppliers() {
 										<div className="flex-1 min-w-0">
 											<div className="flex flex-wrap items-center gap-2">
 												<p className="font-semibold text-gray-900 truncate">{displayName}</p>
+												{supplier.supplierCode && (
+													<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[supplier.personType]}`}>
+														{supplier.supplierCode}
+													</span>
+												)}
 												<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[supplier.personType]}`}>
 													{supplier.personType}
 												</span>
@@ -242,7 +259,17 @@ export default function Suppliers() {
 											<div className="bg-amber-50/45 border border-amber-100 rounded-xl p-4 grid md:grid-cols-4 gap-3 text-sm">
 												<div>
 													<p className="text-xs text-gray-500">{supplier.personType === "PF" ? "Nome" : "Nome da empresa"}</p>
-													<p className="font-medium text-gray-800">{supplier.personType === "PF" ? supplier.name : supplier.companyName}</p>
+													<div className="mt-1 flex flex-wrap items-center gap-2">
+														<p className="font-medium text-gray-800">{supplier.personType === "PF" ? supplier.name : supplier.companyName}</p>
+														{supplier.supplierCode && (
+															<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[supplier.personType]}`}>
+																{supplier.supplierCode}
+															</span>
+														)}
+														<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[supplier.personType]}`}>
+															{supplier.personType}
+														</span>
+													</div>
 												</div>
 
 												<div>

@@ -36,9 +36,9 @@ export const MOCK_USERS = [
 ];
 
 export const MOCK_SUPPLIERS = [
-  { id: 1, label: "Joao Pedro Lima (PF)" },
-  { id: 2, label: "Distribuidora Vale Sul (PJ)" },
-  { id: 3, label: "Marcos Almeida (PF)" },
+  { id: 1, supplierCode: 200, label: "Joao Pedro Lima (PF)" },
+  { id: 2, supplierCode: 201, label: "Distribuidora Vale Sul (PJ)" },
+  { id: 3, supplierCode: 202, label: "Marcos Almeida (PF)" },
 ];
 
 export const MOCK_EMPLOYEES = [
@@ -77,6 +77,7 @@ export const MOCK_EMPLOYEES_DETAILED = [
 export const MOCK_SUPPLIERS_DETAILED = [
   {
     id: 1,
+    supplierCode: 200,
     personType: "PF",
     name: "Joao Pedro Lima",
     companyName: "",
@@ -90,6 +91,7 @@ export const MOCK_SUPPLIERS_DETAILED = [
   },
   {
     id: 2,
+    supplierCode: 201,
     personType: "PJ",
     name: "",
     companyName: "Distribuidora Vale Sul",
@@ -103,6 +105,7 @@ export const MOCK_SUPPLIERS_DETAILED = [
   },
   {
     id: 3,
+    supplierCode: 202,
     personType: "PF",
     name: "Marcos Almeida",
     companyName: "",

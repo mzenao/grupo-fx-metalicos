@@ -11,6 +11,12 @@ import {
 } from "lucide-react";
 import { mockSession } from "@/services/mockSession";
 import { getStoredPurchases } from "@/services/ordersData";
+import { getStoredSuppliers } from "@/services/entityData";
+
+const personTypeBadge = {
+	PF: "bg-sky-100 text-sky-800",
+	PJ: "bg-amber-100 text-amber-800",
+};
 
 function formatMoney(value) {
 	const parsed = Number(value);
@@ -28,6 +34,17 @@ function formatDate(dateTime) {
 export default function Sells() {
 	const [expandedSaleId, setExpandedSaleId] = useState(null);
 	const isUser = mockSession.role === "user";
+	const currentSupplier = useMemo(() => {
+		const suppliers = getStoredSuppliers();
+		return suppliers.find((supplier) => supplier.id === mockSession.currentSupplierId) || null;
+	}, []);
+	const suppliersById = useMemo(() => {
+		const map = new Map();
+		getStoredSuppliers().forEach((supplier) => {
+			map.set(supplier.id, supplier);
+		});
+		return map;
+	}, []);
 
 	const userPurchases = useMemo(() => {
 		const allPurchases = getStoredPurchases();
@@ -66,6 +83,21 @@ export default function Sells() {
 			<section className="rounded-3xl border border-amber-200/80 bg-white/95 shadow-[0_14px_34px_rgba(30,22,8,0.08)] overflow-hidden">
 				<header className="px-8 py-7 bg-gradient-to-r from-[#1e1608] to-[#3a2a10] text-amber-50">
 					<h1 className="text-2xl md:text-3xl font-bold">Minhas Vendas</h1>
+					{currentSupplier && (
+						<div className="mt-3 flex flex-wrap items-center gap-2">
+							<p className="text-sm md:text-base font-semibold text-amber-50">
+								{currentSupplier.personType === "PF" ? currentSupplier.name : currentSupplier.companyName}
+							</p>
+							{currentSupplier.supplierCode && (
+								<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[currentSupplier.personType]}`}>
+									{currentSupplier.supplierCode}
+								</span>
+							)}
+							<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[currentSupplier.personType]}`}>
+								{currentSupplier.personType}
+							</span>
+						</div>
+					)}
 					<p className="text-amber-100/85 text-sm md:text-base mt-2">
 						Essas vendas sao as mesmas cadastradas em Orders, com exibicao dedicada para o fornecedor.
 					</p>
@@ -90,6 +122,7 @@ export default function Sells() {
 						<div className="space-y-4">
 							{userPurchases.map((purchase) => {
 								const expanded = expandedSaleId === purchase.id;
+								const saleSupplier = suppliersById.get(purchase.SupplierId);
 
 								return (
 									<article
@@ -120,7 +153,18 @@ export default function Sells() {
 										{expanded && (
 											<div className="px-5 pb-5 border-t border-amber-100 bg-amber-50/35">
 												<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 text-sm">
-													<InfoItem icon={Receipt} label="Fornecedor" value={purchase.SupplierName || "-"} />
+													<div className="rounded-xl border border-amber-100 bg-white px-3 py-2 lg:col-span-2">
+														<p className="text-xs text-gray-500 flex items-center gap-1">
+															<Receipt className="w-3.5 h-3.5 text-amber-700" /> Fornecedor
+														</p>
+														<div className="mt-1 flex flex-wrap items-center gap-2">
+															<p className="text-sm font-semibold text-slate-800">
+																{saleSupplier
+																	? `${saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName}${saleSupplier.supplierCode ? ` #${saleSupplier.supplierCode}` : ""}`
+																	: purchase.SupplierName || "-"}
+															</p>
+														</div>
+													</div>
 													<InfoItem icon={CalendarDays} label="Data e hora" value={formatDate(purchase.datetime)} />
 													<InfoItem icon={Scale} label="Peso" value={`${purchase.weight || "0"} kg`} />
 													<InfoItem icon={CircleDollarSign} label="Valor" value={formatMoney(purchase.value)} />

@@ -1,6 +1,11 @@
 import { X, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const personTypeBadge = {
+	PF: "bg-sky-100 text-sky-800",
+	PJ: "bg-amber-100 text-amber-800",
+};
+
 export default function ViewSells({ salesSupplier, onClose, onOpenSale }) {
 	if (!salesSupplier) return null;
 
@@ -32,9 +37,21 @@ export default function ViewSells({ salesSupplier, onClose, onOpenSale }) {
 				<div className="bg-gradient-to-r from-[#1e1608] to-[#2b2010] border-b border-[#d6ab4a]/30 p-5 flex items-center justify-between">
 					<div>
 						<p className="text-xs uppercase tracking-wide text-[#f5e7c0]/80">Vendas do Fornecedor</p>
-						<h3 className="text-lg font-semibold text-[#f5e7c0]">
-							{salesSupplier.personType === "PF" ? salesSupplier.name : salesSupplier.companyName}
-						</h3>
+						<div className="mt-1 flex flex-wrap items-center gap-2">
+							<h3 className="text-lg font-semibold text-[#f5e7c0]">
+								{salesSupplier.personType === "PF" ? salesSupplier.name : salesSupplier.companyName}
+							</h3>
+							{salesSupplier.supplierCode && (
+								<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[salesSupplier.personType]}`}>
+									{salesSupplier.supplierCode}
+								</span>
+							)}
+							{salesSupplier.personType && (
+								<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[salesSupplier.personType]}`}>
+									{salesSupplier.personType}
+								</span>
+							)}
+						</div>
 					</div>
 					<button
 						type="button"

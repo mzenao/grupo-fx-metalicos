@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { mockSession } from "@/services/mockSession";
 import { getStoredSuppliers } from "@/services/entityData";
 
+const personTypeBadge = {
+	PF: "bg-sky-100 text-sky-800",
+	PJ: "bg-amber-100 text-amber-800",
+};
+
 const defaultFormData = {
 	nomeOuEmpresa: "",
 	documento: "",
@@ -19,11 +24,12 @@ export default function Account() {
 	const accountType = mockSession.accountType;
 	const isUser = mockSession.role === "user";
 	const isPf = accountType === "pf";
+	const currentSupplier = useMemo(() => {
+		const suppliers = getStoredSuppliers();
+		return suppliers.find((supplier) => supplier.id === mockSession.currentSupplierId) || null;
+	}, []);
 
 	const initialFormData = useMemo(() => {
-		const suppliers = getStoredSuppliers();
-		const currentSupplier = suppliers.find((supplier) => supplier.id === mockSession.currentSupplierId);
-
 		if (!currentSupplier) {
 			return {
 				...defaultFormData,
@@ -40,7 +46,7 @@ export default function Account() {
 			telefone: currentSupplier.phone || "",
 			enderecoUnificado: currentSupplier.referenceAddress || "",
 		};
-	}, [isPf]);
+	}, [currentSupplier, isPf]);
 
 	const [formData, setFormData] = useState(initialFormData);
 
@@ -101,6 +107,21 @@ export default function Account() {
 				<form onSubmit={handleSubmit} className="p-8 space-y-8">
 					<div>
 						<h2 className="text-xl font-semibold text-slate-900 mb-4">Dados cadastrais</h2>
+						{currentSupplier && (
+							<div className="mb-4 flex flex-wrap items-center gap-2">
+								<p className="text-base font-semibold text-slate-900">
+									{isPf ? currentSupplier.name : currentSupplier.companyName}
+								</p>
+								{currentSupplier.supplierCode && (
+									<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[currentSupplier.personType] || personTypeBadge[isPf ? "PF" : "PJ"]}`}>
+										{currentSupplier.supplierCode}
+									</span>
+								)}
+								<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[currentSupplier.personType] || personTypeBadge[isPf ? "PF" : "PJ"]}`}>
+									{currentSupplier.personType || (isPf ? "PF" : "PJ")}
+								</span>
+							</div>
+						)}
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<InputField
 								label={isPf ? "Nome" : "Nome da empresa"}

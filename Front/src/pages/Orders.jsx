@@ -16,17 +16,31 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-	Suppliers,
 	EMPLOYEES,
 	getStoredPurchases,
 	savePurchases,
 } from "@/services/ordersData";
+import { getStoredSuppliers } from "@/services/entityData";
 import "react-datepicker/dist/react-datepicker.css";
 
 registerLocale("pt-BR", ptBR);
 
 function getNowLocalDateTime() {
 	return new Date();
+}
+
+function formatSupplierLabel(supplier) {
+	if (!supplier) return "Fornecedor";
+
+	const baseName =
+		(supplier.personType === "PF" ? supplier.name : supplier.companyName) ||
+		supplier.label?.replace(/\s*\((PF|PJ)\)\s*$/i, "") ||
+		"Fornecedor";
+
+	const code = Number(supplier.supplierCode);
+	if (!Number.isFinite(code) || code < 200) return baseName;
+
+	return `${baseName} #${code}`;
 }
 
 function SearchSelect({ label, placeholder, options, selectedId, onSelect }) {
@@ -117,6 +131,21 @@ export default function Orders() {
 	const [editDragActive, setEditDragActive] = useState(false);
 	const [editError, setEditError] = useState("");
 	const editFileInputRef = useRef(null);
+
+	const supplierOptions = useMemo(() => {
+		return getStoredSuppliers().map((supplier) => ({
+			id: supplier.id,
+			label: formatSupplierLabel(supplier),
+		}));
+	}, []);
+
+	const supplierLabelById = useMemo(() => {
+		const map = new Map();
+		supplierOptions.forEach((supplier) => {
+			map.set(supplier.id, supplier.label);
+		});
+		return map;
+	}, [supplierOptions]);
 
 	useEffect(() => {
 		savePurchases(purchases);
@@ -228,7 +257,7 @@ export default function Orders() {
 			return;
 		}
 
-		const selectedSupplier = Suppliers.find((item) => item.id === editSupplierId);
+		const selectedSupplier = supplierOptions.find((item) => item.id === editSupplierId);
 		const selectedEmployee = EMPLOYEES.find((item) => item.id === editEmployeeId);
 
 		setPurchases((prev) =>
@@ -284,7 +313,7 @@ export default function Orders() {
 			return;
 		}
 
-		const selectedSupplier = Suppliers.find((item) => item.id === SupplierId);
+		const selectedSupplier = supplierOptions.find((item) => item.id === SupplierId);
 		const selectedEmployee = EMPLOYEES.find((item) => item.id === employeeId);
 
 		const nextId = purchases.length > 0 ? Math.max(...purchases.map((p) => p.id)) + 1 : 1;
@@ -351,7 +380,7 @@ export default function Orders() {
 						<SearchSelect
 							label="Fornecedor"
 							placeholder="Pesquisar Fornecedor..."
-							options={Suppliers}
+							options={supplierOptions}
 							selectedId={SupplierId}
 							onSelect={setSupplierId}
 						/>
@@ -533,7 +562,7 @@ export default function Orders() {
 										</div>
 									</div>
 									<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm mt-2">
-										<p><span className="text-gray-500">Fornecedor:</span> {purchase.SupplierName}</p>
+										<p><span className="text-gray-500">Fornecedor:</span> {supplierLabelById.get(purchase.SupplierId) || purchase.SupplierName}</p>
 										<p><span className="text-gray-500">Funcionario:</span> {purchase.employeeName}</p>
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
 										<p><span className="text-gray-500">Valor:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
@@ -556,7 +585,7 @@ export default function Orders() {
 												<SearchSelect
 													label="Fornecedor"
 													placeholder="Pesquisar Fornecedor..."
-													options={Suppliers}
+													options={supplierOptions}
 													selectedId={editSupplierId}
 													onSelect={setEditSupplierId}
 												/>
