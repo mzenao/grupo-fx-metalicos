@@ -29,6 +29,17 @@ function getNowLocalDateTime() {
 	return new Date();
 }
 
+function parsePositiveNumber(input) {
+	const parsed = Number(input);
+	if (!Number.isFinite(parsed) || parsed <= 0) return null;
+	return parsed;
+}
+
+function formatComputedNumber(value) {
+	if (!Number.isFinite(value) || value <= 0) return "";
+	return value.toFixed(2);
+}
+
 function formatSupplierLabel(supplier) {
 	if (!supplier) return "Fornecedor";
 
@@ -112,7 +123,8 @@ export default function Orders() {
 	const [SupplierId, setSupplierId] = useState(null);
 	const [employeeId, setEmployeeId] = useState(null);
 	const [weight, setWeight] = useState("");
-	const [value, setValue] = useState("");
+	const [valuePerKg, setValuePerKg] = useState("");
+	const [totalValue, setTotalValue] = useState("");
 	const [datetime, setDatetime] = useState(null);
 	const [attachments, setAttachments] = useState([]);
 	const [dragActive, setDragActive] = useState(false);
@@ -125,7 +137,8 @@ export default function Orders() {
 	const [editSupplierId, setEditSupplierId] = useState(null);
 	const [editEmployeeId, setEditEmployeeId] = useState(null);
 	const [editWeight, setEditWeight] = useState("");
-	const [editValue, setEditValue] = useState("");
+	const [editValuePerKg, setEditValuePerKg] = useState("");
+	const [editTotalValue, setEditTotalValue] = useState("");
 	const [editDatetime, setEditDatetime] = useState(null);
 	const [editAttachments, setEditAttachments] = useState([]);
 	const [editDragActive, setEditDragActive] = useState(false);
@@ -183,6 +196,57 @@ export default function Orders() {
 		setAttachments((prev) => prev.filter((_, i) => i !== index));
 	};
 
+	const handleWeightChange = (nextWeightValue) => {
+		setWeight(nextWeightValue);
+
+		const nextWeightNumber = parsePositiveNumber(nextWeightValue);
+		const valuePerKgNumber = parsePositiveNumber(valuePerKg);
+		const totalValueNumber = parsePositiveNumber(totalValue);
+
+		if (nextWeightNumber && valuePerKgNumber) {
+			setTotalValue(formatComputedNumber(nextWeightNumber * valuePerKgNumber));
+			return;
+		}
+
+		if (nextWeightNumber && totalValueNumber) {
+			setValuePerKg(formatComputedNumber(totalValueNumber / nextWeightNumber));
+		}
+	};
+
+	const handleValuePerKgChange = (nextValuePerKgValue) => {
+		setValuePerKg(nextValuePerKgValue);
+
+		const nextValuePerKgNumber = parsePositiveNumber(nextValuePerKgValue);
+		const weightNumber = parsePositiveNumber(weight);
+		const totalValueNumber = parsePositiveNumber(totalValue);
+
+		if (nextValuePerKgNumber && weightNumber) {
+			setTotalValue(formatComputedNumber(weightNumber * nextValuePerKgNumber));
+			return;
+		}
+
+		if (nextValuePerKgNumber && totalValueNumber) {
+			setWeight(formatComputedNumber(totalValueNumber / nextValuePerKgNumber));
+		}
+	};
+
+	const handleTotalValueChange = (nextTotalValue) => {
+		setTotalValue(nextTotalValue);
+
+		const nextTotalValueNumber = parsePositiveNumber(nextTotalValue);
+		const weightNumber = parsePositiveNumber(weight);
+		const valuePerKgNumber = parsePositiveNumber(valuePerKg);
+
+		if (nextTotalValueNumber && weightNumber) {
+			setValuePerKg(formatComputedNumber(nextTotalValueNumber / weightNumber));
+			return;
+		}
+
+		if (nextTotalValueNumber && valuePerKgNumber) {
+			setWeight(formatComputedNumber(nextTotalValueNumber / valuePerKgNumber));
+		}
+	};
+
 	const openEditCard = (purchase) => {
 		if (editingPurchaseId === purchase.id) {
 			setIsEditOpen((prev) => !prev);
@@ -196,11 +260,70 @@ export default function Orders() {
 		setEditSupplierId(purchase.SupplierId || null);
 		setEditEmployeeId(purchase.employeeId || null);
 		setEditWeight(purchase.weight || "");
-		setEditValue(purchase.value || "");
+		const purchaseWeight = parsePositiveNumber(purchase.weight);
+		const purchaseTotalValue = parsePositiveNumber(purchase.value);
+		const purchaseValuePerKg =
+			parsePositiveNumber(purchase.valuePerKg) ||
+			(purchaseWeight && purchaseTotalValue
+				? parsePositiveNumber((purchaseTotalValue / purchaseWeight).toFixed(2))
+				: null);
+		setEditValuePerKg(purchaseValuePerKg ? String(purchaseValuePerKg) : "");
+		setEditTotalValue(purchase.value || "");
 		setEditDatetime(safeDate);
 		setEditAttachments([...(purchase.attachmentNames || [])]);
 		setEditError("");
 		setIsEditOpen(true);
+	};
+
+	const handleEditWeightChange = (nextWeightValue) => {
+		setEditWeight(nextWeightValue);
+
+		const nextWeightNumber = parsePositiveNumber(nextWeightValue);
+		const valuePerKgNumber = parsePositiveNumber(editValuePerKg);
+		const totalValueNumber = parsePositiveNumber(editTotalValue);
+
+		if (nextWeightNumber && valuePerKgNumber) {
+			setEditTotalValue(formatComputedNumber(nextWeightNumber * valuePerKgNumber));
+			return;
+		}
+
+		if (nextWeightNumber && totalValueNumber) {
+			setEditValuePerKg(formatComputedNumber(totalValueNumber / nextWeightNumber));
+		}
+	};
+
+	const handleEditValuePerKgChange = (nextValuePerKgValue) => {
+		setEditValuePerKg(nextValuePerKgValue);
+
+		const nextValuePerKgNumber = parsePositiveNumber(nextValuePerKgValue);
+		const weightNumber = parsePositiveNumber(editWeight);
+		const totalValueNumber = parsePositiveNumber(editTotalValue);
+
+		if (nextValuePerKgNumber && weightNumber) {
+			setEditTotalValue(formatComputedNumber(weightNumber * nextValuePerKgNumber));
+			return;
+		}
+
+		if (nextValuePerKgNumber && totalValueNumber) {
+			setEditWeight(formatComputedNumber(totalValueNumber / nextValuePerKgNumber));
+		}
+	};
+
+	const handleEditTotalValueChange = (nextTotalValue) => {
+		setEditTotalValue(nextTotalValue);
+
+		const nextTotalValueNumber = parsePositiveNumber(nextTotalValue);
+		const weightNumber = parsePositiveNumber(editWeight);
+		const valuePerKgNumber = parsePositiveNumber(editValuePerKg);
+
+		if (nextTotalValueNumber && weightNumber) {
+			setEditValuePerKg(formatComputedNumber(nextTotalValueNumber / weightNumber));
+			return;
+		}
+
+		if (nextTotalValueNumber && valuePerKgNumber) {
+			setEditWeight(formatComputedNumber(nextTotalValueNumber / valuePerKgNumber));
+		}
 	};
 
 	const handleEditFiles = (fileList) => {
@@ -242,8 +365,13 @@ export default function Orders() {
 			return;
 		}
 
-		if (!editValue || Number(editValue) <= 0) {
-			setEditError("Informe um valor valido.");
+		if (!editValuePerKg || Number(editValuePerKg) <= 0) {
+			setEditError("Informe um valor por kg valido.");
+			return;
+		}
+
+		if (!editTotalValue || Number(editTotalValue) <= 0) {
+			setEditError("Informe um valor total valido.");
 			return;
 		}
 
@@ -270,7 +398,8 @@ export default function Orders() {
 						employeeId: editEmployeeId,
 						employeeName: selectedEmployee?.label || "",
 						weight: editWeight,
-						value: editValue,
+						valuePerKg: editValuePerKg,
+						value: editTotalValue,
 						datetime: editDatetime.toISOString(),
 						attachmentNames: [...editAttachments],
 					}
@@ -298,8 +427,13 @@ export default function Orders() {
 			return;
 		}
 
-		if (!value || Number(value) <= 0) {
-			setError("Informe um valor valido.");
+		if (!valuePerKg || Number(valuePerKg) <= 0) {
+			setError("Informe um valor por kg valido.");
+			return;
+		}
+
+		if (!totalValue || Number(totalValue) <= 0) {
+			setError("Informe um valor total valido.");
 			return;
 		}
 
@@ -325,7 +459,8 @@ export default function Orders() {
 			employeeId,
 			employeeName: selectedEmployee?.label || "",
 			weight,
-			value,
+			valuePerKg,
+			value: totalValue,
 			datetime: datetime.toISOString(),
 			attachmentNames: attachments.map((file) => file.name),
 		};
@@ -334,7 +469,8 @@ export default function Orders() {
 		setSupplierId(null);
 		setEmployeeId(null);
 		setWeight("");
-		setValue("");
+		setValuePerKg("");
+		setTotalValue("");
 		setDatetime(null);
 		setAttachments([]);
 		setIsCreateOpen(false);
@@ -402,7 +538,7 @@ export default function Orders() {
 									step="0.01"
 									min="0"
 									value={weight}
-									onChange={(e) => setWeight(e.target.value)}
+									onChange={(e) => handleWeightChange(e.target.value)}
 									placeholder="Ex.: 820"
 									className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
 								/>
@@ -410,16 +546,27 @@ export default function Orders() {
 						</div>
 
 						<div>
-							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor (R$) *</label>
-							<input
-								type="number"
-								step="0.01"
-								min="0"
-								value={value}
-								onChange={(e) => setValue(e.target.value)}
-								placeholder="Ex.: 1790.00"
-								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-							/>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valores (R$) *</label>
+							<div className="grid grid-cols-2 gap-2">
+								<input
+									type="number"
+									step="0.01"
+									min="0"
+									value={valuePerKg}
+									onChange={(e) => handleValuePerKgChange(e.target.value)}
+									placeholder="Valor por kg"
+									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+								/>
+								<input
+									type="number"
+									step="0.01"
+									min="0"
+									value={totalValue}
+									onChange={(e) => handleTotalValueChange(e.target.value)}
+									placeholder="Valor total"
+									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+								/>
+							</div>
 						</div>
 
 						<div className="md:col-span-2">
@@ -565,7 +712,8 @@ export default function Orders() {
 										<p><span className="text-gray-500">Fornecedor:</span> {supplierLabelById.get(purchase.SupplierId) || purchase.SupplierName}</p>
 										<p><span className="text-gray-500">Funcionario:</span> {purchase.employeeName}</p>
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
-										<p><span className="text-gray-500">Valor:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+										<p><span className="text-gray-500">Valor/kg:</span> {Number(purchase.valuePerKg || (Number(purchase.value) / Number(purchase.weight) || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+										<p><span className="text-gray-500">Valor total:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 									</div>
 									<p className="text-xs text-gray-500 mt-2">
 										Comprovantes: {purchase.attachmentNames.join(", ")}
@@ -607,7 +755,7 @@ export default function Orders() {
 															step="0.01"
 															min="0"
 															value={editWeight}
-															onChange={(e) => setEditWeight(e.target.value)}
+															onChange={(e) => handleEditWeightChange(e.target.value)}
 															placeholder="Ex.: 820"
 															className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
 														/>
@@ -615,16 +763,27 @@ export default function Orders() {
 												</div>
 
 												<div>
-													<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor (R$) *</label>
-													<input
-														type="number"
-														step="0.01"
-														min="0"
-														value={editValue}
-														onChange={(e) => setEditValue(e.target.value)}
-														placeholder="Ex.: 1790.00"
-														className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-													/>
+													<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valores (R$) *</label>
+													<div className="grid grid-cols-2 gap-2">
+														<input
+															type="number"
+															step="0.01"
+															min="0"
+															value={editValuePerKg}
+															onChange={(e) => handleEditValuePerKgChange(e.target.value)}
+															placeholder="Valor por kg"
+															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+														/>
+														<input
+															type="number"
+															step="0.01"
+															min="0"
+															value={editTotalValue}
+															onChange={(e) => handleEditTotalValueChange(e.target.value)}
+															placeholder="Valor total"
+															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+														/>
+													</div>
 												</div>
 
 												<div className="md:col-span-2">
