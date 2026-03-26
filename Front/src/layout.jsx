@@ -35,7 +35,8 @@ export default function InternalLayout({ children }) {
 	}, [location.pathname]);
 
 	const handleLogout = () => {
-		navigate("/", { replace: true });
+		setSidebarOpen(false);
+		navigate("/#hero");
 	};
 
 	const handleBrandClick = () => {
@@ -87,13 +88,13 @@ export default function InternalLayout({ children }) {
 					})}
 				</nav>
 
-				<div className="p-4 border-t border-amber-900/40">
+				<div className="p-4 border-t border-amber-200/20">
 					<button
-						onClick={handleLogout}
-						className="flex items-center gap-2 text-amber-100/80 hover:text-red-300 transition-colors px-2 py-2 w-full rounded-lg hover:bg-amber-200/20 text-sm"
+					onClick={handleLogout}
+					className="flex items-center gap-3 w-full px-4 py-2 rounded-lg hover:bg-red-900/30 hover:text-red-300 transition-colors text-amber-100"
 					>
-						<LogOut className="w-4 h-4" />
-						Sair do sistema
+					<LogOut size={20} />
+						<span>Sair</span>
 					</button>
 				</div>
 			</aside>

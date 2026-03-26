@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import { Save, UserRound, Building2, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Save, UserRound, Building2 } from "lucide-react";
 import { mockSession } from "@/services/mockSession";
 import { getStoredSuppliers } from "@/services/entityData";
 
@@ -9,21 +8,11 @@ const personTypeBadge = {
 	PJ: "bg-amber-100 text-amber-800",
 };
 
-const defaultFormData = {
-	nomeOuEmpresa: "",
-	documento: "",
-	email: "",
-	telefone: "",
-	enderecoUnificado: "",
-	senhaAtual: "",
-	novaSenha: "",
-	confirmarNovaSenha: "",
-};
-
 export default function Account() {
 	const accountType = mockSession.accountType;
 	const isUser = mockSession.role === "user";
 	const isPf = accountType === "pf";
+	
 	const currentSupplier = useMemo(() => {
 		const suppliers = getStoredSuppliers();
 		return suppliers.find((supplier) => supplier.id === mockSession.currentSupplierId) || null;
@@ -32,19 +21,26 @@ export default function Account() {
 	const initialFormData = useMemo(() => {
 		if (!currentSupplier) {
 			return {
-				...defaultFormData,
 				nomeOuEmpresa: mockSession.currentUserName || "",
+				documento: "",
 				email: mockSession.currentUserEmail || "",
+				telefone: "",
+				enderecoUnificado: "",
+				senhaAtual: "",
+				novaSenha: "",
+				confirmarNovaSenha: "",
 			};
 		}
 
 		return {
-			...defaultFormData,
 			nomeOuEmpresa: isPf ? currentSupplier.name || "" : currentSupplier.companyName || "",
 			documento: isPf ? currentSupplier.cpf || "" : currentSupplier.cnpj || "",
 			email: currentSupplier.email || mockSession.currentUserEmail || "",
 			telefone: currentSupplier.phone || "",
 			enderecoUnificado: currentSupplier.referenceAddress || "",
+			senhaAtual: "",
+			novaSenha: "",
+			confirmarNovaSenha: "",
 		};
 	}, [currentSupplier, isPf]);
 
@@ -60,32 +56,26 @@ export default function Account() {
 
 		if (formData.novaSenha || formData.confirmarNovaSenha || formData.senhaAtual) {
 			if (!formData.senhaAtual || !formData.novaSenha || !formData.confirmarNovaSenha) {
-				window.alert("Para alterar a senha, preencha senha atual, nova senha e confirmacao.");
+				window.alert("Para alterar a senha, preencha senha atual, nova senha e confirmação.");
 				return;
 			}
 
 			if (formData.novaSenha !== formData.confirmarNovaSenha) {
-				window.alert("A confirmacao da nova senha nao confere.");
+				window.alert("A confirmação da nova senha não confere.");
 				return;
 			}
 		}
 
-		// Enquanto nao houver backend, mantemos o envio como feedback local.
 		console.log("Dados atualizados:", formData);
-		window.alert("Dados salvos localmente. Integracao com backend pendente.");
+		window.alert("Dados salvos localmente. Integração com backend pendente.");
 	};
 
 	if (!isUser) {
 		return (
 			<main className="pt-28 pb-14 px-6 max-w-4xl mx-auto w-full">
 				<section className="rounded-2xl border border-amber-200 bg-white p-8 shadow-sm">
-					<div className="flex items-center gap-3 text-slate-900 mb-3">
-						<ShieldCheck className="w-6 h-6 text-[#b8891f]" />
-						<h1 className="text-2xl font-bold">Minha Conta</h1>
-					</div>
-					<p className="text-slate-600">
-						Esta area de edicao esta disponivel apenas para contas de cliente.
-					</p>
+					<h1 className="text-2xl font-bold text-slate-900 mb-2">Minha Conta</h1>
+					<p className="text-slate-600">Esta área está disponível apenas para fornecedores.</p>
 				</section>
 			</main>
 		);
@@ -135,8 +125,19 @@ export default function Account() {
 								value={formData.documento}
 								onChange={handleChange}
 							/>
-							<InputField label="E-mail" name="email" type="email" value={formData.email} onChange={handleChange} />
-							<InputField label="Telefone" name="telefone" value={formData.telefone} onChange={handleChange} />
+							<InputField 
+								label="E-mail" 
+								name="email" 
+								type="email" 
+								value={formData.email} 
+								onChange={handleChange} 
+							/>
+							<InputField 
+								label="Telefone" 
+								name="telefone" 
+								value={formData.telefone} 
+								onChange={handleChange} 
+							/>
 							<TextAreaField
 								label="Endereço"
 								name="enderecoUnificado"
@@ -176,13 +177,13 @@ export default function Account() {
 					</div>
 
 					<div className="border-t border-amber-100 pt-6 flex justify-end">
-						<Button
+						<button
 							type="submit"
-							className="rounded-full px-7 bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] hover:from-[#a67917] hover:to-[#c79a39] text-white shadow-[0_8px_18px_rgba(184,137,31,0.35)]"
+							className="rounded-full px-7 py-2 bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] hover:from-[#a67917] hover:to-[#c79a39] text-white font-semibold shadow-[0_8px_18px_rgba(184,137,31,0.35)] flex items-center gap-2"
 						>
-							<Save className="w-4 h-4 mr-2" />
-							Salvar alteracoes
-						</Button>
+							<Save size={16} />
+							Salvar alterações
+						</button>
 					</div>
 				</form>
 			</section>

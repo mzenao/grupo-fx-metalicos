@@ -47,7 +47,7 @@ export default function Navbar() {
     setIsLoggedIn(false);
     setUserRole(null);
     setIsMobileMenuOpen(false);
-    navigate("/");
+    window.location.href = "/";
   };
 
   const goTo = (path) => {
@@ -176,11 +176,8 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {userRole === "user" && (
               <>
-                <Button type="button" onClick={() => goTo("/sells")} className={`${actionButtonClass} px-6`}>
-                  Minhas Vendas
-                </Button>
-                <Button type="button" onClick={() => goTo("/account")} className={`${actionButtonClass} px-6`}>
-                  Conta
+                <Button type="button" onClick={() => goTo("/supplier-portal")} className={`${actionButtonClass} px-6`}>
+                  Portal do Fornecedor
                 </Button>
                 <Button
                   type="button"
@@ -273,17 +270,10 @@ export default function Navbar() {
                 <>
                   <Button
                     type="button"
-                    onClick={() => goTo("/sells")}
+                    onClick={() => goTo("/supplier-portal")}
                     className={`${actionButtonClass} w-full`}
                   >
-                    Minhas Vendas
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => goTo("/account")}
-                    className={`${actionButtonClass} w-full`}
-                  >
-                    Conta
+                    Portal do Fornecedor
                   </Button>
                   <Button
                     type="button"

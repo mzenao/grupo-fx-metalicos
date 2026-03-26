@@ -7,6 +7,7 @@ import Orders from "./pages/Orders.jsx";
 import Sells from "./pages/Sells.jsx";
 import Suppliers from "./pages/Suppliers.jsx";
 import Account from "./pages/Account.jsx";
+import SupplierPortal from "./pages/SupplierPortal.jsx";
 import InternalLayout from "./layout.jsx";
 import Navbar from "./components/landing/Navbar.jsx";
 import Footer from "./components/landing/Footer.jsx";
@@ -61,6 +62,16 @@ function App() {
           }
         />
       </Route>
+
+      {/* Portal do Fornecedor - com sidebar interno */}
+      <Route
+        path="/supplier-portal"
+        element={
+          <ProtectedRoute>
+            <SupplierPortal />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Rotas internas protegidas sem Navbar/Footer */}
       <Route

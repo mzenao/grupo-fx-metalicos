@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { getActiveUser } from "@/services/mockDatabase";
 import { Button } from "@/components/ui/button.jsx";
 import RegisterModal from "@/components/internal/registerModal";
+import { useNavigate } from "react-router-dom";
 
 export default function Hero() {
 	const [userRole, setUserRole] = useState(null);
 	const [showRegisterModal, setShowRegisterModal] = useState(false);
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		const activeUser = getActiveUser();
@@ -52,6 +54,19 @@ export default function Hero() {
 							<img src={fenixLogo} alt="" className="h-11 w-11 shrink-0 object-contain brightness-0 invert sm:h-10 sm:w-10" aria-hidden="true" />
 							<span className="flex flex-col leading-tight">
 								<span className="block">Quero ser fornecedor</span>
+							</span>
+						</Button>
+					)}
+
+					{(userRole === "supplier" || userRole === "user") && (
+						<Button
+							type="button"
+							onClick={() => navigate("/supplier-portal")}
+							className="hero-title-entrance z-20 h-auto items-center gap-3 !rounded-full shadow-[0_10px_24px_rgba(0,0,0,0.22)] active:scale-[0.98] min-w-[10.5rem] px-5 py-2.5 sm:min-w-[12rem] sm:px-6 sm:py-3 sm:text-base md:min-w-[13rem] md:px-6 md:py-3 md:text-lg"
+						>
+							<img src={fenixLogo} alt="" className="h-11 w-11 shrink-0 object-contain brightness-0 invert sm:h-10 sm:w-10" aria-hidden="true" />
+							<span className="flex flex-col leading-tight">
+								<span className="block">Portal do Fornecedor</span>
 							</span>
 						</Button>
 					)}

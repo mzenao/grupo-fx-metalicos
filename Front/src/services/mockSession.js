@@ -12,3 +12,7 @@ export const mockSession = {
   currentUserName: activeUser?.name || "",
   currentUserEmail: activeUser?.email || "",
 };
+
+export function logout() {
+  localStorage.removeItem("fx_active_user_id");
+}
