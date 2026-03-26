@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Calendar, Scale, DollarSign } from "lucide-react";
+import { Calendar, Scale, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 import InternalSupplierLayout, { useSectionContext } from "@/layouts/InternalSupplierLayout";
 import { mockSession } from "@/services/mockSession";
 import { getStoredPurchases } from "@/services/ordersData";
@@ -18,6 +18,12 @@ const fmtDateTime = (iso) => {
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) return "-";
 	return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+};
+
+const fmtDateOnly = (iso) => {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return "-";
+	return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
 function formatMaterial(purchase) {
@@ -201,6 +207,7 @@ function SupplierPortalContent() {
 // Wrapper for Sells when used in portal (removes navbar padding)
 function SalesPortalWrapper({ initialSearchId = "" }) {
 	const [searchId, setSearchId] = useState(initialSearchId || "");
+	const [expandedSaleId, setExpandedSaleId] = useState(null);
 
 	useEffect(() => {
 		if (initialSearchId !== undefined && initialSearchId !== null) {
@@ -238,6 +245,10 @@ function SalesPortalWrapper({ initialSearchId = "" }) {
 		return userPurchases.filter((purchase) => String(purchase.id).includes(searchId.trim()));
 	}, [userPurchases, searchId]);
 
+	const toggleSale = (saleId) => {
+		setExpandedSaleId((prev) => (prev === saleId ? null : saleId));
+	};
+
 	return (
 		<section className="space-y-6 w-full">
 			<div>
@@ -270,13 +281,32 @@ function SalesPortalWrapper({ initialSearchId = "" }) {
 				<div className="space-y-3">
 					{filteredPurchases.map((purchase) => {
 						const saleSupplier = suppliersById.get(purchase.SupplierId);
+						const isExpanded = expandedSaleId === purchase.id;
 						return (
 							<div key={purchase.id} className="rounded-lg border border-amber-100 bg-white shadow-sm overflow-hidden">
-								<header className="px-4 py-3 bg-gradient-to-r from-amber-50 to-amber-25 border-b border-amber-100">
-									<h3 className="text-base font-bold text-slate-900">Venda #{purchase.id}</h3>
-								</header>
+								<button
+									type="button"
+									onClick={() => toggleSale(purchase.id)}
+									className="w-full px-4 py-4 sm:py-5 bg-gradient-to-r from-amber-50 to-amber-25 border-b border-amber-100 flex items-center justify-between gap-4 text-left"
+								>
+									<div className="min-w-0">
+										<h3 className="text-base sm:text-lg font-bold text-slate-900">Venda #{purchase.id}</h3>
+										<p className="text-xs sm:text-sm text-gray-600 mt-1">Data: {fmtDateOnly(purchase.datetime)}</p>
+									</div>
+									<div className="flex items-center gap-3 sm:gap-4 shrink-0">
+										<div className="text-right">
+											<p className="text-[11px] sm:text-xs text-gray-500">Valor total</p>
+											<p className="text-sm sm:text-base font-bold text-slate-900">{fmtMoney(purchase.value)}</p>
+										</div>
+										{isExpanded ? (
+											<ChevronUp className="w-5 h-5 text-amber-700" />
+										) : (
+											<ChevronDown className="w-5 h-5 text-amber-700" />
+										)}
+									</div>
+								</button>
 
-								<div className="p-4 space-y-4">
+								{isExpanded && <div className="p-4 space-y-4">
 									<div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
 										<div>
 											<p className="text-xs text-gray-500 mb-1">Fornecedor</p>
@@ -339,7 +369,7 @@ function SalesPortalWrapper({ initialSearchId = "" }) {
 												</div>
 											)}
 										</div>
-								</div>
+								</div>}
 							</div>
 						);
 					})}

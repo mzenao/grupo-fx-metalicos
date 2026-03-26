@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Paperclip } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { mockSession } from "@/services/mockSession";
 import { getStoredPurchases } from "@/services/ordersData";
 import { getStoredSuppliers } from "@/services/entityData";
@@ -31,6 +31,7 @@ function formatMaterial(purchase) {
 
 export default function Sells() {
 	const [searchId, setSearchId] = useState("");
+	const [expandedSaleId, setExpandedSaleId] = useState(null);
 	const isUser = mockSession.role === "user";
 	const currentSupplier = useMemo(() => {
 		const suppliers = getStoredSuppliers();
@@ -61,6 +62,10 @@ export default function Sells() {
 		if (!searchId.trim()) return userPurchases;
 		return userPurchases.filter((purchase) => String(purchase.id).includes(searchId.trim()));
 	}, [userPurchases, searchId]);
+
+	const toggleSale = (saleId) => {
+		setExpandedSaleId((prev) => (prev === saleId ? null : saleId));
+	};
 
 	if (!isUser) {
 		return (
@@ -129,13 +134,23 @@ export default function Sells() {
 					<div className="space-y-4">
 						{filteredPurchases.map((purchase) => {
 							const saleSupplier = suppliersById.get(purchase.SupplierId);
+							const isExpanded = expandedSaleId === purchase.id;
 							return (
 								<div key={purchase.id} className="rounded-2xl border border-amber-100 bg-white shadow-sm overflow-hidden">
-									<header className="px-6 py-4 bg-gradient-to-r from-amber-50 to-amber-25 border-b border-amber-100">
+									<button
+										type="button"
+										onClick={() => toggleSale(purchase.id)}
+										className="w-full px-6 py-4 bg-gradient-to-r from-amber-50 to-amber-25 border-b border-amber-100 flex items-center justify-between text-left"
+									>
 										<h3 className="text-lg font-bold text-slate-900">Venda #{purchase.id}</h3>
-									</header>
+										{isExpanded ? (
+											<ChevronUp className="w-5 h-5 text-amber-700" />
+										) : (
+											<ChevronDown className="w-5 h-5 text-amber-700" />
+										)}
+									</button>
 
-									<div className="p-6 space-y-6">
+									{isExpanded && <div className="p-6 space-y-6">
 										<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 											<InfoSection label="Fornecedor" value={`${saleSupplier ? (saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName) : purchase.SupplierName || "-"} #${purchase.SupplierId + 200}`} />
 											<InfoSection label="Tipo de Material" value={formatMaterial(purchase)} />
@@ -184,7 +199,7 @@ export default function Sells() {
 												</div>
 											</div>
 										)}
-									</div>
+									</div>}
 								</div>
 							);
 						})}
