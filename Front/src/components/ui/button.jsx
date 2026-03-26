@@ -11,7 +11,7 @@ export function Button({
     "inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none disabled:opacity-50 disabled:pointer-events-none";
 
   const variants = {
-    default: "bg-teal-600 text-white hover:bg-teal-700",
+    default: "bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white font-semibold hover:from-[#a67917] hover:to-[#c79a39] transition disabled:opacity-60",
     destructive: "bg-red-600 text-white hover:bg-red-700",
     outline: "border border-gray-300 hover:bg-gray-100",
     ghost: "hover:bg-gray-100",

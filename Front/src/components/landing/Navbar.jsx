@@ -156,6 +156,20 @@ export default function Navbar() {
                 {item.label}
               </button>
             ))}
+
+            {!userRole && (
+              <button
+                type="button"
+                onClick={handleRegisterClick}
+                className={`text-sm font-medium transition-colors ${
+                  isScrolled
+                    ? "text-black hover:text-[#b8891f]"
+                    : "text-white hover:text-[#f0d79a]"
+                }`}
+              >
+                Quero ser Fornecedor
+              </button>
+            )}
           </div>
 
           {/* Right side */}
@@ -244,6 +258,16 @@ export default function Navbar() {
                   {item.label}
                 </button>
               ))}
+
+              {!userRole && (
+                <button
+                  type="button"
+                  onClick={handleRegisterClick}
+                  className="text-slate-700 hover:text-[#b8891f] font-medium py-2 text-left"
+                >
+                  Quero ser Fornecedor
+                </button>
+              )}
 
               {userRole === "user" && (
                 <>
