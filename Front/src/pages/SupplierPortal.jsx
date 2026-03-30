@@ -71,7 +71,7 @@ function DashboardSection({ onOpenSale }) {
 
 	const purchaseGroupCards = [
 		{
-			id: "compras",
+			id: "vendas",
 			title: "Vendas registradas",
 			value: summary.totalPurchases,
 			sub: "Total acumulado",
