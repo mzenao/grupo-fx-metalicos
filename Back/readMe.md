@@ -1,0 +1,89 @@
+## Deploy no Railway (Backend)
+
+### 1) Pré-requisitos do projeto
+
+- O serviço precisa ter acesso ao PostgreSQL via `DATABASE_URL`.
+- Para backup/restore por script Linux, a imagem precisa ter cliente PostgreSQL (`pg_dump` e `psql`).
+- O backup em S3 usa credenciais AWS e bucket de backup configurados por variável de ambiente.
+
+### 2) Variáveis de ambiente mínimas
+
+Defina no serviço do Railway:
+
+- `DATABASE_URL`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
+- `AWS_S3_BACKUP_BUCKET`
+
+Variáveis úteis adicionais:
+
+- `CLEANUP_LOCAL_BACKUP=true` para apagar dump local após upload.
+- `CLEANUP_LOCAL_BACKUP=false` para manter dump local.
+
+### 3) Comando de build (Railway)
+
+No build command, instale o cliente PostgreSQL antes das dependências Python:
+
+```bash
+apt-get update && apt-get install -y postgresql-client && pip install -r requirements.txt
+```
+
+Se sua imagem/base não suportar `apt-get`, use uma imagem Docker própria com `postgresql-client` instalado.
+
+### 4) Start command do serviço web
+
+Use o comando padrão do backend (exemplo):
+
+```bash
+python run.py
+```
+
+### 5) Job de backup diário 00:00
+
+Crie um Job separado no Railway (mesmo repositório/pasta `Back`) com:
+
+- Command:
+
+```bash
+bash scripts/railway_backup_job.sh
+```
+
+- Schedule (cron):
+
+```text
+0 0 * * *
+```
+
+Reaproveite as mesmas variáveis de ambiente do serviço web (principalmente `DATABASE_URL` e AWS).
+
+### 6) Teste manual no Railway
+
+Execute manualmente no Job ou shell do serviço:
+
+```bash
+bash scripts/dump_postgres.sh
+bash scripts/backup_and_upload.sh
+```
+
+Critérios de sucesso:
+
+- `dump_postgres.sh` gera arquivo em `backups/`.
+- `backup_and_upload.sh` envia para `s3://$AWS_S3_BACKUP_BUCKET/...`.
+
+### 7) Restore (quando necessário)
+
+Após baixar um backup `.sql` para o ambiente:
+
+```bash
+bash scripts/restore_postgres.sh caminho/do/arquivo.sql
+```
+
+O script já normaliza URLs `postgres://` e `postgresql+psycopg2://` automaticamente.
+
+## Scripts prontos para produção
+
+- `scripts/dump_postgres.sh`: dump com validação de `pg_dump` e normalização de URL.
+- `scripts/restore_postgres.sh`: restore com validação de `psql` e normalização de URL.
+- `scripts/backup_and_upload.sh`: dump + upload S3 com autodetecção de `python3/python`.
+- `scripts/railway_backup_job.sh`: entrypoint simples para Job agendado no Railway.

@@ -3,20 +3,36 @@ import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
+import { registerSupplierAccount } from "@/services/authApi";
 
-function getNextSupplierCode(suppliers) {
-  const maxCode = (Array.isArray(suppliers) ? suppliers : []).reduce((max, supplier) => {
-    const code = Number(supplier?.supplierCode);
-    if (!Number.isFinite(code) || code < 200) return max;
-    return Math.max(max, code);
-  }, 199);
+const fieldLabelClass = "block text-sm font-medium mb-1 text-[#4a3918]";
+const fieldInputClass = "w-full h-12 px-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]";
 
-  return maxCode + 1;
+function formatPixValue(pixKeyType, form) {
+  const type = (pixKeyType || "").toLowerCase();
+  const digits = (value) => String(value || "").replace(/\D/g, "");
+
+  if (type === "cpf") {
+    const cpf = digits(form.cpf).slice(0, 11);
+    if (cpf.length !== 11) return "";
+    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  }
+
+  if (type === "cnpj") {
+    const cnpj = digits(form.cnpj).slice(0, 14);
+    if (cnpj.length !== 14) return "";
+    return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  }
+
+  if (type === "phone") return form.phone || "";
+  if (type === "email") return form.email || "";
+  return "";
 }
 
 export default function RegisterModal({ onClose, onSuccess }) {
   const initial = useMemo(() => ({
     personType: "PF",
+    pixKeyType: "cpf",
     name: "",
     companyName: "",
     cpf: "",
@@ -38,6 +54,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
     setForm((prev) => ({
       ...prev,
       personType: nextType,
+      pixKeyType: nextType === "PF" ? "cpf" : "cnpj",
       name: nextType === "PF" ? prev.name : "",
       cpf: nextType === "PF" ? prev.cpf : "",
       companyName: nextType === "PJ" ? prev.companyName : "",
@@ -45,7 +62,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -104,64 +121,40 @@ export default function RegisterModal({ onClose, onSuccess }) {
       return;
     }
 
-    // Verificar se email já existe
-    const existingUsers = JSON.parse(localStorage.getItem("fx_registered_users") || "[]");
-    if (existingUsers.some((u) => u.email === form.email)) {
-      setError("Este email já está cadastrado.");
+    const allowedPixTypes = form.personType === "PF" ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+    if (!allowedPixTypes.includes(form.pixKeyType)) {
+      setError("Selecione uma opção válida para chave Pix.");
       return;
     }
 
     setSaving(true);
     try {
-      const existingSuppliers = JSON.parse(localStorage.getItem("fx_suppliers_records") || "[]");
-      const nextSupplierCode = getNextSupplierCode(existingSuppliers);
-
-      // Criar novo supplier
-      const newSupplier = {
-        id: Date.now(),
-        supplierCode: nextSupplierCode,
-        personType: form.personType,
-        name: form.personType === "PF" ? form.name : "",
-        companyName: form.personType === "PJ" ? form.companyName : "",
-        cpf: form.personType === "PF" ? form.cpf : "",
-        cnpj: form.personType === "PJ" ? form.cnpj : "",
-        vehiclePlate: form.vehiclePlate,
-        referenceAddress: form.referenceAddress,
+      const user = await registerSupplierAccount({
+        is_pf: form.personType === "PF",
+        name: form.personType === "PF" ? form.name : form.companyName,
+        company_name: form.personType === "PJ" ? form.companyName : null,
+        cpf: form.personType === "PF" ? form.cpf : null,
+        cnpj: form.personType === "PJ" ? form.cnpj : null,
+        vehicle_plate: form.vehiclePlate,
+        reference_address: form.referenceAddress,
         email: form.email,
         phone: form.phone,
+        pix_key_type: form.pixKeyType,
         password: form.password,
-      };
-
-      // Salvar supplier em localStorage
-      const updatedSuppliers = [...existingSuppliers, newSupplier];
-      localStorage.setItem("fx_suppliers_records", JSON.stringify(updatedSuppliers));
-
-      // Criar novo usuário
-      const newUser = {
-        id: Date.now(),
-        name: form.personType === "PF" ? form.name : form.companyName,
-        email: form.email,
-        role: "user",
-        accountType: form.personType.toLowerCase(),
-        supplierId: newSupplier.id,
-        password: form.password,
-      };
-
-      // Salvar usuário em localStorage
-      const updatedUsers = [...existingUsers, newUser];
-      localStorage.setItem("fx_registered_users", JSON.stringify(updatedUsers));
-
-      // Fazer login automático
-      localStorage.setItem("fx_active_user_id", newUser.id);
-
-      onSuccess?.(newUser);
+      });
+      onSuccess?.(user);
       onClose();
     } catch (err) {
-      setError("Erro ao criar conta. Por favor, tente novamente.");
+      setError(
+        err?.message ||
+          "Nao foi possivel concluir cadastro no momento."
+      );
     } finally {
       setSaving(false);
     }
   };
+
+  const pixValue = formatPixValue(form.pixKeyType, form);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -227,86 +220,136 @@ export default function RegisterModal({ onClose, onSuccess }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {form.personType === "PF" && (
-                <input
-                  type="text"
-                  placeholder="Nome Completo"
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  className="px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]"
-                />
+                <Field label="Nome Completo *">
+                  <input
+                    type="text"
+                    placeholder="Nome Completo"
+                    value={form.name}
+                    onChange={(e) => set("name", e.target.value)}
+                    className={fieldInputClass}
+                  />
+                </Field>
               )}
 
               {form.personType === "PJ" && (
-                <input
-                  type="text"
-                  placeholder="Nome da Empresa"
-                  value={form.companyName}
-                  onChange={(e) => set("companyName", e.target.value)}
-                  className="px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]"
-                />
+                <Field label="Nome da Empresa *">
+                  <input
+                    type="text"
+                    placeholder="Nome da Empresa"
+                    value={form.companyName}
+                    onChange={(e) => set("companyName", e.target.value)}
+                    className={fieldInputClass}
+                  />
+                </Field>
               )}
 
               {form.personType === "PF" && (
-                <input
-                  type="text"
-                  placeholder="CPF"
-                  value={form.cpf}
-                  onChange={(e) => set("cpf", e.target.value)}
-                  className="px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]"
-                />
+                <Field label="CPF *">
+                  <input
+                    type="text"
+                    placeholder="CPF"
+                    value={form.cpf}
+                    onChange={(e) => set("cpf", e.target.value)}
+                    className={fieldInputClass}
+                  />
+                </Field>
               )}
 
               {form.personType === "PJ" && (
-                <input
-                  type="text"
-                  placeholder="CNPJ"
-                  value={form.cnpj}
-                  onChange={(e) => set("cnpj", e.target.value)}
-                  className="px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]"
-                />
+                <Field label="CNPJ *">
+                  <input
+                    type="text"
+                    placeholder="CNPJ"
+                    value={form.cnpj}
+                    onChange={(e) => set("cnpj", e.target.value)}
+                    className={fieldInputClass}
+                  />
+                </Field>
               )}
 
-              <input
-                type="text"
-                placeholder="Placa do Veículo"
-                value={form.vehiclePlate}
-                onChange={(e) => set("vehiclePlate", e.target.value)}
-                className="px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]"
-              />
+              <Field label="Placa do Veículo *">
+                <input
+                  type="text"
+                  placeholder="Placa do Veículo"
+                  value={form.vehiclePlate}
+                  onChange={(e) => set("vehiclePlate", e.target.value)}
+                  className={fieldInputClass}
+                />
+              </Field>
 
-              <input
-                type="email"
-                placeholder="Email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                className="px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]"
-              />
+              <Field label="Email *">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  className={fieldInputClass}
+                />
+              </Field>
 
-              <input
-                type="tel"
-                placeholder="Telefone"
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                className="px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]"
-              />
+              <Field label="Telefone *">
+                <input
+                  type="tel"
+                  placeholder="Telefone"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  className={fieldInputClass}
+                />
+              </Field>
 
-              <input
-                type="password"
-                placeholder="Senha"
-                value={form.password}
-                onChange={(e) => set("password", e.target.value)}
-                className="px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]"
-              />
+              <Field label="Tipo da chave Pix *">
+                <select
+                  required
+                  value={form.pixKeyType}
+                  onChange={(e) => set("pixKeyType", e.target.value)}
+                  className={fieldInputClass}
+                >
+                  {form.personType === "PF" ? (
+                    <>
+                      <option value="cpf">CPF</option>
+                      <option value="phone">Telefone</option>
+                      <option value="email">Email</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="cnpj">CNPJ</option>
+                      <option value="phone">Telefone</option>
+                      <option value="email">Email</option>
+                    </>
+                  )}
+                </select>
+              </Field>
+
+              <Field label="Chave Pix">
+                <input
+                  type="text"
+                  readOnly
+                  placeholder="Chave Pix"
+                  value={pixValue || ""}
+                  className={fieldInputClass}
+                />
+              </Field>
+
+              <Field label="Senha *">
+                <input
+                  type="password"
+                  placeholder="Senha"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  className={fieldInputClass}
+                />
+              </Field>
 
             </div>
 
             <div className="md:col-span-2">
+              <label className={fieldLabelClass}>Endereço de Referência *</label>
               <textarea
                 placeholder="Endereço de Referência"
                 value={form.referenceAddress}
                 onChange={(e) => set("referenceAddress", e.target.value)}
                 rows="3"
-                className="w-full px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f] resize-none"
+                className="w-full px-3 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f] resize-none"
               />
             </div>
 
@@ -330,6 +373,15 @@ export default function RegisterModal({ onClose, onSuccess }) {
           </form>
         </motion.div>
       </AnimatePresence>
+    </div>
+  );
+}
+
+function Field({ label, children, className = "" }) {
+  return (
+    <div className={className}>
+      <label className={fieldLabelClass}>{label}</label>
+      {children}
     </div>
   );
 }

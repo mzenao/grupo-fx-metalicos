@@ -11,7 +11,9 @@ import SupplierPortal from "./pages/SupplierPortal.jsx";
 import InternalLayout from "./layout.jsx";
 import Navbar from "./components/landing/Navbar.jsx";
 import Footer from "./components/landing/Footer.jsx";
-import { getActiveUser, initializeMockUsers } from "./services/mockDatabase.js";
+import { fetchMe, getSessionSnapshot } from "./services/authApi";
+import { fetchEmployees, fetchSuppliers } from "./services/entityData";
+import { fetchMaterialTypes, fetchPurchases } from "./services/ordersData";
 
 function LandingLayout() {
   return (
@@ -26,10 +28,25 @@ function LandingLayout() {
 }
 
 function ProtectedRoute({ children }) {
-  const activeUser = getActiveUser();
+  const session = getSessionSnapshot();
   
-  if (!activeUser) {
+  if (!session.isLoggedIn) {
     return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
+function RoleProtectedRoute({ children, allowedRoles = [] }) {
+  const session = getSessionSnapshot();
+
+  if (!session.isLoggedIn) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
+    if (session.role === "supplier") return <Navigate to="/supplier-portal" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
@@ -37,7 +54,23 @@ function ProtectedRoute({ children }) {
 
 function App() {
   useEffect(() => {
-    initializeMockUsers();
+    fetchMe()
+      .then(async (user) => {
+        const role = user?.role;
+
+        if (role === "admin" || role === "employee") {
+          await Promise.all([fetchEmployees(), fetchSuppliers(), fetchMaterialTypes()]);
+          await fetchPurchases();
+          return;
+        }
+
+        if (role === "supplier") {
+          await Promise.all([fetchMaterialTypes(), fetchPurchases()]);
+        }
+      })
+      .catch(() => {
+      // token invalido/expirado: o guard de rota lida com redirecionamento.
+      });
   }, []);
 
   return (
@@ -48,17 +81,17 @@ function App() {
         <Route
           path="/account"
           element={
-            <ProtectedRoute>
+            <RoleProtectedRoute allowedRoles={["supplier"]}>
               <Account />
-            </ProtectedRoute>
+            </RoleProtectedRoute>
           }
         />
         <Route
           path="/sells"
           element={
-            <ProtectedRoute>
+            <RoleProtectedRoute allowedRoles={["supplier"]}>
               <Sells />
-            </ProtectedRoute>
+            </RoleProtectedRoute>
           }
         />
       </Route>
@@ -67,9 +100,9 @@ function App() {
       <Route
         path="/supplier-portal"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={["supplier"]}>
             <SupplierPortal />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
 
@@ -77,41 +110,41 @@ function App() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={["admin", "employee"]}>
             <InternalLayout>
               <Dashboard />
             </InternalLayout>
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/employees"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={["admin", "employee"]}>
             <InternalLayout>
               <Employees />
             </InternalLayout>
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/orders"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={["admin", "employee"]}>
             <InternalLayout>
               <Orders />
             </InternalLayout>
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
       <Route
         path="/suppliers"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={["admin", "employee"]}>
             <InternalLayout>
               <Suppliers />
             </InternalLayout>
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
 
@@ -119,11 +152,11 @@ function App() {
       <Route
         path="/internal"
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={["admin", "employee"]}>
             <InternalLayout>
               <Dashboard />
             </InternalLayout>
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       />
 

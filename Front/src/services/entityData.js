@@ -1,56 +1,141 @@
-import {
-  MOCK_EMPLOYEES_DETAILED,
-  MOCK_SUPPLIERS_DETAILED,
-  STORAGE_KEYS,
-  readStorageArray,
-  writeStorageArray,
-} from "@/services/mockDatabase";
+import { apiRequest } from "@/services/apiClient";
 
-function mergeById(records, defaults) {
-  const safeRecords = Array.isArray(records) ? records : [];
-  const safeDefaults = Array.isArray(defaults) ? defaults : [];
+let employeesCache = [];
+let suppliersCache = [];
 
-  const existingIds = new Set(safeRecords.map((item) => item?.id));
-  const missingDefaults = safeDefaults.filter((item) => !existingIds.has(item?.id));
-
-  return [...safeRecords, ...missingDefaults];
+function mapEmployeeFromApi(item) {
+  return {
+    id: item.id,
+    userId: item.user_id,
+    name: item.name || "",
+    phone: item.phone || "",
+    email: item.email || "",
+    ocupance: item.occupation || "",
+  };
 }
 
-function normalizeSupplierCodes(suppliers) {
-  const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
+function mapSupplierFromApi(item) {
+  const defaultPixType = item.is_pf ? "cpf" : "cnpj";
+  const pixKeyType = (item.pix_key_type || defaultPixType || "").toLowerCase();
 
-  let nextCode =
-    safeSuppliers.reduce((max, supplier) => {
-      const code = Number(supplier?.supplierCode);
-      if (!Number.isFinite(code) || code < 200) return max;
-      return Math.max(max, code);
-    }, 199) + 1;
+  return {
+    id: item.id,
+    userId: item.user_id,
+    supplierCode: item.supplier_code,
+    personType: item.is_pf ? "PF" : "PJ",
+    name: item.name || "",
+    companyName: item.company_name || "",
+    cpf: item.cpf || "",
+    cnpj: item.cnpj || "",
+    vehiclePlate: item.vehicle_plate || "",
+    referenceAddress: item.reference_address || "",
+    email: item.email || "",
+    phone: item.phone || "",
+    pixKeyType,
+  };
+}
 
-  return safeSuppliers.map((supplier) => {
-    const code = Number(supplier?.supplierCode);
-    if (Number.isFinite(code) && code >= 200) return supplier;
+function mapEmployeeToApi(payload) {
+  return {
+    name: payload.name,
+    phone: payload.phone,
+    occupation: payload.ocupance,
+    email: payload.email,
+    ...(payload.password ? { password: payload.password } : {}),
+  };
+}
 
-    const normalized = { ...supplier, supplierCode: nextCode };
-    nextCode += 1;
-    return normalized;
-  });
+function mapSupplierToApi(payload) {
+  const isPf = payload.personType === "PF";
+  const allowedPixTypes = isPf ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+  const normalizedPixType = (payload.pixKeyType || "").toLowerCase();
+  const pixKeyType = allowedPixTypes.includes(normalizedPixType)
+    ? normalizedPixType
+    : isPf
+      ? "cpf"
+      : "cnpj";
+
+  return {
+    is_pf: isPf,
+    name: isPf ? payload.name : payload.companyName,
+    company_name: isPf ? null : payload.companyName,
+    cpf: isPf ? payload.cpf : null,
+    cnpj: isPf ? null : payload.cnpj,
+    vehicle_plate: payload.vehiclePlate,
+    reference_address: payload.referenceAddress,
+    email: payload.email,
+    phone: payload.phone,
+    pix_key_type: pixKeyType,
+    ...(payload.password ? { password: payload.password } : {}),
+  };
 }
 
 export function getStoredEmployees() {
-  const stored = readStorageArray(STORAGE_KEYS.employees, MOCK_EMPLOYEES_DETAILED);
-  return mergeById(stored, MOCK_EMPLOYEES_DETAILED);
-}
-
-export function saveEmployees(employees) {
-  writeStorageArray(STORAGE_KEYS.employees, employees);
+  return [...employeesCache];
 }
 
 export function getStoredSuppliers() {
-  const stored = readStorageArray(STORAGE_KEYS.suppliers, MOCK_SUPPLIERS_DETAILED);
-  const merged = mergeById(stored, MOCK_SUPPLIERS_DETAILED);
-  return normalizeSupplierCodes(merged);
+  return [...suppliersCache];
+}
+
+export function saveEmployees(employees) {
+  employeesCache = Array.isArray(employees) ? [...employees] : [];
 }
 
 export function saveSuppliers(suppliers) {
-  writeStorageArray(STORAGE_KEYS.suppliers, suppliers);
+  suppliersCache = Array.isArray(suppliers) ? [...suppliers] : [];
+}
+
+export async function fetchEmployees() {
+  const payload = await apiRequest("/employees", { method: "GET" });
+  const employees = (payload?.data || []).map(mapEmployeeFromApi);
+  saveEmployees(employees);
+  return employees;
+}
+
+export async function createEmployee(payload) {
+  const response = await apiRequest("/employees", {
+    method: "POST",
+    body: JSON.stringify(mapEmployeeToApi(payload)),
+  });
+  return mapEmployeeFromApi(response.data);
+}
+
+export async function updateEmployee(employeeId, payload) {
+  const response = await apiRequest(`/employees/${employeeId}`, {
+    method: "PUT",
+    body: JSON.stringify(mapEmployeeToApi(payload)),
+  });
+  return mapEmployeeFromApi(response.data);
+}
+
+export async function deleteEmployee(employeeId) {
+  await apiRequest(`/employees/${employeeId}`, { method: "DELETE" });
+}
+
+export async function fetchSuppliers() {
+  const payload = await apiRequest("/suppliers", { method: "GET" });
+  const suppliers = (payload?.data || []).map(mapSupplierFromApi);
+  saveSuppliers(suppliers);
+  return suppliers;
+}
+
+export async function createSupplier(payload) {
+  const response = await apiRequest("/suppliers", {
+    method: "POST",
+    body: JSON.stringify(mapSupplierToApi(payload)),
+  });
+  return mapSupplierFromApi(response.data);
+}
+
+export async function updateSupplier(supplierId, payload) {
+  const response = await apiRequest(`/suppliers/${supplierId}`, {
+    method: "PUT",
+    body: JSON.stringify(mapSupplierToApi(payload)),
+  });
+  return mapSupplierFromApi(response.data);
+}
+
+export async function deleteSupplier(supplierId) {
+  await apiRequest(`/suppliers/${supplierId}`, { method: "DELETE" });
 }

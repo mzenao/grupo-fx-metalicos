@@ -7,7 +7,7 @@ import {
 	Clock3,
 	Receipt,
 } from "lucide-react";
-import { getStoredPurchases } from "@/services/ordersData";
+import { fetchPurchases } from "@/services/ordersData";
 
 const fmtMoney = (value) =>
 	Number(value || 0).toLocaleString("pt-BR", {
@@ -26,7 +26,22 @@ export default function Dashboard() {
 	const navigate = useNavigate();
 	const [activeCard, setActiveCard] = useState("resumo-dia");
 	const [showAllMovements, setShowAllMovements] = useState(false);
-	const purchases = useMemo(() => getStoredPurchases(), []);
+	const [purchases, setPurchases] = useState([]);
+
+	useEffect(() => {
+		let mounted = true;
+		fetchPurchases()
+			.then((data) => {
+				if (mounted) setPurchases(data);
+			})
+			.catch(() => {
+				if (mounted) setPurchases([]);
+			});
+
+		return () => {
+			mounted = false;
+		};
+	}, []);
 
 	const openPurchaseInOrders = (purchaseId) => {
 		navigate(`/orders#${purchaseId}`);

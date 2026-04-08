@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { login } from "@/services/authApi";
 
 export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -10,7 +11,7 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -26,28 +27,11 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
 
     setLoading(true);
     try {
-      // Buscar usuário registrado em localStorage
-      const registeredUsers = JSON.parse(localStorage.getItem("fx_registered_users") || "[]");
-      const user = registeredUsers.find((u) => u.email === form.email);
-
-      if (!user) {
-        setError("Email não encontrado. Por favor, crie uma conta.");
-        setLoading(false);
-        return;
-      }
-
-      if (user.password !== form.password) {
-        setError("Senha incorreta.");
-        setLoading(false);
-        return;
-      }
-
-      // Login bem-sucedido
-      localStorage.setItem("fx_active_user_id", user.id);
+      const user = await login(form.email.trim(), form.password);
       onSuccess?.(user);
       onClose();
     } catch (err) {
-      setError("Erro ao fazer login. Por favor, tente novamente.");
+      setError(err?.message || "Erro ao fazer login. Por favor, tente novamente.");
     } finally {
       setLoading(false);
     }

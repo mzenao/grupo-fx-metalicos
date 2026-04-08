@@ -11,18 +11,51 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmployeeModal from "@/components/internal/employeeModal.jsx";
-import { getStoredEmployees, saveEmployees } from "@/services/entityData";
+import ErrorModal from "@/components/internal/errorModal";
+import ConfirmDeleteModal from "@/components/internal/confirmDeleteModal";
+import {
+	createEmployee,
+	deleteEmployee,
+	fetchEmployees,
+	updateEmployee,
+} from "@/services/entityData";
+import { fetchPurchases } from "@/services/ordersData";
 
 export default function Employees() {
-	const [employees, setEmployees] = useState(() => getStoredEmployees());
+	const [employees, setEmployees] = useState([]);
+	const [loading, setLoading] = useState(false);
+	const [purchases, setPurchases] = useState([]);
 	const [search, setSearch] = useState("");
 	const [showModal, setShowModal] = useState(false);
 	const [editingEmployee, setEditingEmployee] = useState(null);
 	const [showAllEmployees, setShowAllEmployees] = useState(false);
+	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null });
+	const [deleting, setDeleting] = useState(false);
+	const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
 
 	useEffect(() => {
-		saveEmployees(employees);
-	}, [employees]);
+		let mounted = true;
+		setLoading(true);
+		Promise.all([fetchEmployees(), fetchPurchases()])
+			.then(([employeesData, purchasesData]) => {
+				if (mounted) setEmployees(employeesData);
+				if (mounted) setPurchases(purchasesData);
+			})
+			.catch((err) => {
+				setErrorModal({
+					open: true,
+					title: "Erro ao carregar",
+					message: err?.message || "Erro ao carregar funcionarios",
+				});
+			})
+			.finally(() => {
+				if (mounted) setLoading(false);
+			});
+
+		return () => {
+			mounted = false;
+		};
+	}, []);
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -47,23 +80,45 @@ export default function Employees() {
 		return filtered.slice(0, 5);
 	}, [filtered, showAllEmployees]);
 
-	const handleDelete = (id) => {
-		if (!window.confirm("Remover este funcionario?")) return;
-		setEmployees((prev) => prev.filter((e) => e.id !== id));
+	const handleDeleteConfirm = async () => {
+		const id = confirmDelete.id;
+		if (!id) return;
+
+		const hasSales = purchases.some((purchase) => String(purchase.employeeId) === String(id));
+		if (hasSales) {
+			setConfirmDelete({ open: false, id: null });
+			setErrorModal({
+				open: true,
+				title: "Exclusao nao permitida",
+				message: "Nao e possivel excluir funcionario com vendas registradas.",
+			});
+			return;
+		}
+
+		setDeleting(true);
+		try {
+			await deleteEmployee(id);
+			setEmployees((prev) => prev.filter((e) => e.id !== id));
+			setConfirmDelete({ open: false, id: null });
+		} catch (err) {
+			setErrorModal({
+				open: true,
+				title: "Erro ao remover",
+				message: err?.message || "Erro ao remover funcionario",
+			});
+		} finally {
+			setDeleting(false);
+		}
 	};
 
-	const handleSave = (employeeData) => {
+	const handleSave = async (employeeData) => {
 		if (employeeData?.id) {
+			const updated = await updateEmployee(employeeData.id, employeeData);
 			setEmployees((prev) =>
-				prev
-					.map((e) => (e.id === employeeData.id ? { ...e, ...employeeData } : e))
-					.sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+				prev.map((e) => (e.id === updated.id ? updated : e)).sort((a, b) => (a.name || "").localeCompare(b.name || ""))
 			);
 		} else {
-			const nextId =
-				employees.length > 0 ? Math.max(...employees.map((e) => Number(e.id) || 0)) + 1 : 1;
-
-			const newEmployee = { ...employeeData, id: nextId };
+			const newEmployee = await createEmployee(employeeData);
 			setEmployees((prev) =>
 				[...prev, newEmployee].sort((a, b) => (a.name || "").localeCompare(b.name || ""))
 			);
@@ -98,7 +153,9 @@ export default function Employees() {
 			</div>
 
 			<section className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
-				{filtered.length === 0 ? (
+				{loading ? (
+					<div className="text-center py-16 text-gray-400">Carregando...</div>
+				) : filtered.length === 0 ? (
 					<div className="text-center py-16 text-gray-400">
 						<Users className="w-12 h-12 mx-auto mb-3 opacity-40" />
 						<p>Nenhum funcionario encontrado</p>
@@ -152,7 +209,7 @@ export default function Employees() {
 									<Button
 										variant="ghost"
 										size="icon"
-										onClick={() => handleDelete(employee.id)}
+										onClick={() => setConfirmDelete({ open: true, id: employee.id })}
 										className="w-8 h-8 text-gray-400 hover:text-red-500"
 									>
 										<Trash2 className="w-4 h-4" />
@@ -198,6 +255,22 @@ export default function Employees() {
 					onSave={handleSave}
 				/>
 			)}
+
+			<ConfirmDeleteModal
+				open={confirmDelete.open}
+				title="Excluir funcionario"
+				message="Tem certeza que deseja excluir este funcionario? Esta acao nao pode ser desfeita."
+				onCancel={() => setConfirmDelete({ open: false, id: null })}
+				onConfirm={handleDeleteConfirm}
+				loading={deleting}
+			/>
+
+			<ErrorModal
+				open={errorModal.open}
+				title={errorModal.title}
+				message={errorModal.message}
+				onClose={() => setErrorModal((prev) => ({ ...prev, open: false }))}
+			/>
 		</div>
 	);
 }

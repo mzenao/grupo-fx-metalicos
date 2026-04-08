@@ -17,11 +17,15 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
 			phone: "",
 			email: "",
 			password: "",
-			ocupance: "Auxiliar de Consultorio",
+			ocupance: ROLES[0],
 		};
 
 		if (!employee) return base;
-		return { ...base, ...employee, password: "" };
+		const next = { ...base, ...employee, password: "" };
+		if (!ROLES.includes(next.ocupance)) {
+			next.ocupance = ROLES[0];
+		}
+		return next;
 	}, [employee]);
 
 	const [form, setForm] = useState(initial);

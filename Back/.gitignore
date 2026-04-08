@@ -4,6 +4,7 @@
 .env
 .env.*
 !.env.example
+.envrc
 
 # ================================
 # PYTHON
@@ -66,3 +67,16 @@ htmlcov/
 *.dump
 *.sql
 backups/
+
+# ================================
+# CREDENCIAIS / CERTIFICADOS
+# ================================
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*credentials*.json
+secrets/

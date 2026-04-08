@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { ptBR } from "date-fns/locale";
-import { materialTypes } from "@/services/mockDatabase";
 import {
 	Search,
 	PackagePlus,
@@ -16,12 +15,21 @@ import {
 	Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import SuccessModal from "@/components/internal/successModal";
+import ErrorModal from "@/components/internal/errorModal";
+import ConfirmDeleteModal from "@/components/internal/confirmDeleteModal";
 import {
-	EMPLOYEES,
-	getStoredPurchases,
-	savePurchases,
+	createPurchaseWithAttachments,
+	deletePurchase,
+	fetchMaterialTypes,
+	fetchPurchases,
+	sendPurchaseComprovantes,
+	updatePurchase,
 } from "@/services/ordersData";
-import { getStoredSuppliers } from "@/services/entityData";
+import {
+	fetchEmployees,
+	fetchSuppliers,
+} from "@/services/entityData";
 import "react-datepicker/dist/react-datepicker.css";
 
 registerLocale("pt-BR", ptBR);
@@ -53,6 +61,15 @@ function formatSupplierLabel(supplier) {
 	if (!Number.isFinite(code) || code < 200) return baseName;
 
 	return `${baseName} #${code}`;
+}
+
+function formatPurchaseSupplierName(purchase, suppliersById) {
+	const supplier = suppliersById.get(purchase?.SupplierId);
+	if (supplier) {
+		return supplier.personType === "PF" ? supplier.name : supplier.companyName;
+	}
+
+	return purchase?.SupplierName || "Fornecedor";
 }
 
 function SearchSelect({ label, placeholder, options, selectedId, onSelect }) {
@@ -131,7 +148,10 @@ export default function Orders() {
 	const [attachments, setAttachments] = useState([]);
 	const [dragActive, setDragActive] = useState(false);
 	const [error, setError] = useState("");
-	const [purchases, setPurchases] = useState(() => getStoredPurchases());
+	const [purchases, setPurchases] = useState([]);
+	const [suppliers, setSuppliers] = useState([]);
+	const [employeesOptions, setEmployeesOptions] = useState([]);
+	const [materialTypeOptions, setMaterialTypeOptions] = useState([]);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
 	const [showAllPurchases, setShowAllPurchases] = useState(Boolean(hashId));
 	const [editingPurchaseId, setEditingPurchaseId] = useState(null);
@@ -146,14 +166,46 @@ export default function Orders() {
 	const [editAttachments, setEditAttachments] = useState([]);
 	const [editDragActive, setEditDragActive] = useState(false);
 	const [editError, setEditError] = useState("");
+	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null });
+	const [deletingPurchase, setDeletingPurchase] = useState(false);
+	const [infoModal, setInfoModal] = useState({ open: false, title: "", message: "" });
+	const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
+	const [sendingPurchaseId, setSendingPurchaseId] = useState(null);
 	const editFileInputRef = useRef(null);
 
+	useEffect(() => {
+		let mounted = true;
+
+		Promise.resolve()
+			.then(async () => {
+				const [employeesData, suppliersData, materialTypesData] = await Promise.all([
+					fetchEmployees(),
+					fetchSuppliers(),
+					fetchMaterialTypes(),
+				]);
+				const purchasesData = await fetchPurchases();
+
+				if (!mounted) return;
+				setSuppliers(suppliersData);
+				setEmployeesOptions(employeesData.map((item) => ({ id: item.id, label: item.name })));
+				setMaterialTypeOptions(materialTypesData);
+				setPurchases(purchasesData);
+			})
+			.catch((err) => {
+				setError(err?.message || "Erro ao carregar dados");
+			});
+
+		return () => {
+			mounted = false;
+		};
+	}, []);
+
 	const supplierOptions = useMemo(() => {
-		return getStoredSuppliers().map((supplier) => ({
+		return suppliers.map((supplier) => ({
 			id: supplier.id,
 			label: formatSupplierLabel(supplier),
 		}));
-	}, []);
+	}, [suppliers]);
 
 	const supplierLabelById = useMemo(() => {
 		const map = new Map();
@@ -163,9 +215,13 @@ export default function Orders() {
 		return map;
 	}, [supplierOptions]);
 
-	useEffect(() => {
-		savePurchases(purchases);
-	}, [purchases]);
+	const suppliersById = useMemo(() => {
+		const map = new Map();
+		suppliers.forEach((supplier) => {
+			map.set(supplier.id, supplier);
+		});
+		return map;
+	}, [suppliers]);
 
 	const hashPurchase = useMemo(() => {
 		if (!hashId) return null;
@@ -193,6 +249,88 @@ export default function Orders() {
 
 			return [...prev, ...newOnes];
 		});
+	};
+
+	const handleDeletePurchaseConfirm = async () => {
+		const purchaseId = confirmDelete.id;
+		if (!purchaseId) return;
+
+		setDeletingPurchase(true);
+		try {
+			await deletePurchase(purchaseId);
+			const refreshedPurchases = await fetchPurchases();
+			setPurchases(refreshedPurchases);
+			setConfirmDelete({ open: false, id: null });
+			setIsEditOpen(false);
+			setEditingPurchaseId(null);
+		} catch (err) {
+			setErrorModal({
+				open: true,
+				title: "Erro ao remover",
+				message: err?.message || "Erro ao remover compra.",
+			});
+		} finally {
+			setDeletingPurchase(false);
+		}
+	};
+
+	const handleSendComprovantes = async (purchase) => {
+		if (!purchase?.id) return;
+
+		const supplierName = formatPurchaseSupplierName(purchase, suppliersById);
+		const attachmentCount = purchase.attachments?.length || 0;
+
+		if (!purchase.attachments?.length) {
+			setErrorModal({
+				open: true,
+				title: "Comprovantes ausentes",
+				message: `A compra #${purchase.id} do fornecedor ${supplierName} não possui comprovantes anexados.`,
+			});
+			return;
+		}
+
+		setSendingPurchaseId(purchase.id);
+		try {
+			const sendResult = await sendPurchaseComprovantes(purchase.id);
+			const sentByWhatsapp = Boolean(sendResult?.text_sent);
+			const sentByEmail = Boolean(sendResult?.email_sent);
+			const sentByBoth = sentByWhatsapp && sentByEmail;
+			const emailError = sendResult?.email_error;
+
+			if (sentByBoth) {
+				setInfoModal({
+					open: true,
+					title: "Comprovantes enviados com sucesso",
+					message: `${attachmentCount} comprovante(s) da compra #${purchase.id} do fornecedor ${supplierName} enviados com sucesso por WhatsApp e Email.`,
+				});
+				return;
+			}
+
+			if (sentByWhatsapp && !sentByEmail) {
+				setErrorModal({
+					open: true,
+					title: "Envio parcial",
+					message:
+						emailError ||
+						`Comprovantes enviados no WhatsApp, mas o envio por Email falhou para a compra #${purchase.id} do fornecedor ${supplierName}.`,
+				});
+				return;
+			}
+
+			setErrorModal({
+				open: true,
+				title: "Falha no envio",
+				message: `Não foi possível confirmar o envio completo (WhatsApp + Email) dos comprovantes da compra #${purchase.id} do fornecedor ${supplierName}.`,
+			});
+		} catch (err) {
+			setErrorModal({
+				open: true,
+				title: "Falha no envio",
+				message: err?.message || `Não foi possível enviar os comprovantes da compra #${purchase.id} do fornecedor ${supplierName}.`,
+			});
+		} finally {
+			setSendingPurchaseId(null);
+		}
 	};
 
 	const removeAttachment = (index) => {
@@ -345,7 +483,7 @@ export default function Orders() {
 		setEditAttachments((prev) => prev.filter((_, i) => i !== index));
 	};
 
-	const handleEditSubmit = (e) => {
+	const handleEditSubmit = async (e) => {
 		e.preventDefault();
 		setEditError("");
 
@@ -361,6 +499,11 @@ export default function Orders() {
 
 		if (!editEmployeeId) {
 			setEditError("Selecione o funcionario responsavel.");
+			return;
+		}
+
+		if (!editMaterialTypeId) {
+			setEditError("Selecione o tipo de sucata.");
 			return;
 		}
 
@@ -389,33 +532,26 @@ export default function Orders() {
 			return;
 		}
 
-		const selectedSupplier = supplierOptions.find((item) => item.id === editSupplierId);
-		const selectedEmployee = EMPLOYEES.find((item) => item.id === editEmployeeId);
+		try {
+			await updatePurchase(editingPurchaseId, {
+				supplier_id: editSupplierId,
+				employee_id: editEmployeeId,
+				material_type_id: editMaterialTypeId,
+				weight: editWeight,
+				value: editTotalValue,
+				purchase_datetime: editDatetime.toISOString(),
+			});
 
-		setPurchases((prev) =>
-			prev.map((purchase) =>
-				purchase.id === editingPurchaseId
-					? {
-						...purchase,
-						SupplierId: editSupplierId,
-						SupplierName: selectedSupplier?.label || "",
-						employeeId: editEmployeeId,
-						employeeName: selectedEmployee?.label || "",
-						materialTypeId: editMaterialTypeId,
-						materialTypeName:
-							materialTypes.find((item) => item.id === editMaterialTypeId)?.label || "",
-						weight: editWeight,
-						valuePerKg: editValuePerKg,
-						value: editTotalValue,
-						datetime: editDatetime.toISOString(),
-						attachmentNames: [...editAttachments],
-					}
-					: purchase
-			)
-		);
+			const refreshedPurchases = await fetchPurchases();
+			setPurchases(refreshedPurchases);
+			setIsEditOpen(false);
+			setEditingPurchaseId(null);
+		} catch (err) {
+			setEditError(err?.message || "Erro ao atualizar compra.");
+		}
 	};
 
-	const handleSubmit = (e) => {
+	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setError("");
 
@@ -426,6 +562,11 @@ export default function Orders() {
 
 		if (!employeeId) {
 			setError("Selecione o funcionario responsavel.");
+			return;
+		}
+
+		if (!materialTypeId) {
+			setError("Selecione o tipo de sucata.");
 			return;
 		}
 
@@ -454,37 +595,33 @@ export default function Orders() {
 			return;
 		}
 
-		const selectedSupplier = supplierOptions.find((item) => item.id === SupplierId);
-		const selectedEmployee = EMPLOYEES.find((item) => item.id === employeeId);
+		try {
+			await createPurchaseWithAttachments({
+				purchasePayload: {
+				supplier_id: SupplierId,
+				employee_id: employeeId,
+				material_type_id: materialTypeId,
+				weight,
+				value: totalValue,
+				purchase_datetime: datetime.toISOString(),
+				},
+				files: attachments,
+			});
 
-		const nextId = purchases.length > 0 ? Math.max(...purchases.map((p) => p.id)) + 1 : 1;
-
-		const newPurchase = {
-			id: nextId,
-			SupplierId,
-			SupplierName: selectedSupplier?.label || "",
-			employeeId,
-			employeeName: selectedEmployee?.label || "",
-			materialTypeId,
-			materialTypeName:
-				materialTypes.find((item) => item.id === materialTypeId)?.label || "",
-			weight,
-			valuePerKg,
-			value: totalValue,
-			datetime: datetime.toISOString(),
-			attachmentNames: attachments.map((file) => file.name),
-		};
-
-		setPurchases((prev) => [newPurchase, ...prev]);
-		setSupplierId(null);
-		setEmployeeId(null);
-		setMaterialTypeId(null);
-		setWeight("");
-		setValuePerKg("");
-		setTotalValue("");
-		setDatetime(null);
-		setAttachments([]);
-		setIsCreateOpen(false);
+			const refreshedPurchases = await fetchPurchases();
+			setPurchases(refreshedPurchases);
+			setSupplierId(null);
+			setEmployeeId(null);
+			setMaterialTypeId(null);
+			setWeight("");
+			setValuePerKg("");
+			setTotalValue("");
+			setDatetime(null);
+			setAttachments([]);
+			setIsCreateOpen(false);
+		} catch (err) {
+			setError(err?.message || "Erro ao salvar compra.");
+		}
 	};
 
 	return (
@@ -535,7 +672,7 @@ export default function Orders() {
 						<SearchSelect
 							label="Funcionario responsavel"
 							placeholder="Pesquisar funcionario..."
-							options={EMPLOYEES}
+							options={employeesOptions}
 							selectedId={employeeId}
 							onSelect={setEmployeeId}
 						/>
@@ -560,7 +697,7 @@ export default function Orders() {
 							<SearchSelect
 								label="Tipo de sucata"
 								placeholder="Pesquisar tipo de sucata..."
-								options={materialTypes}
+								options={materialTypeOptions}
 								selectedId={materialTypeId}
 								onSelect={setMaterialTypeId}
 							/>
@@ -686,8 +823,11 @@ export default function Orders() {
 						<Button
 							type="button"
 							variant="outline"
-							onClick={() => window.alert("Funcao de envio automatico sera implementada futuramente.")}
-							className="border-[#c7a04a] text-[#6a521f] hover:bg-[#f5e7c0] gap-2"
+							onClick={() => setInfoModal({
+								open: true,
+								title: "Salvar compra primeiro",
+								message: "Para enviar comprovantes, primeiro salve a compra com seus anexos.",
+							})}
 						>
 							<Send className="w-4 h-4" /> Enviar comprovantes no WhatsApp/Email
 						</Button>
@@ -735,7 +875,7 @@ export default function Orders() {
 										<p><span className="text-gray-500">Fornecedor:</span> {supplierLabelById.get(purchase.SupplierId) || purchase.SupplierName}</p>
 										<p><span className="text-gray-500">Funcionario:</span> {purchase.employeeName}</p>
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
-										<p><span className="text-gray-500">Tipo de Sucata:</span> {materialTypes.find((t) => t.id === purchase.materialTypeId)?.label || "Não especificado"}</p>
+										<p><span className="text-gray-500">Tipo de Sucata:</span> {materialTypeOptions.find((t) => t.id === purchase.materialTypeId)?.label || "Não especificado"}</p>
 										<p><span className="text-gray-500">Valor/kg:</span> {Number(purchase.valuePerKg || (Number(purchase.value) / Number(purchase.weight) || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 										<p><span className="text-gray-500">Valor total:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 									</div>
@@ -765,7 +905,7 @@ export default function Orders() {
 												<SearchSelect
 													label="Funcionario responsavel"
 													placeholder="Pesquisar funcionario..."
-													options={EMPLOYEES}
+													options={employeesOptions}
 													selectedId={editEmployeeId}
 													onSelect={setEditEmployeeId}
 												/>
@@ -790,7 +930,7 @@ export default function Orders() {
 													<SearchSelect
 														label="Tipo de sucata"
 														placeholder="Pesquisar tipo de sucata..."
-														options={materialTypes}
+														options={materialTypeOptions}
 														selectedId={editMaterialTypeId}
 														onSelect={setEditMaterialTypeId}
 													/>
@@ -915,10 +1055,19 @@ export default function Orders() {
 												<Button
 													type="button"
 													variant="outline"
-													onClick={() => window.alert("Funcao de envio automatico sera implementada futuramente.")}
-													className="border-[#c7a04a] text-[#6a521f] hover:bg-[#f5e7c0] gap-2"
+													onClick={() => handleSendComprovantes(purchase)}
+													disabled={sendingPurchaseId === purchase.id}
 												>
-													<Send className="w-4 h-4" /> Enviar comprovantes no WhatsApp/Email
+													<Send className="w-4 h-4" /> {sendingPurchaseId === purchase.id ? "Enviando..." : "Enviar comprovantes no WhatsApp/Email"}
+												</Button>
+
+												<Button
+													type="button"
+													variant="outline"
+													onClick={() => setConfirmDelete({ open: true, id: purchase.id })}
+													className="border-red-300 text-red-700 hover:bg-red-50"
+												>
+													Excluir compra
 												</Button>
 											</div>
 										</form>
@@ -953,6 +1102,29 @@ export default function Orders() {
 					)}
 				</div>
 			</section>
+
+			<SuccessModal
+				open={infoModal.open}
+				title={infoModal.title}
+				message={infoModal.message}
+				onClose={() => setInfoModal((prev) => ({ ...prev, open: false }))}
+			/>
+
+			<ErrorModal
+				open={errorModal.open}
+				title={errorModal.title}
+				message={errorModal.message}
+				onClose={() => setErrorModal((prev) => ({ ...prev, open: false }))}
+			/>
+
+			<ConfirmDeleteModal
+				open={confirmDelete.open}
+				title="Excluir compra"
+				message="Tem certeza que deseja excluir esta compra? Esta acao nao pode ser desfeita."
+				onCancel={() => setConfirmDelete({ open: false, id: null })}
+				onConfirm={handleDeletePurchaseConfirm}
+				loading={deletingPurchase}
+			/>
 		</div>
 	);
 }

@@ -4,10 +4,32 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
 
+function formatPixValue(pixKeyType, form) {
+	const type = (pixKeyType || "").toLowerCase();
+	const digits = (value) => String(value || "").replace(/\D/g, "");
+
+	if (type === "cpf") {
+		const cpf = digits(form.cpf).slice(0, 11);
+		if (cpf.length !== 11) return "";
+		return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+	}
+
+	if (type === "cnpj") {
+		const cnpj = digits(form.cnpj).slice(0, 14);
+		if (cnpj.length !== 14) return "";
+		return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+	}
+
+	if (type === "phone") return form.phone || "";
+	if (type === "email") return form.email || "";
+	return "";
+}
+
 export default function SupplierModal({ Supplier, onClose, onSave }) {
 	const initial = useMemo(() => {
 		const base = {
 			personType: "PF",
+			pixKeyType: "cpf",
 			name: "",
 			companyName: "",
 			cpf: "",
@@ -20,12 +42,18 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 		};
 
 		if (!Supplier) return base;
-		return { ...base, ...Supplier, password: "" };
+		const next = { ...base, ...Supplier, password: "" };
+		const allowedPixTypes = next.personType === "PF" ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+		if (!allowedPixTypes.includes((next.pixKeyType || "").toLowerCase())) {
+			next.pixKeyType = next.personType === "PF" ? "cpf" : "cnpj";
+		}
+		return next;
 	}, [Supplier]);
 
 	const [form, setForm] = useState(initial);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
+	const pixValue = formatPixValue(form.pixKeyType, form);
 
 	const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -33,6 +61,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 		setForm((prev) => ({
 			...prev,
 			personType: nextType,
+			pixKeyType: nextType === "PF" ? "cpf" : "cnpj",
 			name: nextType === "PF" ? prev.name : "",
 			cpf: nextType === "PF" ? prev.cpf : "",
 			companyName: nextType === "PJ" ? prev.companyName : "",
@@ -96,6 +125,12 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 
 		if (!Supplier && (form.password || "").length < 6) {
 			setError("A senha precisa ter no minimo 6 caracteres.");
+			return;
+		}
+
+		const allowedPixTypes = form.personType === "PF" ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+		if (!allowedPixTypes.includes(form.pixKeyType)) {
+			setError("Selecione uma opcao valida para chave Pix.");
 			return;
 		}
 
@@ -259,6 +294,35 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								/>
 							</div>
 
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Tipo da chave Pix *</label>
+								<PixTypeSelect
+									value={form.pixKeyType}
+									onChange={(value) => set("pixKeyType", value)}
+									options={form.personType === "PF"
+										? [
+											{ value: "cpf", label: "CPF" },
+											{ value: "phone", label: "Telefone" },
+											{ value: "email", label: "Email" },
+										]
+										: [
+											{ value: "cnpj", label: "CNPJ" },
+											{ value: "phone", label: "Telefone" },
+											{ value: "email", label: "Email" },
+										]}
+								/>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Chave Pix</label>
+								<input
+									type="text"
+									readOnly
+									value={pixValue || ""}
+									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-gray-50 text-[#4a3918]"
+								/>
+							</div>
+
 							{!Supplier && (
 								<div className="sm:col-span-2 sm:max-w-sm sm:mx-auto w-full mt-1">
 									<label className="block text-sm font-medium mb-1 text-[#4a3918]">Senha para login *</label>
@@ -286,6 +350,41 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 					</form>
 				</motion.div>
 			</AnimatePresence>
+		</div>
+	);
+}
+
+function PixTypeSelect({ value, onChange, options }) {
+	const [open, setOpen] = useState(false);
+	const selected = options.find((option) => option.value === value) || options[0];
+
+	return (
+		<div className="relative" tabIndex={0} onBlur={() => setTimeout(() => setOpen(false), 120)}>
+			<button
+				type="button"
+				onClick={() => setOpen((prev) => !prev)}
+				className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white text-left outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+			>
+				{selected?.label || "Selecione"}
+			</button>
+
+			{open && (
+				<div className="absolute z-20 mt-1 w-full bg-white border border-amber-200 rounded-lg shadow-md overflow-hidden">
+					{options.map((option) => (
+						<button
+							key={option.value}
+							type="button"
+							onClick={() => {
+								onChange(option.value);
+								setOpen(false);
+							}}
+							className="w-full text-left px-3 py-2 text-sm text-gray-900 hover:bg-amber-500/25"
+						>
+							{option.label}
+						</button>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

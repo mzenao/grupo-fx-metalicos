@@ -14,13 +14,42 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import SupplierModal from "@/components/internal/supplierModal.jsx";
 import ViewSells from "@/components/internal/viewSells.jsx";
-import { getStoredSuppliers, saveSuppliers } from "@/services/entityData";
-import { getStoredPurchases } from "@/services/ordersData";
+import ErrorModal from "@/components/internal/errorModal";
+import ConfirmDeleteModal from "@/components/internal/confirmDeleteModal";
+import {
+	createSupplier,
+	deleteSupplier,
+	fetchSuppliers,
+	updateSupplier,
+} from "@/services/entityData";
+import { fetchPurchases } from "@/services/ordersData";
 
 const personTypeBadge = {
 	PF: "bg-sky-100 text-sky-800",
 	PJ: "bg-amber-100 text-amber-800",
 };
+
+function formatSupplierPix(supplier) {
+	if (!supplier) return "";
+	const keyType = (supplier.pixKeyType || (supplier.personType === "PF" ? "cpf" : "cnpj")).toLowerCase();
+	const digits = (value) => String(value || "").replace(/\D/g, "");
+
+	if (keyType === "cpf") {
+		const cpf = digits(supplier.cpf).slice(0, 11);
+		if (cpf.length !== 11) return "";
+		return `(CPF) ${cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")}`;
+	}
+
+	if (keyType === "cnpj") {
+		const cnpj = digits(supplier.cnpj).slice(0, 14);
+		if (cnpj.length !== 14) return "";
+		return `(CNPJ) ${cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")}`;
+	}
+
+	if (keyType === "phone") return `(PHONE)${supplier.phone || ""}`;
+	if (keyType === "email") return `(EMAIL)${supplier.email || ""}`;
+	return "";
+}
 
 function getNextSupplierCode(suppliers) {
 	const maxCode = (Array.isArray(suppliers) ? suppliers : []).reduce((max, supplier) => {
@@ -34,19 +63,46 @@ function getNextSupplierCode(suppliers) {
 
 export default function Suppliers() {
 	const navigate = useNavigate();
-	const [suppliers, setSuppliers] = useState(() => getStoredSuppliers());
+	const [suppliers, setSuppliers] = useState([]);
+	const [purchases, setPurchases] = useState([]);
 	const [search, setSearch] = useState("");
 	const [showModal, setShowModal] = useState(false);
 	const [editingSupplier, setEditingSupplier] = useState(null);
 	const [expandedId, setExpandedId] = useState(null);
 	const [salesSupplier, setSalesSupplier] = useState(null);
+	const [loading, setLoading] = useState(false);
+	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null });
+	const [deleting, setDeleting] = useState(false);
+	const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
 
 	useEffect(() => {
-		saveSuppliers(suppliers);
-	}, [suppliers]);
+		let mounted = true;
+		setLoading(true);
+
+		Promise.all([fetchSuppliers(), fetchPurchases()])
+			.then(([suppliersData, purchasesData]) => {
+				if (mounted) {
+					setSuppliers(suppliersData);
+					setPurchases(purchasesData);
+				}
+			})
+			.catch((err) => {
+				setErrorModal({
+					open: true,
+					title: "Erro ao carregar",
+					message: err?.message || "Erro ao carregar fornecedores",
+				});
+			})
+			.finally(() => {
+				if (mounted) setLoading(false);
+			});
+
+		return () => {
+			mounted = false;
+		};
+	}, []);
 
 	const purchasesBySupplierId = useMemo(() => {
-		const purchases = getStoredPurchases();
 		const grouped = new Map();
 
 		purchases.forEach((purchase) => {
@@ -63,7 +119,7 @@ export default function Suppliers() {
 		});
 
 		return grouped;
-	}, []);
+	}, [purchases]);
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -89,18 +145,46 @@ export default function Suppliers() {
 		});
 	}, [suppliers, search]);
 
-	const handleDelete = (id) => {
-		if (!window.confirm("Remover este Fornecedor?")) return;
-		setSuppliers((prev) => prev.filter((supplier) => supplier.id !== id));
-		setExpandedId((prev) => (prev === id ? null : prev));
+	const handleDeleteConfirm = async () => {
+		const id = confirmDelete.id;
+		if (!id) return;
+
+		const hasSales = (purchasesBySupplierId.get(id) || []).length > 0;
+		if (hasSales) {
+			setConfirmDelete({ open: false, id: null });
+			setErrorModal({
+				open: true,
+				title: "Exclusao nao permitida",
+				message: "Nao e possivel excluir fornecedor com vendas registradas.",
+			});
+			return;
+		}
+
+		setDeleting(true);
+		try {
+			await deleteSupplier(id);
+			setSuppliers((prev) => prev.filter((supplier) => supplier.id !== id));
+			setExpandedId((prev) => (prev === id ? null : prev));
+			setConfirmDelete({ open: false, id: null });
+		} catch (err) {
+			setErrorModal({
+				open: true,
+				title: "Erro ao remover",
+				message: err?.message || "Erro ao remover fornecedor",
+			});
+		} finally {
+			setDeleting(false);
+		}
 	};
 
 	const handleSave = async (SupplierData) => {
 		if (SupplierData?.id) {
+			const updated = await updateSupplier(SupplierData.id, SupplierData);
+			const updatedWithPix = { ...updated, pixKeyType: SupplierData.pixKeyType || updated.pixKeyType };
 			setSuppliers((prev) =>
 				prev
 					.map((supplier) =>
-						supplier.id === SupplierData.id ? { ...supplier, ...SupplierData } : supplier
+						supplier.id === updated.id ? updatedWithPix : supplier
 					)
 					.sort((a, b) => {
 						const aKey = (a.personType === "PF" ? a.name : a.companyName) || "";
@@ -109,15 +193,10 @@ export default function Suppliers() {
 					})
 			);
 		} else {
-			const nextId =
-				suppliers.length > 0
-					? Math.max(...suppliers.map((supplier) => Number(supplier.id) || 0)) + 1
-					: 1;
-			const nextSupplierCode = getNextSupplierCode(suppliers);
-
-			const newSupplier = { ...SupplierData, id: nextId, supplierCode: nextSupplierCode };
+			const newSupplier = await createSupplier(SupplierData);
+			const newSupplierWithPix = { ...newSupplier, pixKeyType: SupplierData.pixKeyType || newSupplier.pixKeyType };
 			setSuppliers((prev) =>
-				[...prev, newSupplier].sort((a, b) => {
+				[...prev, newSupplierWithPix].sort((a, b) => {
 					const aKey = (a.personType === "PF" ? a.name : a.companyName) || "";
 					const bKey = (b.personType === "PF" ? b.name : b.companyName) || "";
 					return aKey.localeCompare(bKey);
@@ -174,7 +253,9 @@ export default function Suppliers() {
 			</div>
 
 			<section className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
-				{filtered.length === 0 ? (
+				{loading ? (
+					<div className="text-center py-16 text-gray-400">Carregando...</div>
+				) : filtered.length === 0 ? (
 					<div className="text-center py-16 text-gray-400">
 						<ContactRound className="w-12 h-12 mx-auto mb-3 opacity-40" />
 						<p>Nenhum Fornecedor encontrado</p>
@@ -202,7 +283,7 @@ export default function Suppliers() {
 												<p className="font-semibold text-gray-900 truncate">{displayName}</p>
 												{supplier.supplierCode && (
 													<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[supplier.personType]}`}>
-														{supplier.supplierCode}
+														{supplier.supplierCode + 200}
 													</span>
 												)}
 												<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[supplier.personType]}`}>
@@ -246,7 +327,7 @@ export default function Suppliers() {
 											<Button
 												variant="ghost"
 												size="icon"
-												onClick={() => handleDelete(supplier.id)}
+												onClick={() => setConfirmDelete({ open: true, id: supplier.id })}
 												className="w-8 h-8 text-gray-400 hover:text-red-500"
 											>
 												<Trash2 className="w-4 h-4" />
@@ -260,15 +341,7 @@ export default function Suppliers() {
 												<div>
 													<p className="text-xs text-gray-500">{supplier.personType === "PF" ? "Nome" : "Nome da empresa"}</p>
 													<div className="mt-1 flex flex-wrap items-center gap-2">
-														<p className="font-medium text-gray-800">{supplier.personType === "PF" ? supplier.name : supplier.companyName}</p>
-														{supplier.supplierCode && (
-															<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[supplier.personType]}`}>
-																{supplier.supplierCode}
-															</span>
-														)}
-														<span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${personTypeBadge[supplier.personType]}`}>
-															{supplier.personType}
-														</span>
+														<p className="font-medium text-gray-800">{displayName}</p>
 													</div>
 												</div>
 
@@ -309,6 +382,11 @@ export default function Suppliers() {
 												</div>
 
 												<div>
+													<p className="text-xs text-gray-500">Chave Pix</p>
+													<p className="font-medium text-gray-800">{formatSupplierPix(supplier) || "-"}</p>
+												</div>
+
+												<div>
 													<p className="text-xs text-gray-500">Placa do veiculo</p>
 													<p className="font-medium text-gray-800">{supplier.vehiclePlate || "-"}</p>
 												</div>
@@ -340,6 +418,22 @@ export default function Suppliers() {
 					onOpenSale={openSaleInOrders}
 				/>
 			)}
+
+			<ConfirmDeleteModal
+				open={confirmDelete.open}
+				title="Excluir fornecedor"
+				message="Tem certeza que deseja excluir este fornecedor? Esta acao nao pode ser desfeita."
+				onCancel={() => setConfirmDelete({ open: false, id: null })}
+				onConfirm={handleDeleteConfirm}
+				loading={deleting}
+			/>
+
+			<ErrorModal
+				open={errorModal.open}
+				title={errorModal.title}
+				message={errorModal.message}
+				onClose={() => setErrorModal((prev) => ({ ...prev, open: false }))}
+			/>
 		</div>
 	);
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import logo from "@/assets/fenix.png";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { getSessionSnapshot } from "@/services/authApi";
 import {
 	LayoutDashboard,
 	Users,
@@ -23,16 +24,18 @@ export default function InternalLayout({ children }) {
 	const location = useLocation();
 	const navigate = useNavigate();
 
+	const visibleNavItems = navItems;
+
 	const currentItem = useMemo(() => {
 		const path = location.pathname;
-		const exact = navItems.find((item) => item.to === path);
+		const exact = visibleNavItems.find((item) => item.to === path);
 		if (exact) return exact;
 
-		const prefix = navItems.find((item) => path.startsWith(item.to));
+		const prefix = visibleNavItems.find((item) => path.startsWith(item.to));
 		if (prefix) return prefix;
 
-		return navItems[0];
-	}, [location.pathname]);
+		return visibleNavItems[0];
+	}, [location.pathname, visibleNavItems]);
 
 	const handleLogout = () => {
 		setSidebarOpen(false);
@@ -66,7 +69,7 @@ export default function InternalLayout({ children }) {
 				</button>
 
 				<nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-					{navItems.map((item) => {
+					{visibleNavItems.map((item) => {
 						const isActive = currentItem?.name === item.name;
 
 						return (

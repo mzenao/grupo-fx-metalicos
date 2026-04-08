@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 import LoginModal from "@/components/internal/loginModal";
 import RegisterModal from "@/components/internal/registerModal";
 import logo from "@/assets/fenix.png";
-import { mockSession } from "@/services/mockSession";
-import { getActiveUser } from "@/services/mockDatabase";
+import { fetchMe, getSessionSnapshot, logout } from "@/services/authApi";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(mockSession.isLoggedIn);
-  const [userRole, setUserRole] = useState(mockSession.role);
+  const session = getSessionSnapshot();
+  const [isLoggedIn, setIsLoggedIn] = useState(session.isLoggedIn);
+  const [userRole, setUserRole] = useState(session.role);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   
@@ -42,8 +42,8 @@ export default function Navbar() {
     window.location.reload();
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("fx_active_user_id");
+  const handleLogout = async () => {
+    await logout();
     setIsLoggedIn(false);
     setUserRole(null);
     setIsMobileMenuOpen(false);
@@ -76,10 +76,20 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
+    fetchMe()
+      .then((user) => {
+        setIsLoggedIn(!!user);
+        setUserRole(user?.role || null);
+      })
+      .catch(() => {
+        setIsLoggedIn(false);
+        setUserRole(null);
+      });
+
     const handleStorageChange = () => {
-      const activeUser = getActiveUser();
-      setIsLoggedIn(activeUser !== null);
-      setUserRole(activeUser?.role || null);
+      const updatedSession = getSessionSnapshot();
+      setIsLoggedIn(updatedSession.isLoggedIn);
+      setUserRole(updatedSession.role || null);
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -174,7 +184,7 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="hidden md:flex items-center gap-3">
-            {userRole === "user" && (
+            {userRole === "supplier" && (
               <>
                 <Button type="button" onClick={() => goTo("/supplier-portal")} className={`${actionButtonClass} px-6`}>
                   Portal do Fornecedor
@@ -190,7 +200,7 @@ export default function Navbar() {
               </>
             )}
 
-            {userRole === "funcionario" && (
+            {(userRole === "employee" || userRole === "admin") && (
               <>
                 <Button type="button" onClick={() => goTo("/dashboard")} className={`${actionButtonClass} px-6`}>
                   Dashboard
@@ -266,7 +276,7 @@ export default function Navbar() {
                 </button>
               )}
 
-              {userRole === "user" && (
+              {userRole === "supplier" && (
                 <>
                   <Button
                     type="button"
@@ -286,7 +296,7 @@ export default function Navbar() {
                 </>
               )}
 
-              {userRole === "funcionario" && (
+              {(userRole === "employee" || userRole === "admin") && (
                 <>
                   <Button
                     type="button"

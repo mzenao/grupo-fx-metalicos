@@ -42,7 +42,7 @@ export default function WhoWeAre() {
 						Quem Somos
 					</p>
 					<h2 className="mt-3 text-3xl md:text-4xl font-semibold text-slate-900 leading-tight">
-						Uma Sucateira familiar com valores firmes e trabalho serio.
+						Uma empresa familiar com valores firmes e trabalho serio.
 					</h2>
 					<p className="mt-5 text-slate-600 leading-relaxed">
 						Somos uma empresa familiar, mas nosso maior
