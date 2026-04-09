@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 from flask import Flask
 from flask_cors import CORS
@@ -15,7 +16,17 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 
 	db.init_app(app)
 	migrate.init_app(app, db)
-	CORS(app)
+	allowed_origins = [
+		origin.strip()
+		for origin in os.getenv("CORS_ORIGINS", "*").split(",")
+		if origin.strip()
+	]
+	CORS(
+		app,
+		resources={r"/api/*": {"origins": allowed_origins}},
+		allow_headers=["Content-Type", "Authorization"],
+		methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+	)
 
 	from app.middlewares.error_handler import register_error_handlers
 	from app.routes import register_blueprints
