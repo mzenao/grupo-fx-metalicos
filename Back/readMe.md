@@ -15,6 +15,8 @@ Defina no serviço do Railway:
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_REGION`
 - `AWS_S3_BACKUP_BUCKET`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
 
 Variáveis úteis adicionais:
 

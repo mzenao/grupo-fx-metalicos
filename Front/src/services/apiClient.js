@@ -1,5 +1,8 @@
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://backend-production-91dc.up.railway.app/api";
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV
+    ? "http://127.0.0.1:5000/api"
+    : "https://backend-production-91dc.up.railway.app/api");
 
 const TOKEN_STORAGE_KEY = "fx_auth_token";
 

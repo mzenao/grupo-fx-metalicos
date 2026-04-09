@@ -11,7 +11,7 @@ from app.services.purchase_service import (
 	list_purchases_for_supplier,
 	update_purchase,
 )
-from app.services.ses_service import SesService
+from app.services.resend_service import ResendService
 from app.services.storage_service import resolve_attachment_source
 from app.services.zapi_service import ZapiService
 from app.utils.response import success_response
@@ -162,7 +162,7 @@ def send_purchase_comprovantes_route(purchase_id: int):
 		raise ValueError("Supplier phone not found")
 
 	zapi = ZapiService()
-	ses = SesService()
+	resend = ResendService()
 	message = _build_purchase_notification_message(purchase)
 	supplier_email = _get_purchase_supplier_email(purchase)
 
@@ -193,7 +193,7 @@ def send_purchase_comprovantes_route(purchase_id: int):
 	if supplier_email:
 		try:
 			email_attachments = _build_email_attachments(purchase)
-			ses.send_email_with_attachments(
+			resend.send_email_with_attachments(
 				to_email=supplier_email,
 				subject=_build_purchase_receipt_subject(purchase),
 				body_text=message,

@@ -49,5 +49,6 @@ class Config:
 	AWS_S3_PREFIX = os.getenv("AWS_S3_PREFIX", "attachments")
 	AWS_S3_PUBLIC_BASE_URL = os.getenv("AWS_S3_PUBLIC_BASE_URL", "")
 	AWS_S3_PRESIGNED_EXPIRES = int(os.getenv("AWS_S3_PRESIGNED_EXPIRES", "3600"))
-	SES_FROM_EMAIL = os.getenv("SES_FROM_EMAIL", "")
+	RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+	RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "")
 
