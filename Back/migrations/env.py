@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -9,7 +10,8 @@ import app.models  # noqa: F401
 
 config = context.config
 
-if config.config_file_name is not None:
+
+if config.config_file_name and os.path.exists(config.config_file_name):
 	fileConfig(config.config_file_name)
 
 target_db = current_app.extensions["migrate"].db
