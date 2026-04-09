@@ -1,4 +1,4 @@
-import videoHero from "@/assets/videoHero.mp4";
+import videoHero from "@/assets/VideoHero.mp4";
 import fenixLogo from "@/assets/fenix.png";
 import { useEffect, useState } from "react";
 import { getSessionSnapshot } from "@/services/authApi";
