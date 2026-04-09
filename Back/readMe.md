@@ -33,13 +33,29 @@ Se sua imagem/base não suportar `apt-get`, use uma imagem Docker própria com `
 
 ### 4) Start command do serviço web
 
-Use o comando padrão do backend (exemplo):
+Use o comando de produção do backend:
 
 ```bash
-python run.py
+gunicorn wsgi:app --bind 0.0.0.0:$PORT
 ```
 
-### 5) Job de backup diário 00:00
+Use `python run.py` apenas em desenvolvimento local.
+
+### 5) Migrations do banco
+
+Este projeto agora usa Flask-Migrate. Depois de subir o serviço no Railway, aplique o schema com:
+
+```bash
+bash scripts/railway_migrate.sh
+```
+
+Ou, de forma equivalente:
+
+```bash
+python -m flask --app wsgi db upgrade
+```
+
+### 6) Job de backup diário 00:00
 
 Crie um Job separado no Railway (mesmo repositório/pasta `Back`) com:
 
@@ -57,7 +73,7 @@ bash scripts/railway_backup_job.sh
 
 Reaproveite as mesmas variáveis de ambiente do serviço web (principalmente `DATABASE_URL` e AWS).
 
-### 6) Teste manual no Railway
+### 7) Teste manual no Railway
 
 Execute manualmente no Job ou shell do serviço:
 
@@ -71,7 +87,7 @@ Critérios de sucesso:
 - `dump_postgres.sh` gera arquivo em `backups/`.
 - `backup_and_upload.sh` envia para `s3://$AWS_S3_BACKUP_BUCKET/...`.
 
-### 7) Restore (quando necessário)
+### 8) Restore (quando necessário)
 
 Após baixar um backup `.sql` para o ambiente:
 
@@ -83,6 +99,7 @@ O script já normaliza URLs `postgres://` e `postgresql+psycopg2://` automaticam
 
 ## Scripts prontos para produção
 
+- `scripts/railway_migrate.sh`: aplica as migrations no Railway.
 - `scripts/dump_postgres.sh`: dump com validação de `pg_dump` e normalização de URL.
 - `scripts/restore_postgres.sh`: restore com validação de `psql` e normalização de URL.
 - `scripts/backup_and_upload.sh`: dump + upload S3 com autodetecção de `python3/python`.
