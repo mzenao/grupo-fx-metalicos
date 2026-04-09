@@ -1,4 +1,4 @@
-import videoHero from "@/assets/videoHero.gif";
+import videoHero from "@/assets/videoHero.mp4";
 import fenixLogo from "@/assets/fenix.png";
 import { useEffect, useState } from "react";
 import { getSessionSnapshot } from "@/services/authApi";
@@ -30,10 +30,13 @@ export default function Hero() {
 
 	return (
 		<section id="hero" className="relative w-full h-[62vh] md:h-[72vh] lg:h-[78vh] overflow-hidden">
-			<img
+			<video
 				src={videoHero}
 				alt="Apresentacao da Fenix Metalicos"
 				className="w-full h-full object-cover object-bottom"
+				autoPlay
+				loop
+				muted
 			/>
 
 			<div className="absolute inset-0 bg-gradient-to-l from-black/55 via-black/20 to-transparent" />
