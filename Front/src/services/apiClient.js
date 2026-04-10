@@ -3,14 +3,23 @@ const rawEnvApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
 const isLocalAddress = /localhost|127\.0\.0\.1/.test(rawEnvApiBaseUrl);
 
 const API_BASE_URL = (() => {
-  const url = rawEnvApiBaseUrl && !(import.meta.env.PROD && isLocalAddress)
+  let url = rawEnvApiBaseUrl && !(import.meta.env.PROD && isLocalAddress)
     ? rawEnvApiBaseUrl
     : import.meta.env.DEV
       ? "http://127.0.0.1:5000/api"
       : DEFAULT_PROD_API_BASE_URL;
   
-  // Remove trailing slash to avoid double slashes when concatenating
-  return url.replace(/\/$/, '');
+  // Normalize URL: remove trailing slashes and ensure /api is present in production
+  url = url.replace(/\/$/, '');
+  
+  // In production, ensure /api suffix if not already present
+  if (import.meta.env.PROD && !url.endsWith('/api')) {
+    // Remove any /api that might be in the middle and re-add it at the end
+    url = url.replace(/\/api\/?$/, ''); // Remove existing /api
+    url = url + '/api';
+  }
+  
+  return url;
 })();
 
 const TOKEN_STORAGE_KEY = "fx_auth_token";
