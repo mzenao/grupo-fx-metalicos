@@ -31,9 +31,9 @@ Se você estiver usando o deploy padrão do Railway sem Dockerfile, o build comm
 apt-get update && apt-get install -y postgresql-client && pip install -r requirements.txt
 ```
 
-Se o build retornar `exit code: 100`, isso normalmente indica falha no `apt-get` e quase sempre se resolve com o `apt-get update` acima. Se a base do Railway ainda não aceitar `apt-get`, use uma imagem Docker própria com `postgresql-client` instalado.
+Se o build retornar `exit code: 100`, isso normalmente indica falha no `apt-get` e quase sempre se resolve com o `apt-get update` acima. Se a base do Railway ainda não aceitar `apt-get`, use uma imagem Docker própria com cliente PostgreSQL compatível com a versão do servidor (mesmo major).
 
-Este repositório também inclui um [Dockerfile](Dockerfile) para o backend. Ele instala `postgresql-client` da própria distribuição da imagem base, evitando conflitos de dependência entre versões de Debian e repositórios externos.
+Este repositório também inclui um [Dockerfile](Dockerfile) para o backend. No Railway atual, o servidor está em PostgreSQL 18, então o container instala `postgresql-client-18` via `trixie-pgdg` para evitar `server version mismatch` no `pg_dump`.
 
 Com o Dockerfile atual, o container usa o [scripts/entrypoint.sh](scripts/entrypoint.sh) para decidir o modo de execução:
 
