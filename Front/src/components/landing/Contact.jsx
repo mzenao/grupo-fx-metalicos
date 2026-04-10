@@ -5,7 +5,7 @@ import { MapPin, Phone, Mail, Clock, MessageCircle } from "lucide-react";
 export default function Contact() {
 
   const whatsappNumber = "5521990409260"; // Coloque seu número com DDD e 55
-  const message = "Olá, gostaria de consultar um funcionário!";
+  const message = "Olá, gostaria de ser um fornecedor do Grupo FX Metálicos!";
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
   return (
@@ -78,7 +78,7 @@ export default function Contact() {
             </div>
 
             <h3 className="text-2xl font-semibold mb-4 text-slate-900">
-              Consulte nossa equipe pelo WhatsApp
+              Quero ser Fornecedor!
             </h3>
 
             <p className="text-slate-600 mb-8 max-w-md">
