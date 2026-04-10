@@ -35,6 +35,13 @@ Se o build retornar `exit code: 100`, isso normalmente indica falha no `apt-get`
 
 Este repositório também inclui um [Dockerfile](Dockerfile) para o backend. Se o Railway detectar o Dockerfile, prefira esse caminho e remova o build command manual para o job, porque ele garante que `pg_dump` exista tanto no build quanto no runtime.
 
+Com o Dockerfile atual, o container usa o [scripts/entrypoint.sh](scripts/entrypoint.sh) para decidir o modo de execução:
+
+- `web` inicia o servidor com migrations.
+- `backup` executa o job de backup.
+
+No Railway, deixe o serviço web em modo padrão e, no job de backup, use `backup` como comando/start argument se a interface permitir, ou `bash scripts/railway_backup_job.sh` se ela exigir comando completo.
+
 ### 4) Start command do serviço web
 
 Use o comando de produção do backend:

@@ -14,4 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["bash", "scripts/start_with_migrate.sh"]
+RUN chmod +x scripts/entrypoint.sh
+
+ENTRYPOINT ["bash", "scripts/entrypoint.sh"]
+CMD ["web"]
