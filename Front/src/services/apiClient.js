@@ -49,7 +49,8 @@ export async function apiRequest(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const response = await fetch(`${API_BASE_URL}${cleanPath}`, {
     ...options,
     headers,
   });
