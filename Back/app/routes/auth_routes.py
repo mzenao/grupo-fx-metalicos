@@ -11,7 +11,11 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.post("/login")
 def login_route():
 	payload = request.get_json(silent=True) or {}
-	result = login(email=payload.get("email", ""), password=payload.get("password", ""))
+	result = login(
+		email=payload.get("email", ""),
+		password=payload.get("password", ""),
+		remember_me=bool(payload.get("remember_me", False)),
+	)
 	return success_response("Login successful", result, 200)
 
 

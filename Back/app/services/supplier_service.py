@@ -17,7 +17,7 @@ from app.utils.validators import (
 
 
 def _normalize_pix_key_type(is_pf: bool, pix_key_type: str | None) -> str:
-	allowed = {"cpf", "phone", "email"} if is_pf else {"cnpj", "phone", "email"}
+	allowed = {"cpf", "phone", "email", "random"} if is_pf else {"cnpj", "phone", "email", "random"}
 	normalized = (pix_key_type or "").strip().lower()
 	if not normalized:
 		return "cpf" if is_pf else "cnpj"
@@ -33,7 +33,10 @@ def _resolve_pix_key_value(
 	cnpj: str | None,
 	phone: str | None,
 	email: str | None,
+	pix_key_value: str | None,
 ) -> str:
+	manual_value = normalize_string(pix_key_value)
+
 	if pix_key_type == "cpf":
 		if not cpf:
 			raise ValueError("CPF é obrigatório para chave Pix do tipo CPF")
@@ -43,13 +46,20 @@ def _resolve_pix_key_value(
 			raise ValueError("CNPJ é obrigatório para chave Pix do tipo CNPJ")
 		return cnpj
 	if pix_key_type == "phone":
-		if not phone or not is_valid_phone(phone):
+		value = manual_value or phone
+		if not value or not is_valid_phone(value):
 			raise ValueError("Telefone válido é obrigatório para chave Pix do tipo telefone")
-		return phone
+		return value
 	if pix_key_type == "email":
-		if not email or not is_valid_email(email):
+		if not manual_value or not is_valid_email(manual_value):
 			raise ValueError("E-mail válido é obrigatório para chave Pix do tipo e-mail")
-		return email
+		return manual_value.lower()
+	if pix_key_type == "random":
+		if not manual_value:
+			raise ValueError("Chave Pix aleatória é obrigatória")
+		if len(manual_value) > 150:
+			raise ValueError("Chave Pix aleatória muito longa")
+		return manual_value
 	raise ValueError("Tipo de chave Pix inválido")
 
 
@@ -174,6 +184,7 @@ def create_supplier(payload: dict) -> Supplier:
 		cnpj=cnpj,
 		phone=phone,
 		email=email,
+		pix_key_value=payload.get("pix_key_value"),
 	)
 
 	name = normalize_string(payload.get("name"))
@@ -264,6 +275,7 @@ def update_supplier(supplier_id: int, payload: dict) -> Supplier:
 		cnpj=supplier.cnpj,
 		phone=supplier.phone,
 		email=current_email,
+		pix_key_value=payload.get("pix_key_value", supplier.pix_key_value),
 	)
 
 	if "is_active" in payload:

@@ -256,7 +256,7 @@ export default function Sells() {
                           <p className="text-sm font-semibold text-gray-700 mb-3">
                             Comprovantes e Tickets ({purchase.attachmentNames.length})
                           </p>
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                             {purchase.attachmentNames.map((name, idx) => {
                               const extension = name.split(".").pop()?.toLowerCase() || "file";
                               const getFileEmoji = (ext) => {

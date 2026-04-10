@@ -1,6 +1,6 @@
 import videoHero from "@/assets/VideoHero.mp4";
 import fenixLogo from "@/assets/fenix.png";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getSessionSnapshot } from "@/services/authApi";
 import { Button } from "@/components/ui/button.jsx";
 import RegisterModal from "@/components/internal/registerModal";
@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 export default function Hero() {
 	const [userRole, setUserRole] = useState(null);
 	const [showRegisterModal, setShowRegisterModal] = useState(false);
+	const videoRef = useRef(null);
 	const navigate = useNavigate();
 
 	useEffect(() => {
@@ -24,6 +25,26 @@ export default function Hero() {
 		return () => window.removeEventListener("storage", handleStorageChange);
 	}, []);
 
+	useEffect(() => {
+		const video = videoRef.current;
+		if (!video) return;
+
+		video.muted = true;
+		video.setAttribute("muted", "");
+		video.setAttribute("playsinline", "");
+		video.setAttribute("webkit-playsinline", "");
+
+		const tryAutoplay = async () => {
+			try {
+				await video.play();
+			} catch {
+				// Mobile browsers may block autoplay under data/battery restrictions.
+			}
+		};
+
+		tryAutoplay();
+	}, []);
+
 	const handleRegisterSuccess = () => {
 		window.location.reload();
 	};
@@ -31,17 +52,19 @@ export default function Hero() {
 	return (
 		<section id="hero" className="relative w-full h-[62vh] md:h-[72vh] lg:h-[78vh] overflow-hidden">
 			<video
+				ref={videoRef}
 				src={videoHero}
-				alt="Apresentacao da Fenix Metalicos"
 				className="w-full h-full object-cover object-bottom"
 				autoPlay
 				loop
 				muted
+				playsInline
+				preload="metadata"
 			/>
 
 			<div className="absolute inset-0 bg-gradient-to-l from-black/55 via-black/20 to-transparent" />
 
-			<div className="absolute inset-0 flex items-center justify-begin px-6 md:px-10 lg:px-16">
+			<div className="absolute inset-0 flex items-center justify-start px-5 md:px-10 lg:px-16">
 				<div className="flex flex-col items-start gap-4 md:gap-5">
 					<h1 className="hero-title-entrance max-w-[22ch] text-left text-white text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight drop-shadow-[0_3px_10px_rgba(0,0,0,0.65)]">
 						<span className="block font-light">Transformamos sucata em oportunidade</span>

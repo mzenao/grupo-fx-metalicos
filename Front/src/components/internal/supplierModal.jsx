@@ -4,6 +4,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
 
+function formatCpfInput(value) {
+	const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+	return digits
+		.replace(/(\d{3})(\d)/, "$1.$2")
+		.replace(/(\d{3})(\d)/, "$1.$2")
+		.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+function formatCnpjInput(value) {
+	const digits = String(value || "").replace(/\D/g, "").slice(0, 14);
+	return digits
+		.replace(/(\d{2})(\d)/, "$1.$2")
+		.replace(/(\d{3})(\d)/, "$1.$2")
+		.replace(/(\d{3})(\d)/, "$1/$2")
+		.replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+
 function formatPixValue(pixKeyType, form) {
 	const type = (pixKeyType || "").toLowerCase();
 	const digits = (value) => String(value || "").replace(/\D/g, "");
@@ -21,7 +38,8 @@ function formatPixValue(pixKeyType, form) {
 	}
 
 	if (type === "phone") return form.phone || "";
-	if (type === "email") return form.email || "";
+	if (type === "email") return form.pixKeyValue || "";
+	if (type === "random") return form.pixKeyValue || "";
 	return "";
 }
 
@@ -38,15 +56,17 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			referenceAddress: "",
 			email: "",
 			phone: "",
+			pixKeyValue: "",
 			password: "",
 		};
 
 		if (!Supplier) return base;
 		const next = { ...base, ...Supplier, password: "" };
-		const allowedPixTypes = next.personType === "PF" ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+		const allowedPixTypes = next.personType === "PF" ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
 		if (!allowedPixTypes.includes((next.pixKeyType || "").toLowerCase())) {
 			next.pixKeyType = next.personType === "PF" ? "cpf" : "cnpj";
 		}
+		next.pixKeyValue = next.pixKeyValue || "";
 		return next;
 	}, [Supplier]);
 
@@ -62,6 +82,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			...prev,
 			personType: nextType,
 			pixKeyType: nextType === "PF" ? "cpf" : "cnpj",
+			pixKeyValue: "",
 			name: nextType === "PF" ? prev.name : "",
 			cpf: nextType === "PF" ? prev.cpf : "",
 			companyName: nextType === "PJ" ? prev.companyName : "",
@@ -128,9 +149,14 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			return;
 		}
 
-		const allowedPixTypes = form.personType === "PF" ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+		const allowedPixTypes = form.personType === "PF" ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
 		if (!allowedPixTypes.includes(form.pixKeyType)) {
 			setError("Selecione uma opcao valida para chave Pix.");
+			return;
+		}
+
+		if (["email", "random"].includes(form.pixKeyType) && !form.pixKeyValue.trim()) {
+			setError("Informe a chave Pix para o tipo selecionado.");
 			return;
 		}
 
@@ -224,7 +250,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 										<input
 											required
 											value={form.cpf}
-											onChange={(e) => set("cpf", e.target.value)}
+											onChange={(e) => set("cpf", formatCpfInput(e.target.value))}
 											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 										/>
 									</div>
@@ -246,7 +272,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 										<input
 											required
 											value={form.cnpj}
-											onChange={(e) => set("cnpj", e.target.value)}
+											onChange={(e) => set("cnpj", formatCnpjInput(e.target.value))}
 											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 										/>
 									</div>
@@ -298,17 +324,24 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Tipo da chave Pix *</label>
 								<PixTypeSelect
 									value={form.pixKeyType}
-									onChange={(value) => set("pixKeyType", value)}
+									onChange={(value) => {
+										set("pixKeyType", value);
+										if (!["email", "random"].includes(value)) {
+											set("pixKeyValue", "");
+										}
+									}}
 									options={form.personType === "PF"
 										? [
 											{ value: "cpf", label: "CPF" },
 											{ value: "phone", label: "Telefone" },
 											{ value: "email", label: "Email" },
+											{ value: "random", label: "Aleatoria" },
 										]
 										: [
 											{ value: "cnpj", label: "CNPJ" },
 											{ value: "phone", label: "Telefone" },
 											{ value: "email", label: "Email" },
+											{ value: "random", label: "Aleatoria" },
 										]}
 								/>
 							</div>
@@ -317,8 +350,9 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Chave Pix</label>
 								<input
 									type="text"
-									readOnly
+									readOnly={!(["email", "random"].includes(form.pixKeyType))}
 									value={pixValue || ""}
+									onChange={(e) => set("pixKeyValue", e.target.value)}
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-gray-50 text-[#4a3918]"
 								/>
 							</div>

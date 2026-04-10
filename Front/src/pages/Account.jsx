@@ -17,17 +17,18 @@ function formatPixValue(pixKeyType, supplier) {
 	if (type === "cpf") {
 		const cpf = digits(supplier.cpf).slice(0, 11);
 		if (cpf.length !== 11) return "";
-		return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1,$2,$3-$4");
+		return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
 	}
 
 	if (type === "cnpj") {
 		const cnpj = digits(supplier.cnpj).slice(0, 14);
 		if (cnpj.length !== 14) return "";
-		return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1,$2,$3/$4-$5");
+		return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
 	}
 
 	if (type === "phone") return supplier.phone || "";
-	if (type === "email") return supplier.email || "";
+	if (type === "email") return supplier.pix_key_value || "";
+	if (type === "random") return supplier.pix_key_value || "";
 	return "";
 }
 
@@ -76,6 +77,7 @@ export default function Account() {
 				telefone: "",
 				enderecoUnificado: "",
 				pixKeyType: "cpf",
+				pixKeyValue: "",
 				senhaAtual: "",
 				novaSenha: "",
 				confirmarNovaSenha: "",
@@ -89,6 +91,7 @@ export default function Account() {
 			telefone: currentSupplier.phone || "",
 			enderecoUnificado: currentSupplier.reference_address || "",
 			pixKeyType: (currentSupplier.pix_key_type || (isPf ? "cpf" : "cnpj")).toLowerCase(),
+			pixKeyValue: currentSupplier.pix_key_value || "",
 			senhaAtual: "",
 			novaSenha: "",
 			confirmarNovaSenha: "",
@@ -109,7 +112,7 @@ export default function Account() {
 	const handleSubmit = async (event) => {
 		event.preventDefault();
 
-		const allowedPixTypes = isPf ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+		const allowedPixTypes = isPf ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
 		if (!allowedPixTypes.includes(formData.pixKeyType)) {
 			setFeedbackModal({
 				open: true,
@@ -151,6 +154,7 @@ export default function Account() {
 				phone: formData.telefone,
 				reference_address: formData.enderecoUnificado,
 				pix_key_type: formData.pixKeyType,
+				pix_key_value: formData.pixKeyValue,
 				current_password: formData.senhaAtual,
 				new_password: formData.novaSenha,
 			});
@@ -164,6 +168,7 @@ export default function Account() {
 			});
 			setFormData((prev) => ({
 				...prev,
+				pixKeyValue: updated?.supplier?.pix_key_value || prev.pixKeyValue,
 				senhaAtual: "",
 				novaSenha: "",
 				confirmarNovaSenha: "",
@@ -184,12 +189,12 @@ export default function Account() {
 		if (!currentSupplier) return "";
 		return formatPixValue(formData.pixKeyType, {
 			...currentSupplier,
-			email: formData.email,
+			pix_key_value: formData.pixKeyValue,
 			phone: formData.telefone,
 			cpf: isPf ? formData.documento : currentSupplier.cpf,
 			cnpj: !isPf ? formData.documento : currentSupplier.cnpj,
 		});
-	}, [currentSupplier, formData.documento, formData.email, formData.pixKeyType, formData.telefone, isPf]);
+	}, [currentSupplier, formData.documento, formData.pixKeyType, formData.pixKeyValue, formData.telefone, isPf]);
 
 	if (loading) {
 		return (
@@ -274,29 +279,37 @@ export default function Account() {
 								<select
 									name="pixKeyType"
 									value={formData.pixKeyType}
-									onChange={handleChange}
+									onChange={(event) => {
+										handleChange(event);
+										const nextType = event.target.value;
+										if (!["email", "random"].includes(nextType)) {
+											setFormData((prev) => ({ ...prev, pixKeyValue: "" }));
+										}
+									}}
 								>
 									{isPf ? (
 										<>
 											<option value="cpf">CPF</option>
 											<option value="phone">Telefone</option>
 											<option value="email">Email</option>
+											<option value="random">Aleatória</option>
 										</>
 									) : (
 										<>
 											<option value="cnpj">CNPJ</option>
 											<option value="phone">Telefone</option>
 											<option value="email">Email</option>
+											<option value="random">Aleatória</option>
 										</>
 									)}
 								</select>
 							</label>
 							<InputField
 								label="Chave Pix"
-								name="pixDisplay"
+								name="pixKeyValue"
 								value={pixValue || ""}
-								onChange={() => {}}
-								readOnly
+								onChange={handleChange}
+								readOnly={!(["email", "random"].includes(formData.pixKeyType))}
 								className="md:col-span-2"
 							/>
 							<TextAreaField

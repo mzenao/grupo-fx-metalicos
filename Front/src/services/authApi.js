@@ -40,10 +40,10 @@ export function getSessionSnapshot() {
   };
 }
 
-export async function login(email, password) {
+export async function login(email, password, rememberMe = false) {
   const payload = await apiRequest("auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, remember_me: !!rememberMe }),
   });
 
   const token = payload?.data?.token;

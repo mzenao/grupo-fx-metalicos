@@ -8,6 +8,23 @@ import { registerSupplierAccount } from "@/services/authApi";
 const fieldLabelClass = "block text-sm font-medium mb-1 text-[#4a3918]";
 const fieldInputClass = "w-full h-12 px-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]";
 
+function formatCpfInput(value) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+  return digits
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+function formatCnpjInput(value) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 14);
+  return digits
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+
 function formatPixValue(pixKeyType, form) {
   const type = (pixKeyType || "").toLowerCase();
   const digits = (value) => String(value || "").replace(/\D/g, "");
@@ -25,7 +42,8 @@ function formatPixValue(pixKeyType, form) {
   }
 
   if (type === "phone") return form.phone || "";
-  if (type === "email") return form.email || "";
+  if (type === "email") return form.pixKeyValue || "";
+  if (type === "random") return form.pixKeyValue || "";
   return "";
 }
 
@@ -41,6 +59,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
     referenceAddress: "",
     email: "",
     phone: "",
+    pixKeyValue: "",
     password: "",
   }), []);
 
@@ -55,6 +74,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
       ...prev,
       personType: nextType,
       pixKeyType: nextType === "PF" ? "cpf" : "cnpj",
+      pixKeyValue: "",
       name: nextType === "PF" ? prev.name : "",
       cpf: nextType === "PF" ? prev.cpf : "",
       companyName: nextType === "PJ" ? prev.companyName : "",
@@ -121,9 +141,14 @@ export default function RegisterModal({ onClose, onSuccess }) {
       return;
     }
 
-    const allowedPixTypes = form.personType === "PF" ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+    const allowedPixTypes = form.personType === "PF" ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
     if (!allowedPixTypes.includes(form.pixKeyType)) {
       setError("Selecione uma opção válida para chave Pix.");
+      return;
+    }
+
+    if (["email", "random"].includes(form.pixKeyType) && !form.pixKeyValue.trim()) {
+      setError("Informe a chave Pix para o tipo selecionado.");
       return;
     }
 
@@ -140,6 +165,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
         email: form.email,
         phone: form.phone,
         pix_key_type: form.pixKeyType,
+        pix_key_value: form.pixKeyValue || null,
         password: form.password,
       });
       onSuccess?.(user);
@@ -249,7 +275,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
                     type="text"
                     placeholder="CPF"
                     value={form.cpf}
-                    onChange={(e) => set("cpf", e.target.value)}
+                    onChange={(e) => set("cpf", formatCpfInput(e.target.value))}
                     className={fieldInputClass}
                   />
                 </Field>
@@ -261,7 +287,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
                     type="text"
                     placeholder="CNPJ"
                     value={form.cnpj}
-                    onChange={(e) => set("cnpj", e.target.value)}
+                    onChange={(e) => set("cnpj", formatCnpjInput(e.target.value))}
                     className={fieldInputClass}
                   />
                 </Field>
@@ -301,7 +327,13 @@ export default function RegisterModal({ onClose, onSuccess }) {
                 <select
                   required
                   value={form.pixKeyType}
-                  onChange={(e) => set("pixKeyType", e.target.value)}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    set("pixKeyType", nextType);
+                    if (!["email", "random"].includes(nextType)) {
+                      set("pixKeyValue", "");
+                    }
+                  }}
                   className={fieldInputClass}
                 >
                   {form.personType === "PF" ? (
@@ -309,12 +341,14 @@ export default function RegisterModal({ onClose, onSuccess }) {
                       <option value="cpf">CPF</option>
                       <option value="phone">Telefone</option>
                       <option value="email">Email</option>
+                      <option value="random">Aleatória</option>
                     </>
                   ) : (
                     <>
                       <option value="cnpj">CNPJ</option>
                       <option value="phone">Telefone</option>
                       <option value="email">Email</option>
+                      <option value="random">Aleatória</option>
                     </>
                   )}
                 </select>
@@ -323,9 +357,10 @@ export default function RegisterModal({ onClose, onSuccess }) {
               <Field label="Chave Pix">
                 <input
                   type="text"
-                  readOnly
-                  placeholder="Chave Pix"
+                  readOnly={!(["email", "random"].includes(form.pixKeyType))}
+                  placeholder={(["email", "random"].includes(form.pixKeyType)) ? "Digite a chave Pix" : "Chave Pix"}
                   value={pixValue || ""}
+                  onChange={(e) => set("pixKeyValue", e.target.value)}
                   className={fieldInputClass}
                 />
               </Field>

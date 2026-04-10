@@ -137,7 +137,7 @@ export default function Navbar() {
           <button
             type="button"
             onClick={handleBrandClick}
-            className="flex items-center gap-0 scale-125 cursor-pointer"
+            className="flex items-center gap-0 scale-105 sm:scale-110 md:scale-125 cursor-pointer"
           >
             <img src={logo} alt="Logo Fenix Metalicos" className="navbar-logo" />
             <div className="font-bold text-xl">

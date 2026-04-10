@@ -35,6 +35,7 @@ class Config:
 	STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local").strip().lower()
 	MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 10 * 1024 * 1024))
 	TOKEN_EXPIRES_HOURS = int(os.getenv("TOKEN_EXPIRES_HOURS", "12"))
+	TOKEN_REMEMBER_EXPIRES_HOURS = int(os.getenv("TOKEN_REMEMBER_EXPIRES_HOURS", str(24 * 30)))
 
 	ZAPI_BASE_URL = normalize_zapi_base_url(os.getenv("ZAPI_BASE_URL", ""))
 	ZAPI_INSTANCE_ID = os.getenv("ZAPI_INSTANCE_ID", "")

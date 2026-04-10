@@ -24,7 +24,7 @@ from app.utils.validators import (
 from app.utils.token import generate_raw_token, hash_token
 
 
-def login(email: str, password: str) -> dict:
+def login(email: str, password: str, remember_me: bool = False) -> dict:
 	user = User.query.filter_by(email=(email or "").strip().lower()).first()
 	if not user or not verify_password(user.password_hash, password or ""):
 		raise ValueError("Invalid email or password")
@@ -32,11 +32,17 @@ def login(email: str, password: str) -> dict:
 	if not user.is_active:
 		raise ValueError("User is inactive")
 
+	expires_hours = (
+		current_app.config["TOKEN_REMEMBER_EXPIRES_HOURS"]
+		if remember_me
+		else current_app.config["TOKEN_EXPIRES_HOURS"]
+	)
+
 	raw_token = generate_raw_token()
 	token = AuthToken(
 		user_id=user.id,
 		token_hash=hash_token(raw_token),
-		expires_at=datetime.utcnow() + timedelta(hours=current_app.config["TOKEN_EXPIRES_HOURS"]),
+		expires_at=datetime.utcnow() + timedelta(hours=expires_hours),
 		revoked=False,
 	)
 
@@ -120,6 +126,7 @@ def update_me(user: User, payload: dict) -> dict:
 		cnpj=cnpj,
 		phone=phone,
 		email=email,
+		pix_key_value=payload.get("pix_key_value", supplier.pix_key_value),
 	)
 
 	new_password = payload.get("new_password") or ""

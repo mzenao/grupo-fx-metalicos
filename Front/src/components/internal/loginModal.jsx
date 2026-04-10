@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { X, AlertCircle } from "lucide-react";
+import { X, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { login } from "@/services/authApi";
 
 export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  {
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "", rememberMe: true });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -27,7 +28,7 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
 
     setLoading(true);
     try {
-      const user = await login(form.email.trim(), form.password);
+      const user = await login(form.email.trim(), form.password, form.rememberMe);
       onSuccess?.(user);
       onClose();
     } catch (err) {
@@ -81,13 +82,44 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
 
             <div>
               <label className="block text-sm font-medium text-[#4a3918] mb-2">Senha</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={(e) => set("password", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f] transition"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  className="w-full px-4 py-3 pr-11 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f] transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7b6024] hover:text-[#1e1608]"
+                  aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-medium text-[#5f4a1d]">Salvar login</span>
+              <button
+                type="button"
+                onClick={() => set("rememberMe", !form.rememberMe)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full border transition-colors ${
+                  form.rememberMe
+                    ? "bg-[#b8891f] border-[#b8891f]"
+                    : "bg-[#f2e6c5] border-[#d6ab4a]/45"
+                }`}
+                aria-pressed={form.rememberMe}
+                aria-label="Salvar login"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                    form.rememberMe ? "translate-x-4" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
             </div>
 
             <div className="flex gap-3 pt-4">

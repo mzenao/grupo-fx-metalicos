@@ -32,6 +32,7 @@ function mapSupplierFromApi(item) {
     email: item.email || "",
     phone: item.phone || "",
     pixKeyType,
+    pixKeyValue: item.pix_key_value || "",
   };
 }
 
@@ -47,7 +48,7 @@ function mapEmployeeToApi(payload) {
 
 function mapSupplierToApi(payload) {
   const isPf = payload.personType === "PF";
-  const allowedPixTypes = isPf ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+  const allowedPixTypes = isPf ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
   const normalizedPixType = (payload.pixKeyType || "").toLowerCase();
   const pixKeyType = allowedPixTypes.includes(normalizedPixType)
     ? normalizedPixType
@@ -66,6 +67,7 @@ function mapSupplierToApi(payload) {
     email: payload.email,
     phone: payload.phone,
     pix_key_type: pixKeyType,
+    pix_key_value: payload.pixKeyValue || null,
     ...(payload.password ? { password: payload.password } : {}),
   };
 }
