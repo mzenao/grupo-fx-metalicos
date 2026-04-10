@@ -29,15 +29,23 @@ export default function Hero() {
 		const video = videoRef.current;
 		if (!video) return;
 
+		video.autoplay = true;
+		video.loop = true;
 		video.muted = true;
 		video.defaultMuted = true;
+		video.playsInline = true;
 		video.setAttribute("muted", "");
 		video.setAttribute("playsinline", "");
 		video.setAttribute("webkit-playsinline", "");
+		video.setAttribute("autoplay", "");
+		video.setAttribute("loop", "");
 
 		const tryAutoplay = async () => {
 			if (document.hidden) return;
 			try {
+				if (video.readyState === 0) {
+					video.load();
+				}
 				await video.play();
 			} catch {
 				// Mobile browsers may block autoplay under data/battery restrictions.
@@ -51,9 +59,13 @@ export default function Hero() {
 		};
 
 		video.addEventListener("loadedmetadata", tryAutoplay);
+		video.addEventListener("loadeddata", tryAutoplay);
 		video.addEventListener("canplay", tryAutoplay);
+		video.addEventListener("canplaythrough", tryAutoplay);
 		window.addEventListener("pageshow", tryAutoplay);
+		window.addEventListener("focus", tryAutoplay);
 		document.addEventListener("visibilitychange", handleVisibility);
+		window.addEventListener("touchstart", tryAutoplay, { once: true, passive: true });
 
 		tryAutoplay();
 
@@ -66,8 +78,12 @@ export default function Hero() {
 		return () => {
 			window.clearTimeout(retryTimer);
 			video.removeEventListener("loadedmetadata", tryAutoplay);
+			video.removeEventListener("loadeddata", tryAutoplay);
 			video.removeEventListener("canplay", tryAutoplay);
+			video.removeEventListener("canplaythrough", tryAutoplay);
 			window.removeEventListener("pageshow", tryAutoplay);
+			window.removeEventListener("focus", tryAutoplay);
+			window.removeEventListener("touchstart", tryAutoplay);
 			document.removeEventListener("visibilitychange", handleVisibility);
 		};
 	}, []);
