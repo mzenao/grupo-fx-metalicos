@@ -44,7 +44,10 @@ class Config:
 
 	AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
 	AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+	AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", "")
 	AWS_REGION = os.getenv("AWS_REGION", "")
+	AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "")
+	AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "virtual")
 	AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "")
 	AWS_S3_BACKUP_BUCKET = os.getenv("AWS_S3_BACKUP_BUCKET", "")
 	AWS_S3_PREFIX = os.getenv("AWS_S3_PREFIX", "attachments")

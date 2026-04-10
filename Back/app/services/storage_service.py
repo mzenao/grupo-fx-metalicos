@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import boto3
+from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from flask import current_app
 from werkzeug.datastructures import FileStorage
@@ -28,10 +29,10 @@ def _build_s3_public_url(bucket: str, region: str, key: str) -> str:
 
 
 def _save_to_s3(file: FileStorage) -> tuple[str, str]:
-    bucket = (current_app.config.get("AWS_S3_BUCKET") or "").strip()
-    region = (current_app.config.get("AWS_REGION") or "").strip()
-    access_key = (current_app.config.get("AWS_ACCESS_KEY_ID") or "").strip()
-    secret_key = (current_app.config.get("AWS_SECRET_ACCESS_KEY") or "").strip()
+    bucket = _clean_aws_value(current_app.config.get("AWS_S3_BUCKET"))
+    region = _clean_aws_value(current_app.config.get("AWS_REGION"))
+    access_key = _clean_aws_value(current_app.config.get("AWS_ACCESS_KEY_ID"))
+    secret_key = _clean_aws_value(current_app.config.get("AWS_SECRET_ACCESS_KEY"))
 
     if not bucket or not access_key or not secret_key:
         raise ValueError("S3 backend selected but AWS credentials/bucket are missing")
@@ -42,12 +43,7 @@ def _save_to_s3(file: FileStorage) -> tuple[str, str]:
     base_prefix = (current_app.config.get("AWS_S3_PREFIX") or "attachments").strip("/")
     key = f"{base_prefix}/{date_prefix}/{uuid.uuid4().hex}{ext}"
 
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        region_name=region or None,
-    )
+    s3 = _build_s3_client(region=region, access_key=access_key, secret_key=secret_key)
 
     try:
         file.stream.seek(0)
@@ -81,10 +77,10 @@ def resolve_attachment_source(file_path: str | None) -> str | None:
     if backend != "s3":
         return file_path
 
-    bucket = (current_app.config.get("AWS_S3_BUCKET") or "").strip()
-    region = (current_app.config.get("AWS_REGION") or "").strip()
-    access_key = (current_app.config.get("AWS_ACCESS_KEY_ID") or "").strip()
-    secret_key = (current_app.config.get("AWS_SECRET_ACCESS_KEY") or "").strip()
+    bucket = _clean_aws_value(current_app.config.get("AWS_S3_BUCKET"))
+    region = _clean_aws_value(current_app.config.get("AWS_REGION"))
+    access_key = _clean_aws_value(current_app.config.get("AWS_ACCESS_KEY_ID"))
+    secret_key = _clean_aws_value(current_app.config.get("AWS_SECRET_ACCESS_KEY"))
     expires_in = int(current_app.config.get("AWS_S3_PRESIGNED_EXPIRES", 3600))
 
     if not bucket or not access_key or not secret_key:
@@ -103,12 +99,7 @@ def resolve_attachment_source(file_path: str | None) -> str | None:
         else:
             return file_path
 
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        region_name=region or None,
-    )
+    s3 = _build_s3_client(region=region, access_key=access_key, secret_key=secret_key)
 
     return _generate_presigned_url(s3, bucket, key, expires_in=expires_in)
 
@@ -125,3 +116,32 @@ def _generate_presigned_url(s3, bucket: str, key: str, expires_in=600) -> str:
         return url
     except Exception as exc:
         raise ValueError(f"Erro ao gerar URL temporária: {exc}")
+
+
+def _clean_aws_value(value: str | None) -> str:
+    if value is None:
+        return ""
+    cleaned = str(value).strip()
+    if (cleaned.startswith('"') and cleaned.endswith('"')) or (cleaned.startswith("'") and cleaned.endswith("'")):
+        cleaned = cleaned[1:-1].strip()
+    return cleaned
+
+
+def _build_s3_client(*, region: str, access_key: str, secret_key: str):
+    session_token = _clean_aws_value(current_app.config.get("AWS_SESSION_TOKEN"))
+    endpoint_url = _clean_aws_value(current_app.config.get("AWS_S3_ENDPOINT_URL"))
+    addressing_style = _clean_aws_value(current_app.config.get("AWS_S3_ADDRESSING_STYLE")) or "virtual"
+
+    client_kwargs = {
+        "service_name": "s3",
+        "aws_access_key_id": access_key,
+        "aws_secret_access_key": secret_key,
+        "region_name": region or None,
+        "config": BotoConfig(signature_version="s3v4", s3={"addressing_style": addressing_style}),
+    }
+    if session_token:
+        client_kwargs["aws_session_token"] = session_token
+    if endpoint_url:
+        client_kwargs["endpoint_url"] = endpoint_url
+
+    return boto3.client(**client_kwargs)

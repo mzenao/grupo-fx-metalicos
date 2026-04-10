@@ -6,21 +6,17 @@ from datetime import datetime
 from pathlib import Path
 
 import boto3
+from botocore.config import Config as BotoConfig
 from flask import current_app
 
 
 class BackupService:
 	def __init__(self) -> None:
-		self.bucket = (
+		self.bucket = _clean_aws_value(
 			current_app.config.get("AWS_S3_BACKUP_BUCKET")
 			or current_app.config.get("AWS_S3_BUCKET", "")
 		)
-		self.s3_client = boto3.client(
-			"s3",
-			aws_access_key_id=current_app.config.get("AWS_ACCESS_KEY_ID"),
-			aws_secret_access_key=current_app.config.get("AWS_SECRET_ACCESS_KEY"),
-			region_name=current_app.config.get("AWS_REGION"),
-		)
+		self.s3_client = _build_s3_client()
 
 	def create_database_dump(self, output_dir: str) -> str:
 		database_url = current_app.config.get("DATABASE_URL") or current_app.config.get("SQLALCHEMY_DATABASE_URI")
@@ -49,4 +45,36 @@ class BackupService:
 		s3_key = object_name or Path(file_path).name
 		self.s3_client.upload_file(file_path, self.bucket, s3_key)
 		return {"bucket": self.bucket, "key": s3_key}
+
+
+def _clean_aws_value(value: str | None) -> str:
+	if value is None:
+		return ""
+	cleaned = str(value).strip()
+	if (cleaned.startswith('"') and cleaned.endswith('"')) or (cleaned.startswith("'") and cleaned.endswith("'")):
+		cleaned = cleaned[1:-1].strip()
+	return cleaned
+
+
+def _build_s3_client():
+	access_key = _clean_aws_value(current_app.config.get("AWS_ACCESS_KEY_ID"))
+	secret_key = _clean_aws_value(current_app.config.get("AWS_SECRET_ACCESS_KEY"))
+	region = _clean_aws_value(current_app.config.get("AWS_REGION"))
+	session_token = _clean_aws_value(current_app.config.get("AWS_SESSION_TOKEN"))
+	endpoint_url = _clean_aws_value(current_app.config.get("AWS_S3_ENDPOINT_URL"))
+	addressing_style = _clean_aws_value(current_app.config.get("AWS_S3_ADDRESSING_STYLE")) or "virtual"
+
+	client_kwargs = {
+		"service_name": "s3",
+		"aws_access_key_id": access_key,
+		"aws_secret_access_key": secret_key,
+		"region_name": region or None,
+		"config": BotoConfig(signature_version="s3v4", s3={"addressing_style": addressing_style}),
+	}
+	if session_token:
+		client_kwargs["aws_session_token"] = session_token
+	if endpoint_url:
+		client_kwargs["endpoint_url"] = endpoint_url
+
+	return boto3.client(**client_kwargs)
 
