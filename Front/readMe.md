@@ -5,7 +5,7 @@ O front consome a API via `VITE_API_BASE_URL`.
 Valor padrão de produção:
 
 ```bash
-VITE_API_BASE_URL=https://backend-production-91dc.up.railway.app/api
+VITE_API_BASE_URL=https://backend-production-b2bd.up.railway.app/api
 ```
 
 Para desenvolvimento local, sobrescreva com:
