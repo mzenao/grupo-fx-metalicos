@@ -1,8 +1,13 @@
+const DEFAULT_PROD_API_BASE_URL = "https://backend-production-91dc.up.railway.app/api";
+const rawEnvApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
+const isLocalAddress = /localhost|127\.0\.0\.1/.test(rawEnvApiBaseUrl);
+
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV
-    ? "http://127.0.0.1:5000/api"
-    : "https://backend-production-91dc.up.railway.app/api");
+  rawEnvApiBaseUrl && !(import.meta.env.PROD && isLocalAddress)
+    ? rawEnvApiBaseUrl
+    : import.meta.env.DEV
+      ? "http://127.0.0.1:5000/api"
+      : DEFAULT_PROD_API_BASE_URL;
 
 const TOKEN_STORAGE_KEY = "fx_auth_token";
 
