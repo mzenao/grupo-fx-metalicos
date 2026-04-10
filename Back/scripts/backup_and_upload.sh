@@ -26,7 +26,7 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_PATH="$BACK_DIR/backups/backup_${TIMESTAMP}.sql"
 
 echo "[backup] Starting database dump"
-"$SCRIPT_DIR/dump_postgres.sh" "$BACKUP_PATH"
+bash "$SCRIPT_DIR/dump_postgres.sh" "$BACKUP_PATH"
 
 echo "[backup] Uploading dump to S3 backup bucket"
 cd "$BACK_DIR"

@@ -5,7 +5,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BACK_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 LOG_DIR="$BACK_DIR/logs"
 CRON_EXPR="0 0 * * *"
-CMD="cd $BACK_DIR && /usr/bin/env bash scripts/backup_and_upload.sh >> $LOG_DIR/backup_cron.log 2>&1"
+CMD="cd $BACK_DIR && bash scripts/backup_and_upload.sh >> $LOG_DIR/backup_cron.log 2>&1"
 CRON_LINE="$CRON_EXPR $CMD"
 
 mkdir -p "$LOG_DIR"
