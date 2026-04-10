@@ -16,3 +16,5 @@ else
 fi
 
 "$PYTHON_BIN" -m flask --app wsgi db upgrade
+
+"$PYTHON_BIN" "$SCRIPT_DIR/sync_sequences.py"

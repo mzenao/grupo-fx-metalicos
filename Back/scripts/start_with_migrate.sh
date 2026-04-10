@@ -18,5 +18,8 @@ fi
 echo "[startup] Running database migrations"
 "$PYTHON_BIN" -m flask --app wsgi db upgrade
 
+echo "[startup] Syncing primary key sequences"
+"$PYTHON_BIN" "$SCRIPT_DIR/sync_sequences.py"
+
 echo "[startup] Starting web server"
 exec gunicorn wsgi:app --bind 0.0.0.0:${PORT:-5000}
