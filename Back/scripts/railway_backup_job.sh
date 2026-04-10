@@ -7,12 +7,13 @@ LOG_FILE="$BACK_DIR/logs/backup_job.log"
 
 mkdir -p "$(dirname "$LOG_FILE")"
 
-# Trap de erro com logging
-trap 'echo "[ERROR] Backup job failed at line $LINENO" | tee -a "$LOG_FILE"; exit 1' ERR
+exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting backup job" | tee -a "$LOG_FILE"
+trap 'echo "[ERROR] Backup job failed at line $LINENO"' ERR
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting backup job"
 
 cd "$BACK_DIR"
-bash scripts/backup_and_upload.sh 2>&1 | tee -a "$LOG_FILE"
+bash scripts/backup_and_upload.sh
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backup job completed successfully" | tee -a "$LOG_FILE"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backup job completed successfully"
