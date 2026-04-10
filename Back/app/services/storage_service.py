@@ -54,6 +54,18 @@ def _save_to_s3(file: FileStorage) -> tuple[str, str]:
             ExtraArgs={"ContentType": file.mimetype or "application/octet-stream"},
         )
     except (BotoCoreError, ClientError) as exc:
+        if isinstance(exc, ClientError):
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "Unknown")
+            message = error.get("Message", str(exc))
+            if code == "SignatureDoesNotMatch":
+                endpoint = _clean_aws_value(current_app.config.get("AWS_S3_ENDPOINT_URL")) or "aws-default"
+                raise ValueError(
+                    "S3 SignatureDoesNotMatch: confira AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, "
+                    "AWS_SESSION_TOKEN (se temporário), AWS_REGION, AWS_S3_BUCKET, "
+                    f"AWS_S3_ENDPOINT_URL ({endpoint}) e AWS_S3_ADDRESSING_STYLE."
+                )
+            raise ValueError(f"Unable to upload attachment to S3 ({code}): {message}")
         raise ValueError(f"Unable to upload attachment to S3: {exc}")
 
     # Persist S3 key in database; signed URLs are generated on demand.

@@ -70,13 +70,16 @@ export async function apiRequest(path, options = {}) {
 
   const isJson = response.headers.get("content-type")?.includes("application/json");
   const payload = isJson ? await response.json() : null;
+  const rawText = isJson ? null : await response.text().catch(() => null);
 
   if (!response.ok) {
     const rawMessage =
       payload?.errors?.detail ||
+      payload?.errors ||
       payload?.message ||
+      (rawText ? rawText.slice(0, 220) : null) ||
       `Request failed with status ${response.status}`;
-    const message = rawMessage === "Validation error" ? "Erro de Validação" : rawMessage;
+    const message = typeof rawMessage === "string" ? rawMessage : JSON.stringify(rawMessage);
     throw new Error(message);
   }
 
