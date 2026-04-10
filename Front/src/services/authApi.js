@@ -41,7 +41,7 @@ export function getSessionSnapshot() {
 }
 
 export async function login(email, password) {
-  const payload = await apiRequest("/auth/login", {
+  const payload = await apiRequest("auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
@@ -60,7 +60,7 @@ export async function login(email, password) {
 
 export async function logout() {
   try {
-    await apiRequest("/auth/logout", { method: "POST" });
+    await apiRequest("auth/logout", { method: "POST" });
   } finally {
     clearAuthToken();
     saveSessionUser(null);
@@ -68,14 +68,14 @@ export async function logout() {
 }
 
 export async function fetchMe() {
-  const payload = await apiRequest("/auth/me", { method: "GET" });
+  const payload = await apiRequest("auth/me", { method: "GET" });
   const user = payload?.data;
   if (user) saveSessionUser(user);
   return user;
 }
 
 export async function updateMyAccount(payload) {
-  const response = await apiRequest("/auth/me", {
+  const response = await apiRequest("auth/me", {
     method: "PUT",
     body: JSON.stringify(payload),
   });
@@ -87,7 +87,7 @@ export async function updateMyAccount(payload) {
 
 
 export async function registerSupplierAccount(payload) {
-  const response = await apiRequest("/auth/register-supplier", {
+  const response = await apiRequest("auth/register-supplier", {
     method: "POST",
     body: JSON.stringify(payload),
   });

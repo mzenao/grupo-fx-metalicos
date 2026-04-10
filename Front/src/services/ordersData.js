@@ -36,14 +36,14 @@ function mapPurchaseFromApi(item, refs) {
 }
 
 export async function fetchMaterialTypes() {
-  const payload = await apiRequest("/material-types", { method: "GET" });
+  const payload = await apiRequest("material-types", { method: "GET" });
   return (payload?.data || []).map(mapMaterialType);
 }
 
 export async function fetchPurchases() {
   const [purchasesPayload, materialsPayload, suppliersResult, employeesResult] = await Promise.all([
-    apiRequest("/purchases", { method: "GET" }),
-    apiRequest("/material-types", { method: "GET" }),
+    apiRequest("purchases", { method: "GET" }),
+    apiRequest("material-types", { method: "GET" }),
     fetchSuppliers().then((data) => ({ ok: true, data })).catch(() => ({ ok: false, data: [] })),
     fetchEmployees().then((data) => ({ ok: true, data })).catch(() => ({ ok: false, data: [] })),
   ]);
@@ -65,7 +65,7 @@ export async function fetchPurchases() {
 }
 
 export async function createPurchase(payload) {
-  const response = await apiRequest("/purchases", {
+  const response = await apiRequest("purchases", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -85,7 +85,7 @@ export async function createPurchaseWithAttachments({ purchasePayload, files }) 
     formData.append("files", file);
   }
 
-  const response = await apiRequest("/purchases/with-attachments", {
+  const response = await apiRequest("purchases/with-attachments", {
     method: "POST",
     body: formData,
   });
@@ -93,7 +93,7 @@ export async function createPurchaseWithAttachments({ purchasePayload, files }) 
 }
 
 export async function updatePurchase(purchaseId, payload) {
-  const response = await apiRequest(`/purchases/${purchaseId}`, {
+  const response = await apiRequest(`purchases/${purchaseId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
@@ -101,13 +101,13 @@ export async function updatePurchase(purchaseId, payload) {
 }
 
 export async function deletePurchase(purchaseId) {
-  await apiRequest(`/purchases/${purchaseId}`, {
+  await apiRequest(`purchases/${purchaseId}`, {
     method: "DELETE",
   });
 }
 
 export async function sendPurchaseComprovantes(purchaseId) {
-  const response = await apiRequest(`/purchases/${purchaseId}/send-comprovantes`, {
+  const response = await apiRequest(`purchases/${purchaseId}/send-comprovantes`, {
     method: "POST",
   });
   return response?.data;
@@ -121,7 +121,7 @@ export async function uploadAttachment({ purchaseId, file, attachmentType }) {
     formData.append("attachment_type", attachmentType);
   }
 
-  const response = await apiRequest("/attachments/upload", {
+  const response = await apiRequest("attachments/upload", {
     method: "POST",
     body: formData,
   });

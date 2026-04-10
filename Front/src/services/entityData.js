@@ -87,14 +87,14 @@ export function saveSuppliers(suppliers) {
 }
 
 export async function fetchEmployees() {
-  const payload = await apiRequest("/employees", { method: "GET" });
+  const payload = await apiRequest("employees", { method: "GET" });
   const employees = (payload?.data || []).map(mapEmployeeFromApi);
   saveEmployees(employees);
   return employees;
 }
 
 export async function createEmployee(payload) {
-  const response = await apiRequest("/employees", {
+  const response = await apiRequest("employees", {
     method: "POST",
     body: JSON.stringify(mapEmployeeToApi(payload)),
   });
@@ -102,7 +102,7 @@ export async function createEmployee(payload) {
 }
 
 export async function updateEmployee(employeeId, payload) {
-  const response = await apiRequest(`/employees/${employeeId}`, {
+  const response = await apiRequest(`employees/${employeeId}`, {
     method: "PUT",
     body: JSON.stringify(mapEmployeeToApi(payload)),
   });
@@ -110,18 +110,18 @@ export async function updateEmployee(employeeId, payload) {
 }
 
 export async function deleteEmployee(employeeId) {
-  await apiRequest(`/employees/${employeeId}`, { method: "DELETE" });
+  await apiRequest(`employees/${employeeId}`, { method: "DELETE" });
 }
 
 export async function fetchSuppliers() {
-  const payload = await apiRequest("/suppliers", { method: "GET" });
+  const payload = await apiRequest("suppliers", { method: "GET" });
   const suppliers = (payload?.data || []).map(mapSupplierFromApi);
   saveSuppliers(suppliers);
   return suppliers;
 }
 
 export async function createSupplier(payload) {
-  const response = await apiRequest("/suppliers", {
+  const response = await apiRequest("suppliers", {
     method: "POST",
     body: JSON.stringify(mapSupplierToApi(payload)),
   });
@@ -129,7 +129,7 @@ export async function createSupplier(payload) {
 }
 
 export async function updateSupplier(supplierId, payload) {
-  const response = await apiRequest(`/suppliers/${supplierId}`, {
+  const response = await apiRequest(`suppliers/${supplierId}`, {
     method: "PUT",
     body: JSON.stringify(mapSupplierToApi(payload)),
   });
@@ -137,5 +137,5 @@ export async function updateSupplier(supplierId, payload) {
 }
 
 export async function deleteSupplier(supplierId) {
-  await apiRequest(`/suppliers/${supplierId}`, { method: "DELETE" });
+  await apiRequest(`suppliers/${supplierId}`, { method: "DELETE" });
 }
