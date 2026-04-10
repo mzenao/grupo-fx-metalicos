@@ -2,16 +2,14 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Instagram,
-  Facebook,
-  MessageCircle,
-  Youtube,
   ArrowUp
 } from 'lucide-react';
 
 const socialLinks = [
-  { icon: Instagram, href: '#' },
-  { icon: Facebook, href: '#' },
-  { icon: Youtube, href: '#' }
+  {
+    icon: Instagram,
+    href: 'https://www.instagram.com/grupo.fx_brasil?igsh=MTdudzBpemp1ZGd0&utm_source=qr'
+  }
 ];
 
 export default function Footer() {
@@ -35,6 +33,8 @@ export default function Footer() {
                 <motion.a
                   key={index}
                   href={social.href}
+                  target="_blank"
+                  rel="noreferrer"
                   whileHover={{ scale: 1.1 }}
                   className="w-10 h-10 rounded-xl bg-[#b8891f]/10 flex items-center justify-center text-[#b8891f] hover:bg-[#b8891f]/20 transition-all"
                 >
