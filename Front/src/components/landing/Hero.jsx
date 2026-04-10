@@ -30,11 +30,13 @@ export default function Hero() {
 		if (!video) return;
 
 		video.muted = true;
+		video.defaultMuted = true;
 		video.setAttribute("muted", "");
 		video.setAttribute("playsinline", "");
 		video.setAttribute("webkit-playsinline", "");
 
 		const tryAutoplay = async () => {
+			if (document.hidden) return;
 			try {
 				await video.play();
 			} catch {
@@ -42,7 +44,32 @@ export default function Hero() {
 			}
 		};
 
+		const handleVisibility = () => {
+			if (!document.hidden) {
+				tryAutoplay();
+			}
+		};
+
+		video.addEventListener("loadedmetadata", tryAutoplay);
+		video.addEventListener("canplay", tryAutoplay);
+		window.addEventListener("pageshow", tryAutoplay);
+		document.addEventListener("visibilitychange", handleVisibility);
+
 		tryAutoplay();
+
+		const retryTimer = window.setTimeout(() => {
+			if (video.paused) {
+				tryAutoplay();
+			}
+		}, 1200);
+
+		return () => {
+			window.clearTimeout(retryTimer);
+			video.removeEventListener("loadedmetadata", tryAutoplay);
+			video.removeEventListener("canplay", tryAutoplay);
+			window.removeEventListener("pageshow", tryAutoplay);
+			document.removeEventListener("visibilitychange", handleVisibility);
+		};
 	}, []);
 
 	const handleRegisterSuccess = () => {
@@ -58,8 +85,9 @@ export default function Hero() {
 				autoPlay
 				loop
 				muted
+				defaultMuted
 				playsInline
-				preload="metadata"
+				preload="auto"
 			/>
 
 			<div className="absolute inset-0 bg-gradient-to-l from-black/55 via-black/20 to-transparent" />
