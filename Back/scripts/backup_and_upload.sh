@@ -26,11 +26,17 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_PATH="$BACK_DIR/backups/backup_${TIMESTAMP}.sql"
 
 echo "[backup] Starting database dump"
-bash "$SCRIPT_DIR/dump_postgres.sh" "$BACKUP_PATH"
+if ! bash "$SCRIPT_DIR/dump_postgres.sh" "$BACKUP_PATH"; then
+	echo "[ERROR] Database dump failed"
+	exit 1
+fi
 
 echo "[backup] Uploading dump to S3 backup bucket"
 cd "$BACK_DIR"
-"$PYTHON_BIN" scripts/upload_backup_s3.py "$BACKUP_PATH"
+if ! "$PYTHON_BIN" scripts/upload_backup_s3.py "$BACKUP_PATH"; then
+	echo "[ERROR] S3 upload failed"
+	exit 1
+fi
 
 # Default cleanup behavior:
 # - On Railway: remove local dump by default (ephemeral disk).

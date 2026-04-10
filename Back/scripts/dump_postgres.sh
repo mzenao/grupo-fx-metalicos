@@ -31,6 +31,18 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 OUTPUT_PATH=${1:-"$BACK_DIR/backups/backup_${TIMESTAMP}.sql"}
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
-pg_dump "$DATABASE_URL_PGDUMP" -f "$OUTPUT_PATH"
-echo "Backup generated at $OUTPUT_PATH"
+
+echo "[dump_postgres] Running pg_dump to $OUTPUT_PATH"
+if ! pg_dump "$DATABASE_URL_PGDUMP" -f "$OUTPUT_PATH" 2>&1; then
+	echo "[ERROR] pg_dump failed. Check DATABASE_URL format."
+	exit 1
+fi
+
+if [ ! -f "$OUTPUT_PATH" ]; then
+	echo "[ERROR] Backup file was not created"
+	exit 1
+fi
+
+FILE_SIZE=$(du -h "$OUTPUT_PATH" | cut -f1)
+echo "[dump_postgres] Backup generated at $OUTPUT_PATH (size: $FILE_SIZE)"
 
