@@ -5,7 +5,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BACK_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 ENV_FILE="$BACK_DIR/.env"
 
-if [ -f "$ENV_FILE" ]; then
+if [ -f "$ENV_FILE" ] && [ -z "${RAILWAY_ENVIRONMENT:-}" ]; then
 	set -a
 	# shellcheck disable=SC1090
 	source "$ENV_FILE"
@@ -33,8 +33,14 @@ OUTPUT_PATH=${1:-"$BACK_DIR/backups/backup_${TIMESTAMP}.sql"}
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 echo "[dump_postgres] Running pg_dump to $OUTPUT_PATH"
-if ! pg_dump "$DATABASE_URL_PGDUMP" -f "$OUTPUT_PATH" 2>&1; then
-	echo "[ERROR] pg_dump failed. Check DATABASE_URL format."
+if [ -n "${RAILWAY_ENVIRONMENT:-}" ]; then
+	echo "[dump_postgres] Using Railway environment variables"
+else
+	echo "[dump_postgres] Using local .env variables"
+fi
+echo "[dump_postgres] DATABASE_URL_PGDUMP=${DATABASE_URL_PGDUMP%%:*}://***"
+if ! pg_dump "$DATABASE_URL_PGDUMP" -f "$OUTPUT_PATH"; then
+	echo "[ERROR] pg_dump failed. Check DATABASE_URL format, network access, credentials, and whether postgresql-client is installed."
 	exit 1
 fi
 

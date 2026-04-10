@@ -5,7 +5,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BACK_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 ENV_FILE="$BACK_DIR/.env"
 
-if [ -f "$ENV_FILE" ]; then
+if [ -f "$ENV_FILE" ] && [ -z "${RAILWAY_ENVIRONMENT:-}" ]; then
 	set -a
 	# shellcheck disable=SC1090
 	source "$ENV_FILE"
