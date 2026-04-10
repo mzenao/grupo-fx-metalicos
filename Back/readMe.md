@@ -31,7 +31,7 @@ No build command, instale o cliente PostgreSQL antes das dependências Python:
 apt-get update && apt-get install -y postgresql-client && pip install -r requirements.txt
 ```
 
-Se sua imagem/base não suportar `apt-get`, use uma imagem Docker própria com `postgresql-client` instalado.
+Se o build retornar `exit code: 100`, isso normalmente indica falha no `apt-get` e quase sempre se resolve com o `apt-get update` acima. Se a base do Railway ainda não aceitar `apt-get`, use uma imagem Docker própria com `postgresql-client` instalado.
 
 ### 4) Start command do serviço web
 
