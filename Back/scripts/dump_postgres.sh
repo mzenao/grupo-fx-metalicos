@@ -27,6 +27,11 @@ if ! command -v pg_dump >/dev/null 2>&1; then
 	exit 1
 fi
 
+echo "[dump_postgres] pg_dump version: $(pg_dump --version)"
+if command -v psql >/dev/null 2>&1; then
+	echo "[dump_postgres] psql version: $(psql --version)"
+fi
+
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 OUTPUT_PATH=${1:-"$BACK_DIR/backups/backup_${TIMESTAMP}.sql"}
 
@@ -39,6 +44,14 @@ else
 	echo "[dump_postgres] Using local .env variables"
 fi
 echo "[dump_postgres] DATABASE_URL_PGDUMP=${DATABASE_URL_PGDUMP%%:*}://***"
+
+if command -v psql >/dev/null 2>&1; then
+	SERVER_VERSION=$(psql "$DATABASE_URL_PGDUMP" -Atc "SHOW server_version;" 2>/dev/null || true)
+	if [ -n "$SERVER_VERSION" ]; then
+		echo "[dump_postgres] Server version: $SERVER_VERSION"
+	fi
+fi
+
 if ! pg_dump "$DATABASE_URL_PGDUMP" -f "$OUTPUT_PATH"; then
 	echo "[ERROR] pg_dump failed. Check DATABASE_URL format, network access, credentials, and whether postgresql-client is installed."
 	exit 1
