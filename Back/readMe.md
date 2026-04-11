@@ -108,6 +108,24 @@ bash scripts/restore_postgres.sh caminho/do/arquivo.sql
 
 O script já normaliza URLs `postgres://` e `postgresql+psycopg2://` automaticamente.
 
+Se você quiser baixar o backup mais recente diretamente do S3 e restaurá-lo em um passo, use:
+
+```bash
+bash scripts/restore_latest_backup_s3.sh
+```
+
+Para baixar o backup mais recente sem restaurá-lo ainda:
+
+```bash
+bash scripts/restore_latest_backup_s3.sh --download-only
+```
+
+Se você já conhece a chave do objeto S3, pode restaurar aquele backup específico:
+
+```bash
+bash scripts/restore_latest_backup_s3.sh --key backup_20260411_000146.sql
+```
+
 ## Scripts prontos para produção
 
 - `scripts/railway_migrate.sh`: aplica as migrations no Railway.
