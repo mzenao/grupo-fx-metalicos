@@ -5,6 +5,10 @@ export default function ConfirmDeleteModal({
   open,
   title = "Confirmar exclusao",
   message,
+  itemLabel = "",
+  password = "",
+  onPasswordChange,
+  requirePassword = true,
   confirmText = "Excluir",
   cancelText = "Cancelar",
   loading = false,
@@ -49,6 +53,23 @@ export default function ConfirmDeleteModal({
 
             <div className="px-5 py-5 space-y-4">
               <p className="text-sm text-gray-700">{message}</p>
+              {itemLabel ? (
+                <p className="text-xs text-gray-600">
+                  Item: <span className="font-semibold text-gray-800">{itemLabel}</span>
+                </p>
+              ) : null}
+              {requirePassword ? (
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-gray-700">Senha atual *</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => onPasswordChange?.(event.target.value)}
+                    placeholder="Digite sua senha"
+                    className="w-full h-10 px-3 rounded-lg border border-[#d6ab4a]/50 bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+                  />
+                </div>
+              ) : null}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -61,7 +82,7 @@ export default function ConfirmDeleteModal({
                 <button
                   type="button"
                   onClick={onConfirm}
-                  disabled={loading}
+                  disabled={loading || (requirePassword && !String(password || "").trim())}
                   className="px-4 py-2 rounded-lg bg-gradient-to-r from-red-600 to-red-500 text-white font-semibold hover:brightness-105 disabled:opacity-60"
                 >
                   {loading ? "Excluindo..." : confirmText}

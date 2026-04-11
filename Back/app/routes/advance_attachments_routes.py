@@ -1,15 +1,28 @@
 from pathlib import Path
 
-from flask import Blueprint, redirect, request, send_file
+from flask import Blueprint, g, redirect, request, send_file
 
 from app.middlewares.auth_middleware import login_required
 from app.middlewares.role_middleware import roles_required
 from app.services.advance_attachment_service import delete_attachment, get_attachment, upload_attachment
 from app.services.storage_service import resolve_attachment_source
 from app.utils.response import success_response
+from app.utils.security import verify_password
 
 
 advance_attachment_bp = Blueprint("advance_attachments", __name__)
+
+
+def _require_current_password_for_delete() -> None:
+	payload = request.get_json(silent=True) or {}
+	current_password = str(payload.get("current_password") or "").strip()
+	current_user = getattr(g, "current_user", None)
+
+	if not current_password:
+		raise ValueError("Senha atual obrigatoria para exclusao")
+
+	if not current_user or not verify_password(current_user.password_hash, current_password):
+		raise ValueError("Senha atual invalida")
 
 
 @advance_attachment_bp.post("/upload")
@@ -64,5 +77,6 @@ def get_attachment_file_route(attachment_id: int):
 @login_required
 @roles_required("admin", "employee")
 def delete_attachment_route(attachment_id: int):
+	_require_current_password_for_delete()
 	delete_attachment(attachment_id)
 	return success_response("Attachment deleted successfully", None, 200)

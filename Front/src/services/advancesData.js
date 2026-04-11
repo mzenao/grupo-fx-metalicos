@@ -88,13 +88,14 @@ export async function sendAdvanceComprovantes(advanceId) {
   return payload?.data || {};
 }
 
-export async function deleteAdvance(advanceId) {
+export async function deleteAdvance(advanceId, currentPassword) {
   if (!advanceId) {
     throw new Error("advanceId is required");
   }
 
   await apiRequest(`adiantamentos/${advanceId}`, {
     method: "DELETE",
+    body: JSON.stringify({ current_password: currentPassword }),
   });
 }
 

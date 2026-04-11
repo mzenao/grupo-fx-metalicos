@@ -517,7 +517,7 @@ function AdvancesPortalWrapper() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <SummaryCard label="Total de adiantamentos" value={`${summary.total}`} />
-        <SummaryCard label="Falta Pagar" value={fmtMoney(summary.remaining)} />
+        <SummaryCard label="Slado Devedor" value={fmtMoney(summary.remaining)} />
       </div>
 
       <div>
@@ -579,7 +579,7 @@ function AdvancesPortalWrapper() {
                       <p><span className="text-gray-500">Fornecedor:</span> {advance.SupplierName || "-"}</p>
                       <p><span className="text-gray-500">Funcionário:</span> {advance.employeeName || "-"}</p>
                       <p><span className="text-gray-500">Valor total:</span> {fmtMoney(advance.valueTotal)}</p>
-                      <p><span className="text-gray-500">Falta Pagar:</span> {fmtMoney(advance.valueRemaining)}</p>
+                      <p><span className="text-gray-500">Slado Devedor:</span> {fmtMoney(advance.valueRemaining)}</p>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
                       Comprovantes: {advance.attachmentNames?.join(", ") || "Nenhum"}

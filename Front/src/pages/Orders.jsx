@@ -164,6 +164,7 @@ export default function Orders() {
 	const [employeesOptions, setEmployeesOptions] = useState([]);
 	const [materialTypeOptions, setMaterialTypeOptions] = useState([]);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
+	const [creatingPurchase, setCreatingPurchase] = useState(false);
 	const [showAllPurchases, setShowAllPurchases] = useState(Boolean(hashId));
 	const [editingPurchaseId, setEditingPurchaseId] = useState(null);
 	const [isEditOpen, setIsEditOpen] = useState(false);
@@ -177,7 +178,7 @@ export default function Orders() {
 	const [editAttachments, setEditAttachments] = useState([]);
 	const [editDragActive, setEditDragActive] = useState(false);
 	const [editError, setEditError] = useState("");
-	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null });
+	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, itemLabel: "", password: "" });
 	const [deletingPurchase, setDeletingPurchase] = useState(false);
 	const [infoModal, setInfoModal] = useState({ open: false, title: "", message: "" });
 	const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
@@ -297,20 +298,29 @@ export default function Orders() {
 	const handleDeletePurchaseConfirm = async () => {
 		const purchaseId = confirmDelete.id;
 		if (!purchaseId) return;
+		if (!String(confirmDelete.password || "").trim()) return;
 
 		setDeletingPurchase(true);
 		try {
-			await deletePurchase(purchaseId);
+			await deletePurchase(purchaseId, confirmDelete.password);
 			const refreshedPurchases = await fetchPurchases();
 			setPurchases(refreshedPurchases);
-			setConfirmDelete({ open: false, id: null });
+			setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
 			setIsEditOpen(false);
 			setEditingPurchaseId(null);
 		} catch (err) {
+			const errorMessage = err?.message || "Erro ao remover compra.";
+			const isInvalidPassword = /senha atual invalida/i.test(errorMessage);
+
+			if (isInvalidPassword) {
+				setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
+				setInfoModal((prev) => ({ ...prev, open: false }));
+			}
+
 			setErrorModal({
 				open: true,
 				title: "Erro ao remover",
-				message: err?.message || "Erro ao remover compra.",
+				message: errorMessage,
 			});
 		} finally {
 			setDeletingPurchase(false);
@@ -596,6 +606,7 @@ export default function Orders() {
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
+		if (creatingPurchase) return;
 		setError("");
 
 		if (!SupplierId) {
@@ -638,6 +649,7 @@ export default function Orders() {
 			return;
 		}
 
+		setCreatingPurchase(true);
 		try {
 			await createPurchaseWithAttachments({
 				purchasePayload: {
@@ -648,7 +660,6 @@ export default function Orders() {
 				value: totalValue,
 				purchase_datetime: datetime.toISOString(),
 					apply_advance: applyAdvance,
-					advance_id: applyAdvance ? pendingAdvances[0]?.id : null,
 				},
 				files: attachments,
 			});
@@ -668,6 +679,8 @@ export default function Orders() {
 			setIsCreateOpen(false);
 		} catch (err) {
 			setError(err?.message || "Erro ao salvar compra.");
+		} finally {
+			setCreatingPurchase(false);
 		}
 	};
 
@@ -716,33 +729,6 @@ export default function Orders() {
 							onSelect={setSupplierId}
 						/>
 
-						{SupplierId && pendingAdvances.length > 0 && (
-							<div className="md:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
-								<label className="flex items-start gap-3 cursor-pointer">
-									<input
-										type="checkbox"
-										checked={applyAdvance}
-										onChange={(e) => setApplyAdvance(e.target.checked)}
-										className="mt-1 h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
-									/>
-									<div className="space-y-1">
-										<p className="font-semibold text-emerald-900">Abater do adiantamento</p>
-										<p className="text-sm text-emerald-800">
-											Existe(m) {pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.
-										</p>
-										<p className="text-xs text-emerald-700">
-											Falta Pagar disponível: {formatMoney(pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0))}
-										</p>
-										{applyAdvance && pendingAdvances[0] && (
-											<p className="text-xs text-emerald-700">
-												Será abatido o adiantamento #{pendingAdvances[0].id} primeiro.
-											</p>
-										)}
-									</div>
-								</label>
-							</div>
-						)}
-
 						<SearchSelect
 							label="Funcionario responsavel"
 							placeholder="Pesquisar funcionario..."
@@ -750,6 +736,28 @@ export default function Orders() {
 							selectedId={employeeId}
 							onSelect={setEmployeeId}
 						/>
+
+						{SupplierId && pendingAdvances.length > 0 && (
+							<div className="md:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
+								<label className="flex items-start gap-2.5 cursor-pointer">
+									<input
+										type="checkbox"
+										checked={applyAdvance}
+										onChange={(e) => setApplyAdvance(e.target.checked)}
+										className="mt-0.5 h-3.5 w-3.5 rounded border-emerald-400 accent-emerald-600 checked:bg-emerald-600 checked:border-emerald-600 focus:ring-emerald-500"
+									/>
+									<div className="space-y-0.5 leading-tight">
+										<p className="text-sm font-semibold text-emerald-900">Abater valor do adiantamento</p>
+										<p className="text-xs text-emerald-800">
+											Existe(m) {pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.
+										</p>
+										<p className="text-[11px] text-emerald-700">
+											Slado Devedor disponivel: {formatMoney(pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0))}
+										</p>
+									</div>
+								</label>
+							</div>
+						)}
 
 						<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-3">
 							<div>
@@ -890,8 +898,12 @@ export default function Orders() {
 					</div>
 
 					<div className="flex flex-wrap gap-3 pt-2">
-						<Button type="submit" className="bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white hover:brightness-105">
-							Salvar compra
+						<Button
+							type="submit"
+							disabled={creatingPurchase}
+							className="bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white hover:brightness-105 disabled:opacity-60"
+						>
+							{creatingPurchase ? "Salvando..." : "Salvar compra"}
 						</Button>
 
 						<Button
@@ -1138,7 +1150,7 @@ export default function Orders() {
 												<Button
 													type="button"
 													variant="outline"
-													onClick={() => setConfirmDelete({ open: true, id: purchase.id })}
+													onClick={() => setConfirmDelete({ open: true, id: purchase.id, itemLabel: `Compra #${purchase.id}`, password: "" })}
 													className="border-red-300 text-red-700 hover:bg-red-50"
 												>
 													Excluir compra
@@ -1195,7 +1207,10 @@ export default function Orders() {
 				open={confirmDelete.open}
 				title="Excluir compra"
 				message="Tem certeza que deseja excluir esta compra? Esta acao nao pode ser desfeita."
-				onCancel={() => setConfirmDelete({ open: false, id: null })}
+				itemLabel={confirmDelete.itemLabel}
+				password={confirmDelete.password}
+				onPasswordChange={(password) => setConfirmDelete((prev) => ({ ...prev, password }))}
+				onCancel={() => setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" })}
 				onConfirm={handleDeletePurchaseConfirm}
 				loading={deletingPurchase}
 			/>

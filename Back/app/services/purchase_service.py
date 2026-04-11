@@ -105,7 +105,7 @@ def create_purchase(payload: dict) -> Purchase:
 		advance_info = apply_pending_advance(
 			supplier_id=supplier_id,
 			purchase_value=value,
-			advance_id=payload.get("advance_id"),
+			advance_id=None,
 		)
 		if not advance_info:
 			raise ValueError("No pending advances available to apply for this supplier")
@@ -157,7 +157,7 @@ def create_purchase_with_attachments(payload: dict, files: list) -> Purchase:
 		advance_info = apply_pending_advance(
 			supplier_id=supplier_id,
 			purchase_value=value,
-			advance_id=payload.get("advance_id"),
+			advance_id=None,
 		)
 		if not advance_info:
 			raise ValueError("No pending advances available to apply for this supplier")

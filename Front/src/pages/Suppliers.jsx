@@ -71,7 +71,7 @@ export default function Suppliers() {
 	const [expandedId, setExpandedId] = useState(null);
 	const [salesSupplier, setSalesSupplier] = useState(null);
 	const [loading, setLoading] = useState(false);
-	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null });
+	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, itemLabel: "", password: "" });
 	const [deleting, setDeleting] = useState(false);
 	const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
 
@@ -148,10 +148,11 @@ export default function Suppliers() {
 	const handleDeleteConfirm = async () => {
 		const id = confirmDelete.id;
 		if (!id) return;
+		if (!String(confirmDelete.password || "").trim()) return;
 
 		const hasSales = (purchasesBySupplierId.get(id) || []).length > 0;
 		if (hasSales) {
-			setConfirmDelete({ open: false, id: null });
+			setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
 			setErrorModal({
 				open: true,
 				title: "Exclusao nao permitida",
@@ -162,15 +163,20 @@ export default function Suppliers() {
 
 		setDeleting(true);
 		try {
-			await deleteSupplier(id);
+			await deleteSupplier(id, confirmDelete.password);
 			setSuppliers((prev) => prev.filter((supplier) => supplier.id !== id));
 			setExpandedId((prev) => (prev === id ? null : prev));
-			setConfirmDelete({ open: false, id: null });
+			setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
 		} catch (err) {
+			const errorMessage = err?.message || "Erro ao remover fornecedor";
+			if (/senha atual invalida/i.test(errorMessage)) {
+				setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
+			}
+
 			setErrorModal({
 				open: true,
 				title: "Erro ao remover",
-				message: err?.message || "Erro ao remover fornecedor",
+				message: errorMessage,
 			});
 		} finally {
 			setDeleting(false);
@@ -327,7 +333,7 @@ export default function Suppliers() {
 											<Button
 												variant="ghost"
 												size="icon"
-												onClick={() => setConfirmDelete({ open: true, id: supplier.id })}
+												onClick={() => setConfirmDelete({ open: true, id: supplier.id, itemLabel: `Fornecedor: ${displayName}`, password: "" })}
 												className="w-8 h-8 text-gray-400 hover:text-red-500"
 											>
 												<Trash2 className="w-4 h-4" />
@@ -423,7 +429,10 @@ export default function Suppliers() {
 				open={confirmDelete.open}
 				title="Excluir fornecedor"
 				message="Tem certeza que deseja excluir este fornecedor? Esta acao nao pode ser desfeita."
-				onCancel={() => setConfirmDelete({ open: false, id: null })}
+				itemLabel={confirmDelete.itemLabel}
+				password={confirmDelete.password}
+				onPasswordChange={(password) => setConfirmDelete((prev) => ({ ...prev, password }))}
+				onCancel={() => setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" })}
 				onConfirm={handleDeleteConfirm}
 				loading={deleting}
 			/>

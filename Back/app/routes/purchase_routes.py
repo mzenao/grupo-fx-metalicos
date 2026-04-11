@@ -2,6 +2,7 @@ from flask import Blueprint, g, request
 
 from app.middlewares.auth_middleware import login_required
 from app.middlewares.role_middleware import roles_required
+from app.models.advance import Advance
 from app.services.purchase_service import (
 	create_purchase,
 	create_purchase_with_attachments,
@@ -15,6 +16,7 @@ from app.services.resend_service import ResendService
 from app.services.storage_service import resolve_attachment_source
 from app.services.zapi_service import ZapiService
 from app.utils.response import success_response
+from app.utils.security import verify_password
 
 
 purchase_bp = Blueprint("purchases", __name__)
@@ -40,6 +42,30 @@ def _build_portal_access_line() -> str:
 	return f"Você pode acessar as informacoes da sua venda em nosso site: {PORTAL_URL}"
 
 
+def _get_supplier_advance_summary(supplier_id: int | None) -> dict:
+	if not supplier_id:
+		return {
+			"total_advanced": 0.0,
+			"total_debt": 0.0,
+			"open_count": 0,
+		}
+
+	advances = Advance.query.filter(Advance.supplier_id == supplier_id).all()
+	total_advanced = sum(float(advance.value_total or 0) for advance in advances)
+	total_debt = sum(float(advance.value_remaining or 0) for advance in advances)
+	open_count = sum(
+		1
+		for advance in advances
+		if str(getattr(advance, "status", "")).lower() == "pendente" and float(advance.value_remaining or 0) > 0
+	)
+
+	return {
+		"total_advanced": total_advanced,
+		"total_debt": total_debt,
+		"open_count": open_count,
+	}
+
+
 def _build_purchase_notification_message(purchase) -> str:
 	supplier = purchase.supplier
 	supplier_name = "Fornecedor"
@@ -51,14 +77,16 @@ def _build_purchase_notification_message(purchase) -> str:
 	advance_abatement_value = float(getattr(purchase, "advance_abatement_value", 0) or 0)
 	advance_remaining_after = float(getattr(purchase, "advance_remaining_after", 0) or 0)
 	has_abatement = bool(getattr(purchase, "advance_id", None) and advance_abatement_value > 0)
+	advance_summary = _get_supplier_advance_summary(getattr(purchase, "supplier_id", None))
 
 	if has_abatement:
 		return (
 			f"Prezado(a), {supplier_name}.\n\n"
 			"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
-			f"• Valor da venda: R$ {value_text}\n"
+			f"• Valor total adiantado: R$ {_format_brl(advance_summary['total_advanced'])}\n"
+			f"• Restante total: R$ {_format_brl(advance_summary['total_debt'])}\n"
+			f"• Este devedor possui {advance_summary['open_count']} adiantamento(s) em aberto.\n"
 			f"• Valor abatido no adiantamento: R$ {_format_brl(advance_abatement_value)}\n"
-			f"• Restante do adiantamento: R$ {_format_brl(advance_remaining_after)}\n"
 			f"• Data: {date_text}\n\n"
 			"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
 			"• Comprovante de pagamento\n"
@@ -86,6 +114,18 @@ def _build_purchase_notification_message(purchase) -> str:
 
 def _build_purchase_receipt_subject(purchase) -> str:
 	return f"Comprovantes da compra #{purchase.id}"
+
+
+def _require_current_password_for_delete() -> None:
+	payload = request.get_json(silent=True) or {}
+	current_password = str(payload.get("current_password") or "").strip()
+	current_user = getattr(g, "current_user", None)
+
+	if not current_password:
+		raise ValueError("Senha atual obrigatoria para exclusao")
+
+	if not current_user or not verify_password(current_user.password_hash, current_password):
+		raise ValueError("Senha atual invalida")
 
 
 def _get_purchase_supplier_email(purchase) -> str | None:
@@ -153,7 +193,6 @@ def create_purchase_with_attachments_route():
 		"value": request.form.get("value"),
 		"purchase_datetime": request.form.get("purchase_datetime"),
 		"apply_advance": request.form.get("apply_advance"),
-		"advance_id": request.form.get("advance_id"),
 	}
 	files = request.files.getlist("files")
 	purchase = create_purchase_with_attachments(payload, files)
@@ -173,6 +212,7 @@ def update_purchase_route(purchase_id: int):
 @login_required
 @roles_required("admin", "employee")
 def delete_purchase_route(purchase_id: int):
+	_require_current_password_for_delete()
 	delete_purchase(purchase_id)
 	return success_response("Purchase deleted successfully", None)
 

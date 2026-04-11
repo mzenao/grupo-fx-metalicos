@@ -16,6 +16,7 @@ from app.services.advance_service import (
 )
 from app.services.storage_service import resolve_attachment_source
 from app.services.zapi_service import ZapiService
+from app.utils.security import verify_password
 from app.utils.response import success_response
 
 
@@ -48,7 +49,7 @@ def _build_advance_notification_message(advance) -> str:
 		f"Prezado(a), {supplier_name}.\n\n"
 		"Grupo FX Metalicos informa que seu adiantamento foi registrado com sucesso.\n\n"
 		f"• Valor total do adiantamento: R$ {_format_brl(advance.value_total)}\n"
-		f"• Falta Pagar atual do adiantamento: R$ {_format_brl(advance.value_remaining)}\n"
+		f"• Slado Devedor atual do adiantamento: R$ {_format_brl(advance.value_remaining)}\n"
 		f"• Status: {str(advance.status or 'pendente').capitalize()}\n"
 		f"• Data: {_format_advance_datetime(advance.advance_datetime)}\n\n"
 		"Segue abaixo o(s) comprovante(s) referente(s) ao adiantamento.\n\n"
@@ -61,6 +62,18 @@ def _build_advance_notification_message(advance) -> str:
 
 def _build_advance_receipt_subject(advance) -> str:
 	return f"Comprovantes do adiantamento #{advance.id}"
+
+
+def _require_current_password_for_delete() -> None:
+	payload = request.get_json(silent=True) or {}
+	current_password = str(payload.get("current_password") or "").strip()
+	current_user = getattr(g, "current_user", None)
+
+	if not current_password:
+		raise ValueError("Senha atual obrigatoria para exclusao")
+
+	if not current_user or not verify_password(current_user.password_hash, current_password):
+		raise ValueError("Senha atual invalida")
 
 
 def _get_advance_supplier_email(advance) -> str | None:
@@ -169,6 +182,7 @@ def update_advance_route(advance_id: int):
 @login_required
 @roles_required("admin", "employee")
 def delete_advance_route(advance_id: int):
+	_require_current_password_for_delete()
 	delete_advance(advance_id)
 	return success_response("Advance deleted successfully", None)
 

@@ -111,8 +111,11 @@ export async function updateEmployee(employeeId, payload) {
   return mapEmployeeFromApi(response.data);
 }
 
-export async function deleteEmployee(employeeId) {
-  await apiRequest(`employees/${employeeId}`, { method: "DELETE" });
+export async function deleteEmployee(employeeId, currentPassword) {
+  await apiRequest(`employees/${employeeId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ current_password: currentPassword }),
+  });
 }
 
 export async function fetchSuppliers() {
@@ -138,6 +141,9 @@ export async function updateSupplier(supplierId, payload) {
   return mapSupplierFromApi(response.data);
 }
 
-export async function deleteSupplier(supplierId) {
-  await apiRequest(`suppliers/${supplierId}`, { method: "DELETE" });
+export async function deleteSupplier(supplierId, currentPassword) {
+  await apiRequest(`suppliers/${supplierId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ current_password: currentPassword }),
+  });
 }

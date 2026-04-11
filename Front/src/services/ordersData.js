@@ -86,9 +86,6 @@ export async function createPurchaseWithAttachments({ purchasePayload, files }) 
   if (purchasePayload.apply_advance) {
     formData.append("apply_advance", "true");
   }
-  if (purchasePayload.advance_id) {
-    formData.append("advance_id", String(purchasePayload.advance_id));
-  }
 
   for (const file of files || []) {
     formData.append("files", file);
@@ -109,9 +106,10 @@ export async function updatePurchase(purchaseId, payload) {
   return response?.data;
 }
 
-export async function deletePurchase(purchaseId) {
+export async function deletePurchase(purchaseId, currentPassword) {
   await apiRequest(`purchases/${purchaseId}`, {
     method: "DELETE",
+    body: JSON.stringify({ current_password: currentPassword }),
   });
 }
 

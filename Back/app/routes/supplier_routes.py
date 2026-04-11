@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 
 from app.middlewares.auth_middleware import login_required
 from app.middlewares.role_middleware import roles_required
@@ -10,9 +10,22 @@ from app.services.supplier_service import (
 	update_supplier,
 )
 from app.utils.response import success_response
+from app.utils.security import verify_password
 
 
 supplier_bp = Blueprint("suppliers", __name__)
+
+
+def _require_current_password_for_delete() -> None:
+	payload = request.get_json(silent=True) or {}
+	current_password = str(payload.get("current_password") or "").strip()
+	current_user = getattr(g, "current_user", None)
+
+	if not current_password:
+		raise ValueError("Senha atual obrigatoria para exclusao")
+
+	if not current_user or not verify_password(current_user.password_hash, current_password):
+		raise ValueError("Senha atual invalida")
 
 
 @supplier_bp.get("")
@@ -51,6 +64,7 @@ def update_supplier_route(supplier_id: int):
 @login_required
 @roles_required("admin", "employee")
 def delete_supplier_route(supplier_id: int):
+	_require_current_password_for_delete()
 	delete_supplier(supplier_id)
 	return success_response("Supplier deleted successfully", None)
 

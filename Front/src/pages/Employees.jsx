@@ -29,7 +29,7 @@ export default function Employees() {
 	const [showModal, setShowModal] = useState(false);
 	const [editingEmployee, setEditingEmployee] = useState(null);
 	const [showAllEmployees, setShowAllEmployees] = useState(false);
-	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null });
+	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, itemLabel: "", password: "" });
 	const [deleting, setDeleting] = useState(false);
 	const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
 
@@ -83,10 +83,11 @@ export default function Employees() {
 	const handleDeleteConfirm = async () => {
 		const id = confirmDelete.id;
 		if (!id) return;
+		if (!String(confirmDelete.password || "").trim()) return;
 
 		const hasSales = purchases.some((purchase) => String(purchase.employeeId) === String(id));
 		if (hasSales) {
-			setConfirmDelete({ open: false, id: null });
+			setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
 			setErrorModal({
 				open: true,
 				title: "Exclusao nao permitida",
@@ -97,14 +98,19 @@ export default function Employees() {
 
 		setDeleting(true);
 		try {
-			await deleteEmployee(id);
+			await deleteEmployee(id, confirmDelete.password);
 			setEmployees((prev) => prev.filter((e) => e.id !== id));
-			setConfirmDelete({ open: false, id: null });
+			setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
 		} catch (err) {
+			const errorMessage = err?.message || "Erro ao remover funcionario";
+			if (/senha atual invalida/i.test(errorMessage)) {
+				setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
+			}
+
 			setErrorModal({
 				open: true,
 				title: "Erro ao remover",
-				message: err?.message || "Erro ao remover funcionario",
+				message: errorMessage,
 			});
 		} finally {
 			setDeleting(false);
@@ -209,7 +215,7 @@ export default function Employees() {
 									<Button
 										variant="ghost"
 										size="icon"
-										onClick={() => setConfirmDelete({ open: true, id: employee.id })}
+										onClick={() => setConfirmDelete({ open: true, id: employee.id, itemLabel: `Funcionario: ${employee.name || employee.id}`, password: "" })}
 										className="w-8 h-8 text-gray-400 hover:text-red-500"
 									>
 										<Trash2 className="w-4 h-4" />
@@ -260,7 +266,10 @@ export default function Employees() {
 				open={confirmDelete.open}
 				title="Excluir funcionario"
 				message="Tem certeza que deseja excluir este funcionario? Esta acao nao pode ser desfeita."
-				onCancel={() => setConfirmDelete({ open: false, id: null })}
+				itemLabel={confirmDelete.itemLabel}
+				password={confirmDelete.password}
+				onPasswordChange={(password) => setConfirmDelete((prev) => ({ ...prev, password }))}
+				onCancel={() => setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" })}
 				onConfirm={handleDeleteConfirm}
 				loading={deleting}
 			/>

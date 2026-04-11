@@ -183,7 +183,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 	const [infoModal, setInfoModal] = useState({ open: false, title: "", message: "" });
 	const [expandedAdvanceId, setExpandedAdvanceId] = useState(null);
 	const [sendingAdvanceId, setSendingAdvanceId] = useState(null);
-	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null });
+	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, itemLabel: "", password: "" });
 	const [deletingAdvance, setDeletingAdvance] = useState(false);
 	const [editingAdvanceId, setEditingAdvanceId] = useState(null);
 	const [isEditOpen, setIsEditOpen] = useState(false);
@@ -369,21 +369,30 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 	const handleDeleteAdvanceConfirm = async () => {
 		const advanceId = confirmDelete.id;
 		if (!advanceId) return;
+		if (!String(confirmDelete.password || "").trim()) return;
 
 		setDeletingAdvance(true);
 		try {
-			await deleteAdvance(advanceId);
+			await deleteAdvance(advanceId, confirmDelete.password);
 			const refreshed = await fetchAdvances();
 			setAdvances(refreshed);
-			setConfirmDelete({ open: false, id: null });
+			setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
 			if (expandedAdvanceId === advanceId) {
 				setExpandedAdvanceId(null);
 			}
 		} catch (err) {
+			const errorMessage = err?.message || "Erro ao remover adiantamento.";
+			const isInvalidPassword = /senha atual invalida/i.test(errorMessage);
+
+			if (isInvalidPassword) {
+				setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
+				setInfoModal((prev) => ({ ...prev, open: false }));
+			}
+
 			setErrorModal({
 				open: true,
 				title: "Erro ao remover",
-				message: err?.message || "Erro ao remover adiantamento.",
+				message: errorMessage,
 			});
 		} finally {
 			setDeletingAdvance(false);
@@ -765,7 +774,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 													<span className="text-gray-500">Valor total:</span> {formatMoney(advance.valueTotal)}
 												</p>
 												<p>
-														<span className="text-gray-500">Falta Pagar:</span> {formatMoney(advance.valueRemaining)}
+													<span className="text-gray-500">Slado Devedor:</span> {formatMoney(advance.valueRemaining)}
 												</p>
 											</div>
 										</button>
@@ -882,7 +891,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 														<Button
 															type="button"
 															variant="outline"
-															onClick={() => setConfirmDelete({ open: true, id: advance.id })}
+															onClick={() => setConfirmDelete({ open: true, id: advance.id, itemLabel: `Adiantamento #${advance.id}`, password: "" })}
 															className="border-red-300 text-red-700 hover:bg-red-50"
 														>
 															Excluir adiantamento
@@ -914,7 +923,10 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 					open={confirmDelete.open}
 					title="Excluir adiantamento"
 					message="Tem certeza que deseja excluir este adiantamento? Esta acao nao pode ser desfeita."
-					onCancel={() => setConfirmDelete({ open: false, id: null })}
+					itemLabel={confirmDelete.itemLabel}
+					password={confirmDelete.password}
+					onPasswordChange={(password) => setConfirmDelete((prev) => ({ ...prev, password }))}
+					onCancel={() => setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" })}
 					onConfirm={handleDeleteAdvanceConfirm}
 					loading={deletingAdvance}
 				/>
@@ -947,7 +959,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 				<div className="p-8 space-y-6">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
 						<SummaryCard label="Total de adiantamentos" value={`${summary.total}`} />
-						<SummaryCard label="Falta Pagar" value={formatMoney(summary.remaining)} />
+						<SummaryCard label="Slado Devedor" value={formatMoney(summary.remaining)} />
 					</div>
 
 					<div>
@@ -1011,7 +1023,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 													<p><span className="text-gray-500">Fornecedor:</span> {advance.SupplierName || "-"}</p>
 													<p><span className="text-gray-500">Funcionário:</span> {advance.employeeName || "-"}</p>
 													<p><span className="text-gray-500">Valor total:</span> {formatMoney(advance.valueTotal)}</p>
-													<p><span className="text-gray-500">Falta Pagar:</span> {formatMoney(advance.valueRemaining)}</p>
+													<p><span className="text-gray-500">Slado Devedor:</span> {formatMoney(advance.valueRemaining)}</p>
 												</div>
 												<p className="text-xs text-gray-500 mt-2">
 													Comprovantes: {advance.attachmentNames?.join(", ") || "Nenhum"}
@@ -1101,7 +1113,10 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 				open={confirmDelete.open}
 				title="Excluir adiantamento"
 				message="Tem certeza que deseja excluir este adiantamento? Esta acao nao pode ser desfeita."
-				onCancel={() => setConfirmDelete({ open: false, id: null })}
+					itemLabel={confirmDelete.itemLabel}
+					password={confirmDelete.password}
+					onPasswordChange={(password) => setConfirmDelete((prev) => ({ ...prev, password }))}
+					onCancel={() => setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" })}
 				onConfirm={handleDeleteAdvanceConfirm}
 				loading={deletingAdvance}
 			/>
