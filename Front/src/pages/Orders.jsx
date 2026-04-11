@@ -30,6 +30,7 @@ import {
 	fetchEmployees,
 	fetchSuppliers,
 } from "@/services/entityData";
+import { fetchPendingAdvancesForSupplier } from "@/services/advancesData";
 import "react-datepicker/dist/react-datepicker.css";
 
 registerLocale("pt-BR", ptBR);
@@ -70,6 +71,14 @@ function formatPurchaseSupplierName(purchase, suppliersById) {
 	}
 
 	return purchase?.SupplierName || "Fornecedor";
+}
+
+function formatMoney(value) {
+	return Number(value || 0).toLocaleString("pt-BR", {
+		style: "currency",
+		currency: "BRL",
+		minimumFractionDigits: 2,
+	});
 }
 
 function SearchSelect({ label, placeholder, options, selectedId, onSelect }) {
@@ -150,6 +159,8 @@ export default function Orders() {
 	const [error, setError] = useState("");
 	const [purchases, setPurchases] = useState([]);
 	const [suppliers, setSuppliers] = useState([]);
+	const [pendingAdvances, setPendingAdvances] = useState([]);
+	const [applyAdvance, setApplyAdvance] = useState(false);
 	const [employeesOptions, setEmployeesOptions] = useState([]);
 	const [materialTypeOptions, setMaterialTypeOptions] = useState([]);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -199,6 +210,38 @@ export default function Orders() {
 			mounted = false;
 		};
 	}, []);
+
+	useEffect(() => {
+		let mounted = true;
+
+		if (!SupplierId) {
+			setPendingAdvances([]);
+			setApplyAdvance(false);
+			return () => {
+				mounted = false;
+			};
+		}
+
+		setApplyAdvance(false);
+
+		fetchPendingAdvancesForSupplier(SupplierId)
+			.then((data) => {
+				if (!mounted) return;
+				setPendingAdvances(Array.isArray(data) ? data : []);
+				if (!Array.isArray(data) || data.length === 0) {
+					setApplyAdvance(false);
+				}
+			})
+			.catch(() => {
+				if (!mounted) return;
+				setPendingAdvances([]);
+				setApplyAdvance(false);
+			});
+
+		return () => {
+			mounted = false;
+		};
+	}, [SupplierId]);
 
 	const supplierOptions = useMemo(() => {
 		return suppliers.map((supplier) => ({
@@ -604,6 +647,8 @@ export default function Orders() {
 				weight,
 				value: totalValue,
 				purchase_datetime: datetime.toISOString(),
+					apply_advance: applyAdvance,
+					advance_id: applyAdvance ? pendingAdvances[0]?.id : null,
 				},
 				files: attachments,
 			});
@@ -618,6 +663,8 @@ export default function Orders() {
 			setTotalValue("");
 			setDatetime(null);
 			setAttachments([]);
+			setPendingAdvances([]);
+			setApplyAdvance(false);
 			setIsCreateOpen(false);
 		} catch (err) {
 			setError(err?.message || "Erro ao salvar compra.");
@@ -668,6 +715,33 @@ export default function Orders() {
 							selectedId={SupplierId}
 							onSelect={setSupplierId}
 						/>
+
+						{SupplierId && pendingAdvances.length > 0 && (
+							<div className="md:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+								<label className="flex items-start gap-3 cursor-pointer">
+									<input
+										type="checkbox"
+										checked={applyAdvance}
+										onChange={(e) => setApplyAdvance(e.target.checked)}
+										className="mt-1 h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+									/>
+									<div className="space-y-1">
+										<p className="font-semibold text-emerald-900">Abater do adiantamento</p>
+										<p className="text-sm text-emerald-800">
+											Existe(m) {pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.
+										</p>
+										<p className="text-xs text-emerald-700">
+											Falta Pagar disponível: {formatMoney(pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0))}
+										</p>
+										{applyAdvance && pendingAdvances[0] && (
+											<p className="text-xs text-emerald-700">
+												Será abatido o adiantamento #{pendingAdvances[0].id} primeiro.
+											</p>
+										)}
+									</div>
+								</label>
+							</div>
+						)}
 
 						<SearchSelect
 							label="Funcionario responsavel"

@@ -52,6 +52,7 @@ class Supplier(db.Model):
 
 	user = relationship("User", back_populates="supplier")
 	purchases = relationship("Purchase", back_populates="supplier")
+	advances = relationship("Advance", back_populates="supplier")
 
 	def to_dict(self) -> dict:
 		return {

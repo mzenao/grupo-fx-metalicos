@@ -218,79 +218,120 @@ export default function Sells() {
               <p className="text-slate-700 font-medium">Nenhuma venda encontrada com este ID.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredPurchases.map((purchase) => {
-                const saleSupplier = suppliersById.get(purchase.SupplierId);
-                const isExpanded = expandedSaleId === purchase.id;
-                return (
-                  <div key={purchase.id} className="rounded-2xl border border-amber-100 bg-white shadow-sm overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => toggleSale(purchase.id)}
-                      className="w-full px-6 py-4 bg-gradient-to-r from-amber-50 to-amber-25 border-b border-amber-100 flex items-center justify-between text-left"
-                    >
-                      <h3 className="text-lg font-bold text-slate-900">Venda #{purchase.id}</h3>
-                      {isExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-amber-700" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-amber-700" />
-                      )}
-                    </button>
+            <section className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Vendas registradas</h3>
+                <span className="text-xs text-gray-500">{filteredPurchases.length} vendas</span>
+              </div>
 
-                    {isExpanded && <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <InfoSection label="Fornecedor" value={`${saleSupplier ? (saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName) : purchase.SupplierName || "-"} #${purchase.SupplierId + 200}`} />
-                        <InfoSection label="Tipo de Material" value={formatMaterial(purchase, materialTypes)} />
-                        <InfoSection label="Peso" value={`${purchase.weight || "0"} kg`} />
-                        <InfoSection label="Valor por kg" value={fmtMoney(purchase.valuePerKg)} />
-                        <InfoSection label="Valor Total" value={fmtMoney(purchase.value)} />
-                        <InfoSection label="Data e Hora" value={fmtDateTime(purchase.datetime)} />
-                      </div>
+              <div className="divide-y divide-gray-100">
+                {filteredPurchases.map((purchase) => {
+                  const saleSupplier = suppliersById.get(purchase.SupplierId);
+                  const isExpanded = expandedSaleId === purchase.id;
 
-                      <div className="pt-4 border-t border-amber-100">
-                        <InfoSection label="Funcionário Responsável" value={purchase.employeeName || "-"} />
-                      </div>
+                  return (
+                    <div key={purchase.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleSale(purchase.id)}
+                        className="w-full p-4 text-left cursor-pointer hover:bg-amber-50/40"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900">Venda #{purchase.id}</p>
+                            <p className="text-xs text-gray-500">{fmtDateTime(purchase.datetime)}</p>
+                          </div>
+                          <div className="text-gray-400 flex-shrink-0 mt-0.5">
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </div>
+                        </div>
 
-                      {purchase.attachmentNames?.length > 0 ? (
-                        <div className="pt-4 border-t border-amber-100">
-                          <p className="text-sm font-semibold text-gray-700 mb-3">
-                            Comprovantes e Tickets ({purchase.attachmentNames.length})
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm mt-2">
+                          <p>
+                            <span className="text-gray-500">Fornecedor:</span>{" "}
+                            {`${saleSupplier ? (saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName) : purchase.SupplierName || "-"} #${purchase.SupplierId + 200}`}
                           </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {purchase.attachmentNames.map((name, idx) => {
-                              const extension = name.split(".").pop()?.toLowerCase() || "file";
-                              const getFileEmoji = (ext) => {
-                                if (["pdf"].includes(ext)) return "PDF";
-                                if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return "IMG";
-                                return "ARQ";
-                              };
-                              return (
-                                <div key={idx} className="group/preview cursor-pointer">
-                                  <div className="border-2 border-dashed border-amber-200 rounded-lg p-3 bg-amber-50/50 hover:bg-amber-100/50 hover:border-amber-300 transition-all flex flex-col items-center justify-center min-h-24">
-                                    <p className="text-sm mb-2 font-semibold">{getFileEmoji(extension)}</p>
-                                    <p className="text-xs text-gray-600 text-center break-all line-clamp-2">{name}</p>
-                                    <p className="text-xs text-gray-500 mt-1 uppercase">{extension}</p>
-                                  </div>
+                          <p><span className="text-gray-500">Tipo de Material:</span> {formatMaterial(purchase, materialTypes)}</p>
+                          <p><span className="text-gray-500">Peso:</span> {`${purchase.weight || "0"} kg`}</p>
+                          <p><span className="text-gray-500">Valor total:</span> {fmtMoney(purchase.value)}</p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Comprovantes: {purchase.attachmentNames?.join(", ") || "Nenhum"}
+                        </p>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="px-4 pb-4 bg-amber-50/35 border-t border-amber-100">
+                          <div className="pt-4 space-y-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <InfoSection label="Fornecedor" value={`${saleSupplier ? (saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName) : purchase.SupplierName || "-"} #${purchase.SupplierId + 200}`} />
+                              <InfoSection label="Tipo de Material" value={formatMaterial(purchase, materialTypes)} />
+                              <InfoSection label="Peso" value={`${purchase.weight || "0"} kg`} />
+                              <InfoSection label="Valor por kg" value={fmtMoney(purchase.valuePerKg)} />
+                              <InfoSection label="Valor Total" value={fmtMoney(purchase.value)} />
+                              <InfoSection label="Data e Hora" value={fmtDateTime(purchase.datetime)} />
+                            </div>
+
+                            <div className="pt-4 border-t border-amber-100">
+                              <InfoSection label="Funcionário Responsável" value={purchase.employeeName || "-"} />
+                            </div>
+
+                            {purchase.attachmentNames?.length > 0 ? (
+                              <div className="pt-4 border-t border-amber-100">
+                                <p className="text-sm font-semibold text-gray-700 mb-3">
+                                  Comprovantes e Tickets ({purchase.attachmentNames.length})
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {(Array.isArray(purchase.attachments) && purchase.attachments.length > 0
+                                    ? purchase.attachments
+                                    : (purchase.attachmentNames || []).map((name, idx) => ({
+                                        id: `name-${idx}`,
+                                        file_name: name,
+                                      }))
+                                  ).map((attachment) => {
+                                    const href = attachment?.file_url || attachment?.file_path;
+                                    const hasLink = Boolean(href);
+
+                                    return (
+                                      <a
+                                        key={attachment.id}
+                                        href={hasLink ? href : undefined}
+                                        target={hasLink ? "_blank" : undefined}
+                                        rel={hasLink ? "noreferrer" : undefined}
+                                        className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                          hasLink
+                                            ? "border-amber-200 bg-amber-50/40 text-amber-900 hover:bg-amber-100/60"
+                                            : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                        }`}
+                                        onClick={(e) => {
+                                          if (!hasLink) e.preventDefault();
+                                        }}
+                                      >
+                                        <p className="font-medium break-all">{attachment.file_name || "Anexo"}</p>
+                                        <p className="text-xs mt-1 opacity-80">{hasLink ? "Clique para visualizar" : "Arquivo indisponível"}</p>
+                                      </a>
+                                    );
+                                  })}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="pt-4 border-t border-amber-100">
-                          <p className="text-sm font-semibold text-gray-700 mb-3">
-                            Comprovantes e Tickets (0)
-                          </p>
-                          <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 bg-gray-50/50 text-center">
-                            <p className="text-sm text-gray-500">Nenhum comprovante anexado</p>
+                              </div>
+                            ) : (
+                              <div className="pt-4 border-t border-amber-100">
+                                <p className="text-sm font-semibold text-gray-700 mb-3">
+                                  Comprovantes e Tickets (0)
+                                </p>
+                                <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 bg-gray-50/50 text-center">
+                                  <p className="text-sm text-gray-500">Nenhum comprovante anexado</p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
-                    </div>}
-                  </div>
-                );
-              })}
-            </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
         </div>
       </section>

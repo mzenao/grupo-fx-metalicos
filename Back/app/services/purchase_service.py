@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 from app.extensions import db
+from app.services.advance_service import apply_pending_advance
 from app.models.employee import Employee
 from app.models.material_type import MaterialType
 from app.models.purchase import Purchase
@@ -78,6 +79,14 @@ def _validate_foreign_keys(supplier_id: int, employee_id: int, material_type_id:
 		raise ValueError("Material type not found")
 
 
+def _is_truthy(value) -> bool:
+	if isinstance(value, bool):
+		return value
+	if value is None:
+		return False
+	return str(value).strip().lower() in {"1", "true", "yes", "on", "sim", "s"}
+
+
 def create_purchase(payload: dict) -> Purchase:
 	weight = to_decimal(payload.get("weight"))
 	value = to_decimal(payload.get("value"))
@@ -91,15 +100,28 @@ def create_purchase(payload: dict) -> Purchase:
 	material_type_id = _parse_int_field(payload.get("material_type_id"), "material_type_id")
 	_validate_foreign_keys(supplier_id, employee_id, material_type_id)
 
+	advance_info = None
+	if _is_truthy(payload.get("apply_advance")):
+		advance_info = apply_pending_advance(
+			supplier_id=supplier_id,
+			purchase_value=value,
+			advance_id=payload.get("advance_id"),
+		)
+		if not advance_info:
+			raise ValueError("No pending advances available to apply for this supplier")
+
 	value_per_kg = _calculate_value_per_kg(value=value, weight=weight)
 
 	purchase = Purchase(
 		supplier_id=supplier_id,
 		employee_id=employee_id,
 		material_type_id=material_type_id,
+		advance_id=advance_info["advance_id"] if advance_info else None,
 		weight=weight,
 		value=value,
 		value_per_kg=value_per_kg,
+		advance_abatement_value=advance_info["advance_abatement_value"] if advance_info else Decimal("0.00"),
+		advance_remaining_after=advance_info["advance_remaining_after"] if advance_info else Decimal("0.00"),
 		purchase_datetime=parse_iso_datetime(payload.get("purchase_datetime")),
 	)
 
@@ -130,13 +152,26 @@ def create_purchase_with_attachments(payload: dict, files: list) -> Purchase:
 	material_type_id = _parse_int_field(payload.get("material_type_id"), "material_type_id")
 	_validate_foreign_keys(supplier_id, employee_id, material_type_id)
 
+	advance_info = None
+	if _is_truthy(payload.get("apply_advance")):
+		advance_info = apply_pending_advance(
+			supplier_id=supplier_id,
+			purchase_value=value,
+			advance_id=payload.get("advance_id"),
+		)
+		if not advance_info:
+			raise ValueError("No pending advances available to apply for this supplier")
+
 	purchase = Purchase(
 		supplier_id=supplier_id,
 		employee_id=employee_id,
 		material_type_id=material_type_id,
+		advance_id=advance_info["advance_id"] if advance_info else None,
 		weight=weight,
 		value=value,
 		value_per_kg=_calculate_value_per_kg(value=value, weight=weight),
+		advance_abatement_value=advance_info["advance_abatement_value"] if advance_info else Decimal("0.00"),
+		advance_remaining_after=advance_info["advance_remaining_after"] if advance_info else Decimal("0.00"),
 		purchase_datetime=parse_iso_datetime(payload.get("purchase_datetime")),
 	)
 

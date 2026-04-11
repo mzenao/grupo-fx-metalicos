@@ -10,11 +10,13 @@ import {
 	ChevronRight,
 	ContactRound,
 	ShoppingCart,
+	HandCoins,
 } from "lucide-react";
 
 const navItems = [
 	{ name: "Dashboard", icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
 	{ name: "Orders", icon: ShoppingCart, label: "Compras", to: "/orders" },
+	{ name: "Advances", icon: HandCoins, label: "Adiantamentos", to: "/adiantamentos" },
 	{ name: "Suppliers", icon: ContactRound, label: "Fornecedores", to: "/suppliers" },
     { name: "Employees", icon: Users, label: "Funcionarios", to: "/employees" },
 ];

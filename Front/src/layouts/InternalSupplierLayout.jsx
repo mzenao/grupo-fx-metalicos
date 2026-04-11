@@ -1,5 +1,5 @@
 import { useState, createContext, useContext } from "react";
-import { LogOut, LayoutDashboard, ShoppingCart, User, ChevronRight, Menu } from "lucide-react";
+import { LogOut, LayoutDashboard, ShoppingCart, User, ChevronRight, Menu, HandCoins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import logo from "@/assets/fenix.png";
 
@@ -17,6 +17,7 @@ export default function InternalSupplierLayout({ children }) {
   const sectionLabels = {
     dashboard: "Dashboard",
     sales: "Minhas Vendas",
+    advances: "Adiantamentos",
     account: "Minha Conta",
   };
 
@@ -67,6 +68,13 @@ export default function InternalSupplierLayout({ children }) {
               icon={<ShoppingCart size={20} />}
               label="Minhas Vendas"
               sectionId="sales"
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+            />
+            <NavItem
+              icon={<HandCoins size={20} />}
+              label="Adiantamentos"
+              sectionId="advances"
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
             />

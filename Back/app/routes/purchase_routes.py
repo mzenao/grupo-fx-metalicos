@@ -18,6 +18,7 @@ from app.utils.response import success_response
 
 
 purchase_bp = Blueprint("purchases", __name__)
+PORTAL_URL = "https://app.grupofxmetalicos.com.br/"
 
 
 def _format_brl(value) -> str:
@@ -35,6 +36,10 @@ def _format_purchase_datetime(dt) -> str:
 	return dt.strftime("%d/%m/%Y %H:%M")
 
 
+def _build_portal_access_line() -> str:
+	return f"Você pode acessar as informacoes da sua venda em nosso site: {PORTAL_URL}"
+
+
 def _build_purchase_notification_message(purchase) -> str:
 	supplier = purchase.supplier
 	supplier_name = "Fornecedor"
@@ -43,16 +48,37 @@ def _build_purchase_notification_message(purchase) -> str:
 
 	value_text = _format_brl(purchase.value)
 	date_text = _format_purchase_datetime(purchase.purchase_datetime)
+	advance_abatement_value = float(getattr(purchase, "advance_abatement_value", 0) or 0)
+	advance_remaining_after = float(getattr(purchase, "advance_remaining_after", 0) or 0)
+	has_abatement = bool(getattr(purchase, "advance_id", None) and advance_abatement_value > 0)
+
+	if has_abatement:
+		return (
+			f"Prezado(a), {supplier_name}.\n\n"
+			"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
+			f"• Valor da venda: R$ {value_text}\n"
+			f"• Valor abatido no adiantamento: R$ {_format_brl(advance_abatement_value)}\n"
+			f"• Restante do adiantamento: R$ {_format_brl(advance_remaining_after)}\n"
+			f"• Data: {date_text}\n\n"
+			"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
+			"• Comprovante de pagamento\n"
+			"• Ticket da balanca\n\n"
+			f"{_build_portal_access_line()}\n\n"
+			"Em caso de duvidas, permanecemos a disposicao.\n\n"
+			"Atenciosamente,\n"
+			"FX Metalicos"
+		)
 
 	return (
 		f"Prezado(a), {supplier_name}.\n\n"
-		"Grupo FX Metálicos informa que a operação foi concluída com sucesso.\n\n"
+		"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
 		f"• Valor pago: R$ {value_text}\n"
 		f"• Data: {date_text}\n\n"
-		"Segue abaixo o(s) comprovante(s) referente(s) à transação realizada:\n"
+		"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
 		"• Comprovante de pagamento\n"
-		"• Ticket da balança\n\n"
-		"Em caso de dúvidas, permanecemos à disposição.\n\n"
+		"• Ticket da balanca\n\n"
+		f"{_build_portal_access_line()}\n\n"
+		"Em caso de duvidas, permanecemos a disposicao.\n\n"
 		"Atenciosamente,\n"
 		"FX Metálicos"
 	)
@@ -126,6 +152,8 @@ def create_purchase_with_attachments_route():
 		"weight": request.form.get("weight"),
 		"value": request.form.get("value"),
 		"purchase_datetime": request.form.get("purchase_datetime"),
+		"apply_advance": request.form.get("apply_advance"),
+		"advance_id": request.form.get("advance_id"),
 	}
 	files = request.files.getlist("files")
 	purchase = create_purchase_with_attachments(payload, files)

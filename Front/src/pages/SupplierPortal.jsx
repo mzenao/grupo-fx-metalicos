@@ -8,6 +8,7 @@ import {
   fetchMaterialTypes,
   fetchPurchases,
 } from "@/services/ordersData";
+import { fetchAdvances } from "@/services/advancesData";
 import { fetchSuppliers } from "@/services/entityData";
 
 const fmtMoney = (value) =>
@@ -25,16 +26,6 @@ const fmtDateTime = (iso) => {
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  });
-};
-
-const fmtDateOnly = (iso) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
   });
 };
 
@@ -66,10 +57,33 @@ function formatPixValue(pixKeyType, supplier) {
   return "";
 }
 
+function ProgressBar({ value, max }) {
+  const percentage = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  return (
+    <div className="w-full rounded-full bg-gray-200 h-2 overflow-hidden">
+      <div
+        className="h-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a]"
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  );
+}
+
+function getAdvanceStatusLabel(status) {
+  return String(status || "pendente").toLowerCase() === "finalizado" ? "Finalizado" : "Pendente";
+}
+
+function getAdvanceStatusBadgeClass(status) {
+  return String(status || "pendente").toLowerCase() === "finalizado"
+    ? "bg-emerald-100 text-emerald-800"
+    : "bg-amber-100 text-amber-800";
+}
+
 function useSupplierPortalData() {
   const [authUser, setAuthUser] = useState(() => getSessionUser());
   const [suppliers, setSuppliers] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [advances, setAdvances] = useState([]);
   const [materialTypes, setMaterialTypes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,11 +93,12 @@ function useSupplierPortalData() {
 
     Promise.resolve()
       .then(async () => {
-        const [user, suppliersResult, materialTypesResult, purchasesResult] = await Promise.all([
+        const [user, suppliersResult, materialTypesResult, purchasesResult, advancesResult] = await Promise.all([
           fetchMe(),
           fetchSuppliers().then((data) => ({ ok: true, data })).catch(() => ({ ok: false, data: [] })),
           fetchMaterialTypes().then((data) => ({ ok: true, data })).catch(() => ({ ok: false, data: [] })),
           fetchPurchases().then((data) => ({ ok: true, data })).catch(() => ({ ok: false, data: [] })),
+          fetchAdvances().then((data) => ({ ok: true, data })).catch(() => ({ ok: false, data: [] })),
         ]);
 
         if (!mounted) return;
@@ -91,6 +106,7 @@ function useSupplierPortalData() {
         setSuppliers(suppliersResult.ok ? suppliersResult.data : []);
         setMaterialTypes(materialTypesResult.ok ? materialTypesResult.data : []);
         setPurchases(purchasesResult.ok ? purchasesResult.data : []);
+        setAdvances(advancesResult.ok ? advancesResult.data : []);
       })
       .catch(() => {
         if (!mounted) return;
@@ -98,6 +114,7 @@ function useSupplierPortalData() {
         setSuppliers([]);
         setMaterialTypes([]);
         setPurchases([]);
+        setAdvances([]);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -138,10 +155,24 @@ function useSupplierPortalData() {
     [purchases, supplierId]
   );
 
+  const supplierAdvances = useMemo(
+    () =>
+      advances
+        .filter((advance) => String(advance.SupplierId) === String(supplierId))
+        .sort((a, b) => {
+          const dateA = new Date(a.advanceDatetime || 0).getTime();
+          const dateB = new Date(b.advanceDatetime || 0).getTime();
+          if (dateB !== dateA) return dateB - dateA;
+          return (Number(b.id) || 0) - (Number(a.id) || 0);
+        }),
+    [advances, supplierId]
+  );
+
   return {
     authUser,
     currentSupplier,
     supplierPurchases,
+    supplierAdvances,
     suppliers,
     materialTypes,
     loading,
@@ -300,6 +331,11 @@ function SalesPortalWrapper({ initialSearchId = "" }) {
     setExpandedSaleId((prev) => (prev === saleId ? null : saleId));
   };
 
+  const totalAttachments = useMemo(
+    () => supplierPurchases.reduce((sum, purchase) => sum + (purchase.attachmentNames?.length || 0), 0),
+    [supplierPurchases]
+  );
+
   return (
     <section className="space-y-6 w-full">
       <div>
@@ -320,6 +356,12 @@ function SalesPortalWrapper({ initialSearchId = "" }) {
           className="w-full px-4 py-2 border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
         />
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SummaryCard label="Total de vendas" value={`${supplierPurchases.length}`} />
+        <SummaryCard label="Comprovantes anexados" value={`${totalAttachments}`} />
+      </div>
+
       {supplierPurchases.length === 0 ? (
         <div className="p-8 text-center bg-gray-50 rounded-xl border border-gray-200">
           <p className="text-gray-500">Você ainda não possui vendas registradas</p>
@@ -329,107 +371,284 @@ function SalesPortalWrapper({ initialSearchId = "" }) {
           <p className="text-gray-500">Nenhuma venda encontrada com este ID</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredPurchases.map((purchase) => {
-            const saleSupplier = suppliersById.get(purchase.SupplierId);
-            const isExpanded = expandedSaleId === purchase.id;
-            return (
-              <div key={purchase.id} className="rounded-lg border border-amber-100 bg-white shadow-sm overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggleSale(purchase.id)}
-                  className="w-full px-4 py-4 sm:py-5 bg-gradient-to-r from-amber-50 to-amber-25 border-b border-amber-100 flex items-center justify-between gap-4 text-left"
-                >
-                  <div className="min-w-0">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900">Venda #{purchase.id}</h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1">Data: {fmtDateOnly(purchase.datetime)}</p>
-                  </div>
-                  <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-                    <div className="text-right">
-                      <p className="text-[11px] sm:text-xs text-gray-500">Valor total</p>
-                      <p className="text-sm sm:text-base font-bold text-slate-900">{fmtMoney(purchase.value)}</p>
-                    </div>
-                    {isExpanded ? (
-                      <ChevronUp className="w-5 h-5 text-amber-700" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-amber-700" />
-                    )}
-                  </div>
-                </button>
+        <section className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Vendas registradas</h3>
+            <span className="text-xs text-gray-500">{filteredPurchases.length} vendas</span>
+          </div>
 
-                {isExpanded && <div className="p-4 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Fornecedor</p>
-                      <p className="font-semibold text-gray-900">{saleSupplier ? (saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName) : currentSupplier ? (currentSupplier.personType === "PF" ? currentSupplier.name : currentSupplier.companyName) : (purchase.SupplierName || "-")}</p>
+          <div className="divide-y divide-gray-100">
+            {filteredPurchases.map((purchase) => {
+              const saleSupplier = suppliersById.get(purchase.SupplierId);
+              const isExpanded = expandedSaleId === purchase.id;
+              return (
+                <div key={purchase.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSale(purchase.id)}
+                    className="w-full p-4 text-left cursor-pointer hover:bg-amber-50/40"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900">Venda #{purchase.id}</p>
+                        <p className="text-xs text-gray-500">{fmtDateTime(purchase.datetime)}</p>
+                      </div>
+                      <div className="text-gray-400 flex-shrink-0 mt-0.5">
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Tipo de Material</p>
-                      <p className="font-semibold text-gray-900">{formatMaterial(purchase, materialTypes)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Peso</p>
-                      <p className="font-semibold text-gray-900">{purchase.weight || "0"} kg</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Valor por kg</p>
-                      <p className="font-semibold text-gray-900">{fmtMoney(purchase.valuePerKg)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Valor Total</p>
-                      <p className="font-semibold text-gray-900">{fmtMoney(purchase.value)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Data e Hora</p>
-                      <p className="font-semibold text-gray-900">{fmtDateTime(purchase.datetime)}</p>
-                    </div>
-                  </div>
 
-                  <div className="pt-3 border-t border-amber-100">
-                    <p className="text-xs text-gray-500 mb-2">
-                      Comprovantes ({purchase.attachments?.length || 0})
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm mt-2">
+                      <p>
+                        <span className="text-gray-500">Fornecedor:</span>{" "}
+                        {`${saleSupplier ? (saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName) : purchase.SupplierName || "-"} #${purchase.SupplierId + 200}`}
+                      </p>
+                      <p><span className="text-gray-500">Tipo de Material:</span> {formatMaterial(purchase, materialTypes)}</p>
+                      <p><span className="text-gray-500">Peso:</span> {`${purchase.weight || "0"} kg`}</p>
+                      <p><span className="text-gray-500">Valor total:</span> {fmtMoney(purchase.value)}</p>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Comprovantes: {purchase.attachmentNames?.join(", ") || "Nenhum"}
                     </p>
+                  </button>
 
-                    {purchase.attachments?.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {purchase.attachments.map((attachment) => {
-                          const href = attachment?.file_url || attachment?.file_path;
-                          const hasLink = Boolean(href);
+                  {isExpanded && (
+                    <div className="px-4 pb-4 bg-amber-50/35 border-t border-amber-100">
+                      <div className="pt-4 space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <InfoSection label="Fornecedor" value={`${saleSupplier ? (saleSupplier.personType === "PF" ? saleSupplier.name : saleSupplier.companyName) : purchase.SupplierName || "-"} #${purchase.SupplierId + 200}`} />
+                          <InfoSection label="Tipo de Material" value={formatMaterial(purchase, materialTypes)} />
+                          <InfoSection label="Peso" value={`${purchase.weight || "0"} kg`} />
+                          <InfoSection label="Valor por kg" value={fmtMoney(purchase.valuePerKg)} />
+                          <InfoSection label="Valor Total" value={fmtMoney(purchase.value)} />
+                          <InfoSection label="Data e Hora" value={fmtDateTime(purchase.datetime)} />
+                        </div>
 
-                          return (
-                            <a
-                              key={attachment.id}
-                              href={hasLink ? href : undefined}
-                              target={hasLink ? "_blank" : undefined}
-                              rel={hasLink ? "noreferrer" : undefined}
-                              className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
-                                hasLink
-                                  ? "border-amber-200 bg-amber-50/40 text-amber-900 hover:bg-amber-100/60"
-                                  : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
-                              }`}
-                              onClick={(e) => {
-                                if (!hasLink) e.preventDefault();
-                              }}
-                            >
-                              <p className="font-medium break-all">{attachment.file_name || "Comprovante"}</p>
-                              <p className="text-xs mt-1 opacity-80">
-                                {hasLink ? "Clique para visualizar" : "Arquivo indisponível"}
-                              </p>
-                            </a>
-                          );
-                        })}
+                        <div className="pt-4 border-t border-amber-100">
+                          <InfoSection label="Funcionário Responsável" value={purchase.employeeName || "-"} />
+                        </div>
+
+                        {purchase.attachmentNames?.length > 0 ? (
+                          <div className="pt-4 border-t border-amber-100">
+                            <p className="text-sm font-semibold text-gray-700 mb-3">
+                              Comprovantes e Tickets ({purchase.attachmentNames.length})
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {(Array.isArray(purchase.attachments) && purchase.attachments.length > 0
+                                ? purchase.attachments
+                                : (purchase.attachmentNames || []).map((name, idx) => ({
+                                    id: `name-${idx}`,
+                                    file_name: name,
+                                  }))
+                              ).map((attachment) => {
+                                const href = attachment?.file_url || attachment?.file_path;
+                                const hasLink = Boolean(href);
+
+                                return (
+                                  <a
+                                    key={attachment.id}
+                                    href={hasLink ? href : undefined}
+                                    target={hasLink ? "_blank" : undefined}
+                                    rel={hasLink ? "noreferrer" : undefined}
+                                    className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                      hasLink
+                                        ? "border-amber-200 bg-amber-50/40 text-amber-900 hover:bg-amber-100/60"
+                                        : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    }`}
+                                    onClick={(e) => {
+                                      if (!hasLink) e.preventDefault();
+                                    }}
+                                  >
+                                    <p className="font-medium break-all">{attachment.file_name || "Anexo"}</p>
+                                    <p className="text-xs mt-1 opacity-80">{hasLink ? "Clique para visualizar" : "Arquivo indisponível"}</p>
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="pt-4 border-t border-amber-100">
+                            <p className="text-sm font-semibold text-gray-700 mb-3">Comprovantes e Tickets (0)</p>
+                            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 bg-gray-50/50 text-center">
+                              <p className="text-sm text-gray-500">Nenhum comprovante anexado</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
-                        Nenhum comprovante anexado.
-                      </div>
-                    )}
-                  </div>
-                </div>}
-              </div>
-            );
-          })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function AdvancesPortalWrapper() {
+  const [searchId, setSearchId] = useState("");
+  const [expandedAdvanceId, setExpandedAdvanceId] = useState(null);
+  const { currentSupplier, supplierAdvances } = useSupplierPortalData();
+
+  const filteredAdvances = useMemo(() => {
+    if (!searchId.trim()) return supplierAdvances;
+    return supplierAdvances.filter((advance) => String(advance.id).includes(searchId.trim()));
+  }, [supplierAdvances, searchId]);
+
+  const summary = useMemo(() => {
+    return {
+      total: supplierAdvances.length,
+      remaining: supplierAdvances.reduce((sum, advance) => sum + (Number(advance.valueRemaining) || 0), 0),
+    };
+  }, [supplierAdvances]);
+
+  return (
+    <section className="space-y-6 w-full">
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Meus Adiantamentos</h2>
+        {currentSupplier && (
+          <p className="text-sm text-gray-600 mt-1 break-words">
+            {currentSupplier.personType === "PF" ? currentSupplier.name : currentSupplier.companyName}
+          </p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SummaryCard label="Total de adiantamentos" value={`${summary.total}`} />
+        <SummaryCard label="Falta Pagar" value={fmtMoney(summary.remaining)} />
+      </div>
+
+      <div>
+        <input
+          type="text"
+          placeholder="Pesquisar por ID do adiantamento..."
+          value={searchId}
+          onChange={(e) => setSearchId(e.target.value)}
+          className="w-full px-4 py-2 border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+        />
+      </div>
+
+      {supplierAdvances.length === 0 ? (
+        <div className="rounded-2xl border border-amber-100 bg-amber-50/45 p-8 text-center">
+          <p className="text-slate-700 font-medium">Nenhum adiantamento encontrado para este fornecedor.</p>
         </div>
+      ) : filteredAdvances.length === 0 ? (
+        <div className="rounded-2xl border border-amber-100 bg-amber-50/45 p-8 text-center">
+          <p className="text-slate-700 font-medium">Nenhum adiantamento encontrado com este ID.</p>
+        </div>
+      ) : (
+        <section className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Adiantamentos registrados</h3>
+            <span className="text-xs text-gray-500">{filteredAdvances.length} adiantamentos</span>
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {filteredAdvances.map((advance) => {
+              const isExpanded = expandedAdvanceId === advance.id;
+              const total = Number(advance.valueTotal) || 0;
+              const remaining = Number(advance.valueRemaining) || 0;
+              const applied = Math.max(0, total - remaining);
+              const percent = total > 0 ? Math.round((applied / total) * 100) : 0;
+
+              return (
+                <div key={advance.id}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedAdvanceId((prev) => (prev === advance.id ? null : advance.id))}
+                    className="w-full p-4 text-left cursor-pointer hover:bg-amber-50/40"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-gray-900">Adiantamento #{advance.id}</p>
+                          <span className={`text-[11px] px-2 py-1 rounded-md font-semibold ${getAdvanceStatusBadgeClass(advance.status)}`}>
+                            {getAdvanceStatusLabel(advance.status)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">{fmtDateTime(advance.advanceDatetime)}</p>
+                      </div>
+                      <div className="text-gray-400 flex-shrink-0 mt-0.5">
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm mt-2">
+                      <p><span className="text-gray-500">Fornecedor:</span> {advance.SupplierName || "-"}</p>
+                      <p><span className="text-gray-500">Funcionário:</span> {advance.employeeName || "-"}</p>
+                      <p><span className="text-gray-500">Valor total:</span> {fmtMoney(advance.valueTotal)}</p>
+                      <p><span className="text-gray-500">Falta Pagar:</span> {fmtMoney(advance.valueRemaining)}</p>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Comprovantes: {advance.attachmentNames?.join(", ") || "Nenhum"}
+                    </p>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="px-4 pb-4 bg-amber-50/35 border-t border-amber-100">
+                      <div className="pt-4 space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <InfoSection label="Fornecedor" value={advance.SupplierName || "-"} />
+                          <InfoSection label="Funcionário" value={advance.employeeName || "-"} />
+                          <InfoSection label="Valor total" value={fmtMoney(advance.valueTotal)} />
+                          <InfoSection label="Valor restante" value={fmtMoney(advance.valueRemaining)} />
+                          <InfoSection label="Data e Hora" value={fmtDateTime(advance.advanceDatetime)} />
+                          <InfoSection label="Status" value={advance.status || "pendente"} />
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">Progresso do abatimento</p>
+                          <ProgressBar value={applied} max={total} />
+                          <p className="text-xs text-gray-500 mt-2">{percent}% abatido</p>
+                        </div>
+
+                        <div className="pt-4 border-t border-amber-100">
+                          <p className="text-sm font-semibold text-gray-700 mb-3">
+                            Anexos ({advance.attachmentNames?.length || 0})
+                          </p>
+                          {advance.attachments?.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {advance.attachments.map((attachment) => {
+                                const href = attachment?.file_url || attachment?.file_path;
+                                const hasLink = Boolean(href);
+
+                                return (
+                                  <a
+                                    key={attachment.id}
+                                    href={hasLink ? href : undefined}
+                                    target={hasLink ? "_blank" : undefined}
+                                    rel={hasLink ? "noreferrer" : undefined}
+                                    className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                      hasLink
+                                        ? "border-amber-200 bg-amber-50/40 text-amber-900 hover:bg-amber-100/60"
+                                        : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    }`}
+                                    onClick={(e) => {
+                                      if (!hasLink) e.preventDefault();
+                                    }}
+                                  >
+                                    <p className="font-medium break-all">{attachment.file_name || "Anexo"}</p>
+                                    <p className="text-xs mt-1 opacity-80">{hasLink ? "Clique para visualizar" : "Arquivo indisponível"}</p>
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 bg-gray-50/50 text-center">
+                              <p className="text-sm text-gray-500">Nenhum anexo anexado</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
     </section>
   );
@@ -780,6 +999,7 @@ function SupplierPortalContent() {
     <div className="w-full max-w-6xl mx-auto">
       {activeSection === "dashboard" && <DashboardSection onOpenSale={(saleId) => setSelectedSaleId(String(saleId))} />}
       {activeSection === "sales" && <SalesPortalWrapper initialSearchId={selectedSaleId} />}
+      {activeSection === "advances" && <AdvancesPortalWrapper />}
       {activeSection === "account" && <AccountPortalWrapper />}
     </div>
   );
@@ -790,6 +1010,24 @@ export default function SupplierPortal() {
     <InternalSupplierLayout>
       <SupplierPortalContent />
     </InternalSupplierLayout>
+  );
+}
+
+function InfoSection({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className="text-sm font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-amber-100 bg-amber-50/40 px-4 py-3">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xl font-bold text-slate-900 mt-1">{value}</p>
+    </div>
   );
 }
 

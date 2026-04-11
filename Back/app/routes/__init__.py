@@ -1,5 +1,7 @@
 from flask import Flask
 
+from app.routes.advance_attachments_routes import advance_attachment_bp
+from app.routes.advance_routes import advance_bp
 from app.routes.auth_routes import auth_bp
 from app.routes.employee_routes import employee_bp
 from app.routes.health_routes import health_bp
@@ -19,6 +21,8 @@ def register_blueprints(app: Flask) -> None:
 	app.register_blueprint(employee_bp, url_prefix="/api/employees")
 	app.register_blueprint(supplier_bp, url_prefix="/api/suppliers")
 	app.register_blueprint(material_type_bp, url_prefix="/api/material-types")
+	app.register_blueprint(advance_bp, url_prefix="/api/adiantamentos")
+	app.register_blueprint(advance_attachment_bp, url_prefix="/api/advance-attachments")
 	app.register_blueprint(purchase_bp, url_prefix="/api/purchases")
 	app.register_blueprint(attachment_bp, url_prefix="/api/attachments")
 

@@ -25,6 +25,7 @@ class Employee(db.Model):
 
 	user = relationship("User", back_populates="employee")
 	purchases = relationship("Purchase", back_populates="employee")
+	advances = relationship("Advance", back_populates="employee")
 
 	def to_dict(self) -> dict:
 		return {
