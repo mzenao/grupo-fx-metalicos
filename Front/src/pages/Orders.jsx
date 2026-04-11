@@ -752,7 +752,7 @@ export default function Orders() {
 											Existe(m) {pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.
 										</p>
 										<p className="text-[11px] text-emerald-700">
-											Slado Devedor disponivel: {formatMoney(pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0))}
+											Saldo Devedor disponivel: {formatMoney(pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0))}
 										</p>
 									</div>
 								</label>
