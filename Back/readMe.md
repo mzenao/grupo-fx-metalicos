@@ -84,6 +84,37 @@ bash scripts/railway_backup_job.sh
 
 Reaproveite as mesmas variáveis de ambiente do serviço web (principalmente `DATABASE_URL` e AWS).
 
+### 6.1) Job manual de restore
+
+Crie um segundo Job no Railway apenas para restauração manual. Use estas configurações:
+
+- Command:
+
+```bash
+bash scripts/railway_restore_job.sh
+```
+
+- Variáveis de ambiente obrigatórias:
+
+```text
+RESTORE_CONFIRM=true
+```
+
+- Variáveis opcionais:
+
+```text
+RESTORE_BACKUP_KEY=backup_20260411_000146.sql
+RESTORE_DOWNLOAD_ONLY=false
+```
+
+Comportamento:
+
+- Se `RESTORE_BACKUP_KEY` não for definido, o job baixa o backup `.sql` mais recente do bucket.
+- Se `RESTORE_DOWNLOAD_ONLY=true`, ele baixa o arquivo e para antes de restaurar.
+- Se `RESTORE_CONFIRM` não estiver em `true`, o job aborta imediatamente.
+
+Use esse job só quando for restaurar; ele não precisa de schedule.
+
 ### 7) Teste manual no Railway
 
 Execute manualmente no Job ou shell do serviço:
@@ -133,3 +164,4 @@ bash scripts/restore_latest_backup_s3.sh --key backup_20260411_000146.sql
 - `scripts/restore_postgres.sh`: restore com validação de `psql` e normalização de URL.
 - `scripts/backup_and_upload.sh`: dump + upload S3 com autodetecção de `python3/python`.
 - `scripts/railway_backup_job.sh`: entrypoint simples para Job agendado no Railway.
+- `scripts/railway_restore_job.sh`: entrypoint manual para restore do backup mais recente ou de uma chave específica.
