@@ -13,6 +13,9 @@ from app.services.supplier_service import (
 	_resolve_pix_key_value,
 	create_supplier,
 )
+from app.services.system_notification_service import create_system_notification
+from app.services.resend_service import ResendService
+from app.services.zapi_service import ZapiService
 from app.utils.security import hash_password, verify_password
 from app.utils.validators import (
 	is_valid_email,
@@ -82,11 +85,60 @@ def get_me(user: User) -> dict:
 	return data
 
 
+def _build_supplier_registration_message(supplier: Supplier) -> str:
+	display_name = supplier.name if supplier.is_pf else (supplier.company_name or supplier.name)
+	return (
+		f"Prezado(a), {display_name}.\n\n"
+		"Seu cadastro foi concluido com sucesso no sistema da Grupo FX Metálicos.\n"
+		"A partir de agora, sua conta esta ativa e você pode acessar o portal normalmente.\n\n"
+		"Grupo FX Metálicos fica a disposição para atender voce sempre que precisar.\n\n"
+		"Se tiver alguma dúvida, nossa equipe esta pronta para ajudar.\n\n"
+		"Atenciosamente,\n"
+		"Grupo FX Metálicos"
+	)
+
+
+def _send_supplier_registration_confirmation(supplier: Supplier, email: str) -> None:
+	message = _build_supplier_registration_message(supplier)
+	supplier_phone = supplier.phone or ""
+
+	try:
+		if supplier_phone:
+			ZapiService().send_text_message(phone=supplier_phone, message=message)
+	except Exception as exc:
+		current_app.logger.warning("Falha ao enviar confirmação por WhatsApp para fornecedor %s: %s", supplier.id, exc)
+
+	try:
+		if email:
+			ResendService().send_email(
+				to_email=email,
+				subject="Seu cadastro foi concluído com sucesso",
+				body_text=message,
+			)
+	except Exception as exc:
+		current_app.logger.warning("Falha ao enviar confirmação por e-mail para fornecedor %s: %s", supplier.id, exc)
+
+
 def register_supplier(payload: dict) -> dict:
 	email = (payload.get("email") or "").strip().lower()
 	password = payload.get("password") or ""
 
-	create_supplier(payload)
+	supplier = create_supplier(payload)
+	_send_supplier_registration_confirmation(supplier, email)
+	display_name = supplier.name if supplier.is_pf else (supplier.company_name or supplier.name)
+	create_system_notification(
+		event_type="supplier_registered",
+		title="Novo fornecedor cadastrado",
+		message=f"Um novo fornecedor se cadastrou: {display_name}.",
+		entity_type="supplier",
+		entity_id=supplier.id,
+		details={
+			"supplier_id": supplier.id,
+			"supplier_code": supplier.supplier_code,
+			"email": supplier.user.email if supplier.user else email,
+			"person_type": "PF" if supplier.is_pf else "PJ",
+		},
+	)
 	return login(email=email, password=password)
 
 

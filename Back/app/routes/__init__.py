@@ -7,6 +7,7 @@ from app.routes.employee_routes import employee_bp
 from app.routes.health_routes import health_bp
 from app.routes.material_type_routes import material_type_bp
 from app.routes.purchase_routes import purchase_bp
+from app.routes.system_notification_routes import system_notifications_bp
 from app.routes.supplier_routes import supplier_bp
 
 try:
@@ -24,5 +25,6 @@ def register_blueprints(app: Flask) -> None:
 	app.register_blueprint(advance_bp, url_prefix="/api/adiantamentos")
 	app.register_blueprint(advance_attachment_bp, url_prefix="/api/advance-attachments")
 	app.register_blueprint(purchase_bp, url_prefix="/api/purchases")
+	app.register_blueprint(system_notifications_bp, url_prefix="/api/system-notifications")
 	app.register_blueprint(attachment_bp, url_prefix="/api/attachments")
 

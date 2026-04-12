@@ -12,6 +12,7 @@ import {
 	ShoppingCart,
 	HandCoins,
 } from "lucide-react";
+import SystemNotificationsBell from "@/components/internal/systemNotificationsBell.jsx";
 
 const navItems = [
 	{ name: "Dashboard", icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
@@ -126,7 +127,9 @@ export default function InternalLayout({ children }) {
 						</h1>
 					</div>
 
-					<Link to="/" className="text-sm text-[#b8891f] hover:text-[#a67917] font-medium">
+					<SystemNotificationsBell />
+
+					<Link to="/" className="text-sm text-[#b8891f] hover:text-[#a67917] hover:underline underline-offset-4 font-medium">
 						Voltar ao site
 					</Link>
 				</header>

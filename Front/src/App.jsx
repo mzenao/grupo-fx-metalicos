@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import Home from "./pages/Home.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Employees from "./pages/Employees.jsx";
-import Adiantamentos from "./pages/Adiantamentos.jsx";
+import Advances from "./pages/Advances.jsx";
 import Orders from "./pages/Orders.jsx";
 import Sells from "./pages/Sells.jsx";
 import Suppliers from "./pages/Suppliers.jsx";
@@ -143,7 +143,7 @@ function App() {
         element={
           <RoleProtectedRoute allowedRoles={["admin", "employee"]}>
             <InternalLayout>
-              <Adiantamentos />
+                <Advances />
             </InternalLayout>
           </RoleProtectedRoute>
         }
