@@ -47,16 +47,16 @@ def _build_advance_notification_message(advance) -> str:
 
 	return (
 		f"Prezado(a), {supplier_name}.\n\n"
-		"Grupo FX Metalicos informa que seu adiantamento foi registrado com sucesso.\n\n"
+		"Grupo FX Metálicos informa que seu adiantamento foi registrado com sucesso.\n\n"
 		f"• Valor total do adiantamento: R$ {_format_brl(advance.value_total)}\n"
-		f"• Slado Devedor atual do adiantamento: R$ {_format_brl(advance.value_remaining)}\n"
+		f"• Saldo Devedor atual do adiantamento: R$ {_format_brl(advance.value_remaining)}\n"
 		f"• Status: {str(advance.status or 'pendente').capitalize()}\n"
 		f"• Data: {_format_advance_datetime(advance.advance_datetime)}\n\n"
 		"Segue abaixo o(s) comprovante(s) referente(s) ao adiantamento.\n\n"
 		f"Você pode acessar as informacoes em nosso site: {PORTAL_URL}\n\n"
 		"Em caso de duvidas, permanecemos a disposicao.\n\n"
 		"Atenciosamente,\n"
-		"FX Metalicos"
+		"FX Metálicos"
 	)
 
 
