@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import ErrorModal from "@/components/internal/errorModal";
 import { fetchMe, getSessionUser } from "@/services/authApi";
 import {
   fetchMaterialTypes,
   fetchPurchases,
+  resolvePurchaseAttachmentPreviewUrl,
 } from "@/services/ordersData";
 
 const personTypeBadge = {
@@ -43,6 +45,8 @@ export default function Sells() {
   const [purchases, setPurchases] = useState([]);
   const [materialTypes, setMaterialTypes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openingAttachmentId, setOpeningAttachmentId] = useState(null);
+  const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
 
   useEffect(() => {
     let mounted = true;
@@ -142,6 +146,38 @@ export default function Sells() {
 
   const toggleSale = (saleId) => {
     setExpandedSaleId((prev) => (prev === saleId ? null : saleId));
+  };
+
+  const handleOpenAttachment = async (attachment) => {
+    const directHttpUrl = attachment?.file_url || "";
+    if (/^https?:\/\//i.test(directHttpUrl)) {
+      window.open(directHttpUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const fallbackUrl = attachment?.file_url || attachment?.file_path || "";
+    const canAttempt = Boolean(attachment?.id || /^https?:\/\//i.test(fallbackUrl));
+    if (!canAttempt) return;
+
+    setOpeningAttachmentId(attachment?.id || attachment?.file_name || "opening");
+    try {
+      const resolvedUrl = await resolvePurchaseAttachmentPreviewUrl(attachment);
+      if (!resolvedUrl) {
+        throw new Error("Arquivo indisponivel");
+      }
+      const opened = window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        throw new Error("Bloqueio de popup");
+      }
+    } catch {
+      setErrorModal({
+        open: true,
+        title: "Falha ao abrir comprovante",
+        message: "Nao foi possivel abrir o comprovante agora.",
+      });
+    } finally {
+      setOpeningAttachmentId(null);
+    }
   };
 
   if (loading) {
@@ -289,27 +325,27 @@ export default function Sells() {
                                         file_name: name,
                                       }))
                                   ).map((attachment) => {
-                                    const href = attachment?.file_url || attachment?.file_path;
-                                    const hasLink = Boolean(href);
+                                    const fallbackUrl = attachment?.file_url || attachment?.file_path || "";
+                                    const hasLink = Boolean(attachment?.id || /^https?:\/\//i.test(fallbackUrl));
+                                    const isOpening = openingAttachmentId === (attachment?.id || attachment?.file_name || "opening");
 
                                     return (
-                                      <a
+                                      <button
+                                        type="button"
                                         key={attachment.id}
-                                        href={hasLink ? href : undefined}
-                                        target={hasLink ? "_blank" : undefined}
-                                        rel={hasLink ? "noreferrer" : undefined}
                                         className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
                                           hasLink
                                             ? "border-amber-200 bg-amber-50/40 text-amber-900 hover:bg-amber-100/60"
                                             : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
                                         }`}
-                                        onClick={(e) => {
-                                          if (!hasLink) e.preventDefault();
-                                        }}
+                                        onClick={() => hasLink && handleOpenAttachment(attachment)}
+                                        disabled={!hasLink || isOpening}
                                       >
                                         <p className="font-medium break-all">{attachment.file_name || "Anexo"}</p>
-                                        <p className="text-xs mt-1 opacity-80">{hasLink ? "Clique para visualizar" : "Arquivo indisponível"}</p>
-                                      </a>
+                                        <p className="text-xs mt-1 opacity-80">
+                                          {hasLink ? (isOpening ? "Abrindo..." : "Clique para visualizar") : "Arquivo indisponivel"}
+                                        </p>
+                                      </button>
                                     );
                                   })}
                                 </div>
@@ -335,6 +371,13 @@ export default function Sells() {
           )}
         </div>
       </section>
+
+      <ErrorModal
+        open={errorModal.open}
+        title={errorModal.title}
+        message={errorModal.message}
+        onClose={() => setErrorModal((prev) => ({ ...prev, open: false }))}
+      />
     </main>
   );
 }

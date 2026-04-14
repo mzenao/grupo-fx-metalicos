@@ -15,6 +15,56 @@ from werkzeug.utils import secure_filename
 from app.utils.file_utils import save_upload_file
 
 
+_BUCKET_REGION_CACHE: dict[str, str] = {}
+
+
+def _normalize_s3_region(region: str | None) -> str:
+    value = _clean_aws_value(region)
+    if not value:
+        return "us-east-1"
+    return value
+
+
+def _resolve_bucket_region(*, bucket: str, access_key: str, secret_key: str, region_hint: str, endpoint_url: str = "") -> str:
+    cached = _BUCKET_REGION_CACHE.get(bucket)
+    if cached:
+        return cached
+
+    # Para endpoints customizados (ex.: MinIO), respeitamos a regiao configurada.
+    if endpoint_url:
+        resolved = _normalize_s3_region(region_hint)
+        _BUCKET_REGION_CACHE[bucket] = resolved
+        return resolved
+
+    session_token = _clean_aws_value(current_app.config.get("AWS_SESSION_TOKEN"))
+    addressing_style = _clean_aws_value(current_app.config.get("AWS_S3_ADDRESSING_STYLE")) or "virtual"
+
+    probe_kwargs = {
+        "service_name": "s3",
+        "aws_access_key_id": access_key,
+        "aws_secret_access_key": secret_key,
+        "region_name": "us-east-1",
+        "config": BotoConfig(signature_version="s3v4", s3={"addressing_style": addressing_style}),
+    }
+    if session_token:
+        probe_kwargs["aws_session_token"] = session_token
+
+    try:
+        probe_client = boto3.client(**probe_kwargs)
+        location = probe_client.get_bucket_location(Bucket=bucket).get("LocationConstraint")
+        if location in (None, ""):
+            resolved = "us-east-1"
+        elif location == "EU":
+            resolved = "eu-west-1"
+        else:
+            resolved = _normalize_s3_region(location)
+    except Exception:
+        resolved = _normalize_s3_region(region_hint)
+
+    _BUCKET_REGION_CACHE[bucket] = resolved
+    return resolved
+
+
 def _normalize_storage_backend() -> str:
     backend = (current_app.config.get("STORAGE_BACKEND") or "local").strip().lower()
     return backend or "local"
@@ -43,7 +93,21 @@ def _save_to_s3(file: FileStorage) -> tuple[str, str]:
     base_prefix = (current_app.config.get("AWS_S3_PREFIX") or "attachments").strip("/")
     key = f"{base_prefix}/{date_prefix}/{uuid.uuid4().hex}{ext}"
 
-    s3 = _build_s3_client(region=region, access_key=access_key, secret_key=secret_key)
+    endpoint_url = _clean_aws_value(current_app.config.get("AWS_S3_ENDPOINT_URL"))
+    resolved_region = _resolve_bucket_region(
+        bucket=bucket,
+        access_key=access_key,
+        secret_key=secret_key,
+        region_hint=region,
+        endpoint_url=endpoint_url,
+    )
+
+    s3 = _build_s3_client(
+        region=resolved_region,
+        access_key=access_key,
+        secret_key=secret_key,
+        endpoint_url=endpoint_url,
+    )
 
     try:
         file.stream.seek(0)
@@ -111,9 +175,26 @@ def resolve_attachment_source(file_path: str | None) -> str | None:
         else:
             return file_path
 
-    s3 = _build_s3_client(region=region, access_key=access_key, secret_key=secret_key)
+    endpoint_url = _clean_aws_value(current_app.config.get("AWS_S3_ENDPOINT_URL"))
+    resolved_region = _resolve_bucket_region(
+        bucket=bucket,
+        access_key=access_key,
+        secret_key=secret_key,
+        region_hint=region,
+        endpoint_url=endpoint_url,
+    )
 
-    return _generate_presigned_url(s3, bucket, key, expires_in=expires_in)
+    s3 = _build_s3_client(
+        region=resolved_region,
+        access_key=access_key,
+        secret_key=secret_key,
+        endpoint_url=endpoint_url,
+    )
+    try:
+        return _generate_presigned_url(s3, bucket, key, expires_in=expires_in)
+    except ValueError:
+        # Nunca quebrar a serializacao dos dados por erro de assinatura/ambiente.
+        return file_path
 
 def _generate_presigned_url(s3, bucket: str, key: str, expires_in=600) -> str:
     try:
@@ -139,16 +220,15 @@ def _clean_aws_value(value: str | None) -> str:
     return cleaned
 
 
-def _build_s3_client(*, region: str, access_key: str, secret_key: str):
+def _build_s3_client(*, region: str, access_key: str, secret_key: str, endpoint_url: str = ""):
     session_token = _clean_aws_value(current_app.config.get("AWS_SESSION_TOKEN"))
-    endpoint_url = _clean_aws_value(current_app.config.get("AWS_S3_ENDPOINT_URL"))
     addressing_style = _clean_aws_value(current_app.config.get("AWS_S3_ADDRESSING_STYLE")) or "virtual"
 
     client_kwargs = {
         "service_name": "s3",
         "aws_access_key_id": access_key,
         "aws_secret_access_key": secret_key,
-        "region_name": region or None,
+        "region_name": _normalize_s3_region(region),
         "config": BotoConfig(signature_version="s3v4", s3={"addressing_style": addressing_style}),
     }
     if session_token:

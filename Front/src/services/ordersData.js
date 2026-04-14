@@ -1,4 +1,4 @@
-import { apiRequest } from "@/services/apiClient";
+import { apiRequest, buildApiUrl, getAuthToken } from "@/services/apiClient";
 import { fetchEmployees, fetchSuppliers } from "@/services/entityData";
 
 function mapMaterialType(item) {
@@ -133,4 +133,42 @@ export async function uploadAttachment({ purchaseId, file, attachmentType }) {
     body: formData,
   });
   return response?.data;
+}
+
+export async function resolvePurchaseAttachmentPreviewUrl(attachment) {
+  const directUrl = attachment?.file_url || attachment?.file_path || "";
+  if (/^https?:\/\//i.test(directUrl)) {
+    return directUrl;
+  }
+
+  const attachmentId = attachment?.id;
+  if (!attachmentId) {
+    return directUrl;
+  }
+
+  const payload = await apiRequest(`attachments/${attachmentId}/resolved-url`, {
+    method: "GET",
+  });
+
+  const resolvedUrl = payload?.data?.url || "";
+  if (!resolvedUrl) {
+    if (directUrl) return directUrl;
+    throw new Error("Nao foi possivel obter o link do comprovante.");
+  }
+
+  if (!/^https?:\/\//i.test(resolvedUrl)) {
+    const token = getAuthToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const response = await fetch(buildApiUrl(`attachments/${attachmentId}/file`), {
+      method: "GET",
+      headers,
+    });
+    if (!response.ok) {
+      throw new Error("Nao foi possivel obter o link do comprovante.");
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  }
+
+  return resolvedUrl;
 }

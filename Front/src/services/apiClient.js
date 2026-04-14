@@ -24,12 +24,17 @@ const API_BASE_URL = (() => {
 
 const TOKEN_STORAGE_KEY = "fx_auth_token";
 
-function getAuthToken() {
+export function getAuthToken() {
   try {
     return localStorage.getItem(TOKEN_STORAGE_KEY);
   } catch {
     return null;
   }
+}
+
+export function buildApiUrl(path) {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE_URL}${cleanPath}`;
 }
 
 export function setAuthToken(token) {
@@ -62,8 +67,7 @@ export async function apiRequest(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const response = await fetch(`${API_BASE_URL}${cleanPath}`, {
+  const response = await fetch(buildApiUrl(path), {
     ...options,
     headers,
   });

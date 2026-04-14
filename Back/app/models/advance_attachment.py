@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from flask import current_app
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
+from app.services.storage_service import resolve_attachment_source
 
 
 class AdvanceAttachment(db.Model):
@@ -28,12 +28,10 @@ class AdvanceAttachment(db.Model):
 	def _build_file_url(self) -> str | None:
 		if not self.file_path:
 			return None
-		if self.file_path.startswith("http://") or self.file_path.startswith("https://"):
+		try:
+			return resolve_attachment_source(self.file_path)
+		except Exception:
 			return self.file_path
-
-		relative = f"/api/advance-attachments/{self.id}/file"
-		base = (current_app.config.get("APP_BASE_URL") or "").strip().rstrip("/")
-		return f"{base}{relative}" if base else relative
 
 	def to_dict(self) -> dict:
 		return {

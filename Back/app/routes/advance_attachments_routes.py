@@ -73,6 +73,23 @@ def get_attachment_file_route(attachment_id: int):
 	)
 
 
+@advance_attachment_bp.get("/<int:attachment_id>/resolved-url")
+@login_required
+def get_attachment_resolved_url_route(attachment_id: int):
+	attachment = get_attachment(attachment_id)
+	file_path = attachment.file_path or ""
+	resolved_source = resolve_attachment_source(file_path)
+
+	if not resolved_source:
+		raise ValueError("Attachment file not found")
+
+	return success_response(
+		"Advance attachment resolved url fetched successfully",
+		{"url": resolved_source},
+		200,
+	)
+
+
 @advance_attachment_bp.delete("/<int:attachment_id>")
 @login_required
 @roles_required("admin", "employee")
