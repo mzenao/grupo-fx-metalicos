@@ -39,6 +39,12 @@ function getNowLocalDateTime() {
 	return new Date();
 }
 
+function formatDateTimeForApi(date) {
+	if (!date || Number.isNaN(date.getTime())) return "";
+	const pad = (value) => String(value).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}-03:00`;
+}
+
 function parsePositiveNumber(input) {
 	const parsed = Number(input);
 	if (!Number.isFinite(parsed) || parsed <= 0) return null;
@@ -592,7 +598,7 @@ export default function Orders() {
 				material_type_id: editMaterialTypeId,
 				weight: editWeight,
 				value: editTotalValue,
-				purchase_datetime: editDatetime.toISOString(),
+				purchase_datetime: formatDateTimeForApi(editDatetime),
 			});
 
 			const refreshedPurchases = await fetchPurchases();
@@ -658,7 +664,7 @@ export default function Orders() {
 				material_type_id: materialTypeId,
 				weight,
 				value: totalValue,
-				purchase_datetime: datetime.toISOString(),
+				purchase_datetime: formatDateTimeForApi(datetime),
 					apply_advance: applyAdvance,
 				},
 				files: attachments,

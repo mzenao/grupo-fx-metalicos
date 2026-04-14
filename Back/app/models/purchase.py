@@ -7,6 +7,7 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
+from app.utils.datetime_utils import format_brasilia_datetime
 
 
 class Purchase(db.Model):
@@ -69,7 +70,7 @@ class Purchase(db.Model):
 			"value_per_kg": float(self.value_per_kg),
 			"advance_abatement_value": float(self.advance_abatement_value or 0),
 			"advance_remaining_after": float(self.advance_remaining_after or 0),
-			"purchase_datetime": self.purchase_datetime.isoformat(),
+			"purchase_datetime": format_brasilia_datetime(self.purchase_datetime),
 			"attachments": [attachment.to_dict() for attachment in self.attachments],
 			"created_at": self.created_at.isoformat(),
 		}
