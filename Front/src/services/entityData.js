@@ -3,6 +3,33 @@ import { apiRequest } from "@/services/apiClient";
 let employeesCache = [];
 let suppliersCache = [];
 
+function normalizePlate(value) {
+  return String(value || "").replace(/\s+/g, "").toUpperCase();
+}
+
+function parseVehiclePlatesExtra(value) {
+  if (Array.isArray(value)) {
+    return value.map((plate) => normalizePlate(plate)).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((plate) => normalizePlate(plate)).filter(Boolean);
+        }
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  return [];
+}
+
 function mapEmployeeFromApi(item) {
   return {
     id: item.id,
@@ -17,6 +44,7 @@ function mapEmployeeFromApi(item) {
 function mapSupplierFromApi(item) {
   const defaultPixType = item.is_pf ? "cpf" : "cnpj";
   const pixKeyType = (item.pix_key_type || defaultPixType || "").toLowerCase();
+  const vehiclePlatesExtra = parseVehiclePlatesExtra(item.vehicle_plates_extra);
 
   return {
     id: item.id,
@@ -27,7 +55,8 @@ function mapSupplierFromApi(item) {
     companyName: item.company_name || "",
     cpf: item.cpf || "",
     cnpj: item.cnpj || "",
-    vehiclePlate: item.vehicle_plate || "",
+    vehiclePlate: normalizePlate(item.vehicle_plate),
+    vehiclePlatesExtra,
     referenceAddress: item.reference_address || "",
     email: item.email || "",
     phone: item.phone || "",
@@ -55,6 +84,8 @@ function mapSupplierToApi(payload) {
     : isPf
       ? "cpf"
       : "cnpj";
+  const mainPlate = normalizePlate(payload.vehiclePlate);
+  const extraPlates = parseVehiclePlatesExtra(payload.vehiclePlatesExtra);
 
   return {
     is_pf: isPf,
@@ -62,7 +93,8 @@ function mapSupplierToApi(payload) {
     company_name: isPf ? null : payload.companyName,
     cpf: isPf ? payload.cpf : null,
     cnpj: isPf ? null : payload.cnpj,
-    vehicle_plate: payload.vehiclePlate,
+    vehicle_plate: mainPlate,
+    vehicle_plates_extra: JSON.stringify(extraPlates),
     reference_address: payload.referenceAddress,
     email: payload.email,
     phone: payload.phone,

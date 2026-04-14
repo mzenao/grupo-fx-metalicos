@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -44,6 +45,7 @@ class Supplier(db.Model):
 	cpf: Mapped[str | None] = mapped_column(String(14), nullable=True)
 	cnpj: Mapped[str | None] = mapped_column(String(18), nullable=True)
 	vehicle_plate: Mapped[str | None] = mapped_column(String(10), nullable=True)
+	vehicle_plates_extra: Mapped[str | None] = mapped_column(Text, nullable=True)
 	reference_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
 	phone: Mapped[str | None] = mapped_column(String(25), nullable=True)
 	pix_key_type: Mapped[str] = mapped_column(String(10), nullable=False)
@@ -55,6 +57,17 @@ class Supplier(db.Model):
 	advances = relationship("Advance", back_populates="supplier")
 
 	def to_dict(self) -> dict:
+		vehicle_plate = (self.vehicle_plate or "").strip().replace(" ", "").upper() or None
+		plates_extra: list[str] = []
+		raw_extra = (self.vehicle_plates_extra or "").strip()
+		if raw_extra.startswith("["):
+			try:
+				decoded = json.loads(raw_extra)
+				if isinstance(decoded, list):
+					plates_extra = [str(plate).strip().upper() for plate in decoded if str(plate).strip()]
+			except (TypeError, ValueError, json.JSONDecodeError):
+				plates_extra = []
+
 		return {
 			"id": self.id,
 			"user_id": self.user_id,
@@ -64,7 +77,8 @@ class Supplier(db.Model):
 			"company_name": self.company_name,
 			"cpf": self.cpf,
 			"cnpj": self.cnpj,
-			"vehicle_plate": self.vehicle_plate,
+			"vehicle_plate": vehicle_plate,
+			"vehicle_plates_extra": plates_extra,
 			"reference_address": self.reference_address,
 			"phone": self.phone,
 			"pix_key_type": self.pix_key_type,

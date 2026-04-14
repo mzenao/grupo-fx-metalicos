@@ -74,7 +74,7 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
 					exit={{ opacity: 0, scale: 0.96 }}
 					className="relative bg-[#fffdf8] rounded-3xl border border-[#1e1608]/60 shadow-2xl shadow-[#1e1608]/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
 				>
-					<div className="sticky top-0 bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6 z-10">
+					<div className="sticky top-0 bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6 z-40">
 						<h2 className="text-xl font-bold text-[#f5e7c0]">{employee ? "Editar Funcionario" : "Novo Funcionario"}</h2>
 						<button
 							type="button"
@@ -98,6 +98,7 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Nome *</label>
 								<input
 									required
+									placeholder="Nome"
 									value={form.name}
 									onChange={(e) => set("name", e.target.value)}
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -108,6 +109,7 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Telefone *</label>
 								<input
 									required
+									placeholder="Telefone"
 									value={form.phone}
 									onChange={(e) => set("phone", e.target.value)}
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -118,6 +120,7 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Email</label>
 								<input
 									type="email"
+									placeholder="Email"
 									value={form.email}
 									onChange={(e) => set("email", e.target.value)}
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"

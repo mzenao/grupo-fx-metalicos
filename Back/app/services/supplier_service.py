@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from sqlalchemy import func
 
 from app.extensions import db
@@ -14,6 +15,115 @@ from app.utils.validators import (
 	normalize_string,
 	validate_supplier_documents,
 )
+
+
+MAX_SUPPLIER_PLATES = 4
+MAX_EXTRA_SUPPLIER_PLATES = 3
+
+
+def _normalize_plate_value(value: str | None) -> str | None:
+	plate = normalize_string(value)
+	if not plate:
+		return None
+	return plate.replace(" ", "").upper()
+
+
+def _parse_vehicle_plates_extra(raw_value) -> list[str]:
+	if raw_value is None:
+		return []
+
+	if isinstance(raw_value, list):
+		values = raw_value
+	elif isinstance(raw_value, str):
+		cleaned = raw_value.strip()
+		if not cleaned:
+			return []
+		if cleaned.startswith("["):
+			try:
+				values = json.loads(cleaned)
+			except (TypeError, ValueError, json.JSONDecodeError):
+				return []
+		else:
+			return []
+	else:
+		return []
+
+	parsed: list[str] = []
+	for value in values:
+		plate = _normalize_plate_value(value)
+		if plate:
+			parsed.append(plate)
+	return parsed
+
+
+def _normalize_unique_vehicle_plates(main_plate: str | None, extra_plates) -> tuple[str | None, list[str]]:
+	normalized_main = _normalize_plate_value(main_plate)
+	normalized_extra: list[str] = []
+	seen: set[str] = set()
+
+	for plate in _parse_vehicle_plates_extra(extra_plates):
+		if plate == normalized_main:
+			continue
+		if plate in seen:
+			continue
+		seen.add(plate)
+		normalized_extra.append(plate)
+
+	if normalized_main and normalized_main in seen:
+		normalized_extra = [plate for plate in normalized_extra if plate != normalized_main]
+
+	if normalized_main and len([normalized_main, *normalized_extra]) > MAX_SUPPLIER_PLATES:
+		raise ValueError("Quantidade máxima de placas excedida")
+
+	if len(normalized_extra) > MAX_EXTRA_SUPPLIER_PLATES:
+		raise ValueError("Quantidade máxima de placas adicionais excedida")
+
+	return normalized_main, normalized_extra
+
+
+def _serialize_vehicle_plates_extra(extra_plates: list[str]) -> str:
+	return json.dumps(extra_plates, ensure_ascii=False)
+
+
+def _validate_plate_format(plate: str | None) -> None:
+	if not plate:
+		raise ValueError("Placa do veículo é obrigatória")
+	if not is_valid_vehicle_plate(plate):
+		raise ValueError("Placa do veículo inválida")
+
+
+def _validate_additional_plate_format(plate: str | None) -> None:
+	if not plate:
+		raise ValueError("Placa adicional inválida")
+	if not is_valid_vehicle_plate(plate):
+		raise ValueError("Placa adicional inválida")
+
+
+def _validate_unique_supplier_plates(
+	*,
+	main_plate: str | None,
+	extra_plates: list[str],
+	exclude_supplier_id: int | None = None,
+) -> None:
+	all_plates = [plate for plate in [main_plate, *extra_plates] if plate]
+	if not all_plates:
+		return
+
+	query = Supplier.query
+	if exclude_supplier_id is not None:
+		query = query.filter(Supplier.id != exclude_supplier_id)
+
+	for supplier in query.all():
+		other_plates: set[str] = set()
+		other_main = _normalize_plate_value(supplier.vehicle_plate)
+		if other_main:
+			other_plates.add(other_main)
+		for plate in _parse_vehicle_plates_extra(supplier.vehicle_plates_extra):
+			other_plates.add(plate)
+
+		for plate in all_plates:
+			if plate in other_plates:
+				raise ValueError(f"Placa já cadastrada: {plate}")
 
 
 def _normalize_pix_key_type(is_pf: bool, pix_key_type: str | None) -> str:
@@ -74,6 +184,7 @@ def _validate_unique_supplier_fields(
 	cnpj: str | None,
 	phone: str | None,
 	plate: str | None,
+	extra_plates: list[str] | None,
 	email: str | None,
 	exclude_supplier_id: int | None = None,
 	exclude_user_id: int | None = None,
@@ -106,6 +217,12 @@ def _validate_unique_supplier_fields(
 		if query.first():
 			raise ValueError("Placa já cadastrada")
 
+	_validate_unique_supplier_plates(
+		main_plate=plate,
+		extra_plates=extra_plates or [],
+		exclude_supplier_id=exclude_supplier_id,
+	)
+
 	if email:
 		query = User.query.filter(User.email == email.lower())
 		if exclude_user_id is not None:
@@ -136,12 +253,20 @@ def create_supplier(payload: dict) -> Supplier:
 		raise ValueError(str(document_errors))
 
 	phone = normalize_string(payload.get("phone"))
-	plate = normalize_string(payload.get("vehicle_plate"))
+	plate = _normalize_plate_value(payload.get("vehicle_plate"))
+	extra_plates = _parse_vehicle_plates_extra(payload.get("vehicle_plates_extra"))
 	email_from_payload = normalize_string(payload.get("email"))
 	if not is_valid_phone(phone):
 		raise ValueError("Telefone inválido")
-	if not is_valid_vehicle_plate(plate):
-		raise ValueError("Placa do veículo inválida")
+	_validate_plate_format(plate)
+	for extra_plate in extra_plates:
+		_validate_additional_plate_format(extra_plate)
+	if plate in extra_plates:
+		raise ValueError("Placa principal não pode repetir nas adicionais")
+	if len(set(extra_plates)) != len(extra_plates):
+		raise ValueError("Placas adicionais duplicadas")
+	if len(extra_plates) > MAX_EXTRA_SUPPLIER_PLATES:
+		raise ValueError("Quantidade máxima de placas adicionais excedida")
 
 	user_id = payload.get("user_id")
 	if user_id:
@@ -158,6 +283,7 @@ def create_supplier(payload: dict) -> Supplier:
 			cnpj=cnpj,
 			phone=phone,
 			plate=plate,
+			extra_plates=extra_plates,
 			email=email_from_payload,
 		)
 		user = create_user(
@@ -174,6 +300,7 @@ def create_supplier(payload: dict) -> Supplier:
 			cnpj=cnpj,
 			phone=phone,
 			plate=plate,
+			extra_plates=extra_plates,
 			email=email,
 			exclude_user_id=user.id,
 		)
@@ -200,6 +327,7 @@ def create_supplier(payload: dict) -> Supplier:
 		cpf=cpf,
 		cnpj=cnpj,
 		vehicle_plate=plate,
+		vehicle_plates_extra=_serialize_vehicle_plates_extra(extra_plates),
 		reference_address=normalize_string(payload.get("reference_address")),
 		phone=phone,
 		pix_key_type=pix_key_type,
@@ -228,11 +356,20 @@ def update_supplier(supplier_id: int, payload: dict) -> Supplier:
 		supplier.name = name
 
 	phone = normalize_string(payload.get("phone", supplier.phone))
-	plate = normalize_string(payload.get("vehicle_plate", supplier.vehicle_plate))
+	plate = _normalize_plate_value(payload.get("vehicle_plate", supplier.vehicle_plate))
+	extra_plates_raw = payload.get("vehicle_plates_extra", supplier.vehicle_plates_extra)
+	extra_plates = _parse_vehicle_plates_extra(extra_plates_raw)
 	if not is_valid_phone(phone):
 		raise ValueError("Telefone inválido")
-	if not is_valid_vehicle_plate(plate):
-		raise ValueError("Placa do veículo inválida")
+	_validate_plate_format(plate)
+	for extra_plate in extra_plates:
+		_validate_additional_plate_format(extra_plate)
+	if plate in extra_plates:
+		raise ValueError("Placa principal não pode repetir nas adicionais")
+	if len(set(extra_plates)) != len(extra_plates):
+		raise ValueError("Placas adicionais duplicadas")
+	if len(extra_plates) > MAX_EXTRA_SUPPLIER_PLATES:
+		raise ValueError("Quantidade máxima de placas adicionais excedida")
 
 	next_email = normalize_string(payload.get("email", supplier.user.email)) or supplier.user.email
 	_validate_unique_supplier_fields(
@@ -240,6 +377,7 @@ def update_supplier(supplier_id: int, payload: dict) -> Supplier:
 		cnpj=cnpj,
 		phone=phone,
 		plate=plate,
+		extra_plates=extra_plates,
 		email=next_email,
 		exclude_supplier_id=supplier.id,
 		exclude_user_id=supplier.user_id,
@@ -250,6 +388,7 @@ def update_supplier(supplier_id: int, payload: dict) -> Supplier:
 	supplier.cnpj = cnpj
 	supplier.phone = phone
 	supplier.vehicle_plate = plate
+	supplier.vehicle_plates_extra = _serialize_vehicle_plates_extra(extra_plates)
 
 	if "supplier_code" in payload:
 		supplier.supplier_code = int(payload.get("supplier_code"))

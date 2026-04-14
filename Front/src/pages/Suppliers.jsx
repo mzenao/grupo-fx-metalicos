@@ -127,6 +127,7 @@ export default function Suppliers() {
 
 		return suppliers.filter((supplier) => {
 			const primaryName = (supplier.personType === "PF" ? supplier.name : supplier.companyName) || "";
+			const extraPlates = Array.isArray(supplier.vehiclePlatesExtra) ? supplier.vehiclePlatesExtra.join(" ") : "";
 			const normalized = [
 				supplier.supplierCode,
 				primaryName,
@@ -137,6 +138,7 @@ export default function Suppliers() {
 				supplier.cnpj,
 				supplier.vehiclePlate,
 				supplier.referenceAddress,
+				extraPlates,
 			]
 				.join(" ")
 				.toLowerCase();
@@ -395,6 +397,21 @@ export default function Suppliers() {
 												<div>
 													<p className="text-xs text-gray-500">Placa do veiculo</p>
 													<p className="font-medium text-gray-800">{supplier.vehiclePlate || "-"}</p>
+												</div>
+
+												<div className="md:col-span-2">
+													<p className="text-xs text-gray-500">Placas adicionais</p>
+													<div className="mt-1 flex flex-wrap gap-2">
+														{Array.isArray(supplier.vehiclePlatesExtra) && supplier.vehiclePlatesExtra.length > 0 ? (
+															supplier.vehiclePlatesExtra.map((plate) => (
+																<span key={plate} className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold border border-amber-200">
+																	{plate}
+																</span>
+															))
+														) : (
+															<p className="font-medium text-gray-500">-</p>
+														)}
+													</div>
 												</div>
 											</div>
 										</div>

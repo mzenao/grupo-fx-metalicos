@@ -68,6 +68,7 @@ def get_me(user: User) -> dict:
 	data = user.to_dict()
 	supplier = user.supplier
 	if supplier:
+		supplier_data = supplier.to_dict()
 		data["supplier"] = {
 			"id": supplier.id,
 			"supplier_code": supplier.supplier_code,
@@ -76,7 +77,8 @@ def get_me(user: User) -> dict:
 			"company_name": supplier.company_name,
 			"cpf": supplier.cpf,
 			"cnpj": supplier.cnpj,
-			"vehicle_plate": supplier.vehicle_plate,
+			"vehicle_plate": supplier_data.get("vehicle_plate"),
+			"vehicle_plates_extra": supplier_data.get("vehicle_plates_extra", []),
 			"reference_address": supplier.reference_address,
 			"phone": supplier.phone,
 			"pix_key_type": supplier.pix_key_type,

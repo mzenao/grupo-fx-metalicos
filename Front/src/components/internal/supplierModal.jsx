@@ -37,10 +37,37 @@ function formatPixValue(pixKeyType, form) {
 		return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
 	}
 
-	if (type === "phone") return form.phone || "";
+	if (type === "phone") return form.pixKeyValue || "";
 	if (type === "email") return form.pixKeyValue || "";
 	if (type === "random") return form.pixKeyValue || "";
 	return "";
+}
+
+function normalizePlate(value) {
+	return String(value || "").replace(/\s+/g, "").toUpperCase();
+}
+
+function parseVehiclePlatesExtra(value) {
+	if (Array.isArray(value)) {
+		return value.map((plate) => normalizePlate(plate)).filter(Boolean);
+	}
+
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		if (!trimmed) return [];
+		if (trimmed.startsWith("[")) {
+			try {
+				const parsed = JSON.parse(trimmed);
+				if (Array.isArray(parsed)) {
+					return parsed.map((plate) => normalizePlate(plate)).filter(Boolean);
+				}
+			} catch {
+				return [];
+			}
+		}
+	}
+
+	return [];
 }
 
 export default function SupplierModal({ Supplier, onClose, onSave }) {
@@ -57,6 +84,8 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			email: "",
 			phone: "",
 			pixKeyValue: "",
+			vehiclePlatesExtra: [],
+			extraPlateInput: "",
 			password: "",
 		};
 
@@ -67,6 +96,9 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			next.pixKeyType = next.personType === "PF" ? "cpf" : "cnpj";
 		}
 		next.pixKeyValue = next.pixKeyValue || "";
+		next.vehiclePlate = normalizePlate(next.vehiclePlate);
+		next.vehiclePlatesExtra = parseVehiclePlatesExtra(next.vehiclePlatesExtra || next.vehicle_plates_extra);
+		next.extraPlateInput = "";
 		return next;
 	}, [Supplier]);
 
@@ -74,8 +106,43 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 	const pixValue = formatPixValue(form.pixKeyType, form);
+	const extraPlates = Array.isArray(form.vehiclePlatesExtra) ? form.vehiclePlatesExtra : [];
+	const canAddExtra = extraPlates.length < 3;
 
 	const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+	const handleAddExtraPlate = () => {
+		const nextPlate = normalizePlate(form.extraPlateInput);
+		if (!nextPlate) {
+			setError("Informe uma placa adicional.");
+			return;
+		}
+		if (!canAddExtra) {
+			setError("O limite de 3 placas adicionais foi atingido.");
+			return;
+		}
+		if (nextPlate === normalizePlate(form.vehiclePlate)) {
+			setError("A placa adicional não pode ser igual à principal.");
+			return;
+		}
+		if (extraPlates.includes(nextPlate)) {
+			setError("Essa placa adicional já foi adicionada.");
+			return;
+		}
+		setError("");
+		setForm((prev) => ({
+			...prev,
+			vehiclePlatesExtra: [...(prev.vehiclePlatesExtra || []), nextPlate],
+			extraPlateInput: "",
+		}));
+	};
+
+	const handleRemoveExtraPlate = (plate) => {
+		setForm((prev) => ({
+			...prev,
+			vehiclePlatesExtra: (prev.vehiclePlatesExtra || []).filter((item) => item !== plate),
+		}));
+	};
 
 	const handleTypeChange = (nextType) => {
 		setForm((prev) => ({
@@ -87,6 +154,21 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			cpf: nextType === "PF" ? prev.cpf : "",
 			companyName: nextType === "PJ" ? prev.companyName : "",
 			cnpj: nextType === "PJ" ? prev.cnpj : "",
+		}));
+	};
+
+	const handlePixTypeChange = (nextType) => {
+		setForm((prev) => ({
+			...prev,
+			pixKeyType: nextType,
+			pixKeyValue:
+				nextType === "phone" && !prev.pixKeyValue
+					? prev.phone || ""
+					: nextType === "cpf"
+						? prev.cpf || ""
+						: nextType === "cnpj"
+							? prev.cnpj || ""
+							: prev.pixKeyValue,
 		}));
 	};
 
@@ -129,6 +211,21 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			return;
 		}
 
+		const normalizedMainPlate = normalizePlate(form.vehiclePlate);
+		const normalizedExtraPlates = (form.vehiclePlatesExtra || []).map((plate) => normalizePlate(plate)).filter(Boolean);
+		if (normalizedExtraPlates.length > 3) {
+			setError("O limite de 3 placas adicionais foi atingido.");
+			return;
+		}
+		if (normalizedExtraPlates.includes(normalizedMainPlate)) {
+			setError("A placa principal não pode se repetir nas adicionais.");
+			return;
+		}
+		if (new Set([normalizedMainPlate, ...normalizedExtraPlates]).size !== 1 + normalizedExtraPlates.length) {
+			setError("Não é permitido cadastrar placas duplicadas.");
+			return;
+		}
+
 		if (!form.referenceAddress.trim()) {
 			setError("Endereco de referencia e obrigatorio.");
 			return;
@@ -141,6 +238,11 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 
 		if (!form.phone.trim()) {
 			setError("Telefone e obrigatorio.");
+			return;
+		}
+
+		if (form.pixKeyType === "phone" && !form.pixKeyValue.trim()) {
+			setError("Informe a chave Pix do tipo telefone.");
 			return;
 		}
 
@@ -162,7 +264,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 
 		setSaving(true);
 		try {
-			await onSave({ ...form, id: Supplier?.id });
+			await onSave({ ...form, vehiclePlate: normalizedMainPlate, vehiclePlatesExtra: normalizedExtraPlates, id: Supplier?.id });
 		} catch (err) {
 			setError(err?.message || "Erro ao salvar Fornecedor");
 		} finally {
@@ -181,7 +283,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 					exit={{ opacity: 0, scale: 0.96 }}
 					className="relative bg-[#fffdf8] rounded-3xl border border-[#1e1608]/60 shadow-2xl shadow-[#1e1608]/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
 				>
-					<div className="sticky top-0 bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6 z-10">
+					<div className="sticky top-0 bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6 z-40">
 						<h2 className="text-xl font-bold text-[#f5e7c0]">{Supplier ? "Editar Fornecedor" : "Novo Fornecedor"}</h2>
 						<button
 							type="button"
@@ -239,6 +341,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 										<label className="block text-sm font-medium mb-1 text-[#4a3918]">Nome *</label>
 										<input
 											required
+											placeholder="Nome"
 											value={form.name}
 											onChange={(e) => set("name", e.target.value)}
 											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -249,6 +352,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 										<label className="block text-sm font-medium mb-1 text-[#4a3918]">CPF *</label>
 										<input
 											required
+											placeholder="CPF"
 											value={form.cpf}
 											onChange={(e) => set("cpf", formatCpfInput(e.target.value))}
 											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -261,6 +365,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 										<label className="block text-sm font-medium mb-1 text-[#4a3918]">Nome da empresa *</label>
 										<input
 											required
+											placeholder="Nome da empresa"
 											value={form.companyName}
 											onChange={(e) => set("companyName", e.target.value)}
 											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -271,6 +376,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 										<label className="block text-sm font-medium mb-1 text-[#4a3918]">CNPJ *</label>
 										<input
 											required
+											placeholder="CNPJ"
 											value={form.cnpj}
 											onChange={(e) => set("cnpj", formatCnpjInput(e.target.value))}
 											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -279,20 +385,67 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								</>
 							)}
 
-							<div>
-								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Placa do veiculo *</label>
-								<input
-									required
-									value={form.vehiclePlate}
-									onChange={(e) => set("vehiclePlate", e.target.value.toUpperCase())}
-									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-								/>
-							</div>
+							<div className="md:col-span-2 space-y-3">
+								<div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+									<div className="md:col-span-2">
+										<label className="block text-sm font-medium mb-1 text-[#4a3918]">Placa do veiculo *</label>
+										<input
+											required
+											placeholder="ABC1234"
+											value={form.vehiclePlate}
+											onChange={(e) => set("vehiclePlate", normalizePlate(e.target.value))}
+											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+										/>
+									</div>
 
-							<div>
+									<div className="md:col-span-1">
+										<label className="block text-sm font-medium mb-1 text-[#4a3918]">Placa adicional</label>
+										<input
+											type="text"
+											placeholder="XYZ9999"
+											value={form.extraPlateInput}
+											onChange={(e) => set("extraPlateInput", normalizePlate(e.target.value))}
+											onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												e.preventDefault();
+												handleAddExtraPlate();
+											}
+										}}
+											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+										/>
+									</div>
+
+									<div className="md:col-span-1">
+										<label className="block text-sm font-medium mb-1 text-[#4a3918] opacity-0 select-none">Adicionar</label>
+										<Button
+											type="button"
+											onClick={handleAddExtraPlate}
+											disabled={!form.extraPlateInput.trim() || !canAddExtra}
+											className="w-full h-11 bg-[#1e1608] text-[#f5e7c0] hover:bg-[#2b2010] disabled:opacity-50"
+										>
+											Adicionar
+										</Button>
+									</div>
+								</div>
+
+								<div className="sm:col-span-2">
+									<div className="mt-3 flex flex-wrap gap-2">
+										{extraPlates.map((plate) => (
+											<span key={plate} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f5e7c0] text-[#4a3918] text-sm font-semibold border border-[#d6ab4a]/40">
+												{plate}
+												<button type="button" onClick={() => handleRemoveExtraPlate(plate)} className="text-[#7b6024] hover:text-[#1e1608]" aria-label={`Remover placa ${plate}`}>
+													×
+												</button>
+											</span>
+										))}
+										{extraPlates.length === 0 && <p className="text-xs text-[#7b6024]">Nenhuma placa adicional adicionada.</p>}
+									</div>
+									<p className="mt-2 text-xs text-[#7b6024]">Máximo de 3 placas adicionais. A placa principal não entra no total das tags.</p>
+								</div>
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Endereco de referencia *</label>
 								<input
 									required
+									placeholder="Endereco de referencia"
 									value={form.referenceAddress}
 									onChange={(e) => set("referenceAddress", e.target.value)}
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -304,6 +457,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								<input
 									type="email"
 									required
+									placeholder="Email"
 									value={form.email}
 									onChange={(e) => set("email", e.target.value)}
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -314,6 +468,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Telefone *</label>
 								<input
 									required
+									placeholder="Telefone"
 									value={form.phone}
 									onChange={(e) => set("phone", e.target.value)}
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
@@ -325,10 +480,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								<PixTypeSelect
 									value={form.pixKeyType}
 									onChange={(value) => {
-										set("pixKeyType", value);
-										if (!["email", "random"].includes(value)) {
-											set("pixKeyValue", "");
-										}
+										handlePixTypeChange(value);
 									}}
 									options={form.personType === "PF"
 										? [
@@ -350,7 +502,8 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Chave Pix</label>
 								<input
 									type="text"
-									readOnly={!(["email", "random"].includes(form.pixKeyType))}
+									readOnly={form.pixKeyType === "cpf"}
+									placeholder={form.pixKeyType === "cpf" ? "Chave Pix" : "Digite a chave Pix"}
 									value={pixValue || ""}
 									onChange={(e) => set("pixKeyValue", e.target.value)}
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-gray-50 text-[#4a3918]"
