@@ -38,6 +38,15 @@ def _format_purchase_datetime(dt) -> str:
 	return dt.strftime("%d/%m/%Y %H:%M")
 
 
+def _format_weight_kg(value) -> str:
+	try:
+		number = float(value)
+	except (TypeError, ValueError):
+		number = 0.0
+	formatted = f"{number:,.3f}"
+	return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _build_portal_access_line() -> str:
 	return f"Você pode acessar as informacoes da sua venda em nosso site: {PORTAL_URL}"
 
@@ -85,11 +94,12 @@ def _build_purchase_notification_message(purchase) -> str:
 			"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
 			f"• Valor pago: R$ {value_text}\n"
 			f"• Valor pago por kg: R$ {_format_brl(purchase.value_per_kg)}\n"
+			f"• Peso total (kg): {_format_weight_kg(purchase.weight)}\n"
 			f"• Valor abatido no adiantamento: R$ {_format_brl(advance_abatement_value)}\n"
 			f"• Data: {date_text}\n\n"
-			f"• Este devedor possui {advance_summary['open_count']} adiantamento(s) em aberto.\n"
+			f"• Você possui {advance_summary['open_count']} adiantamento(s) em aberto.\n"
 			f"• Valor total adiantado: R$ {_format_brl(advance_summary['total_advanced'])}\n"
-            f"• Saldo devedor restante: R$ {_format_brl(advance_summary['total_debt'])}\n\n"
+			f"• Saldo devedor restante: R$ {_format_brl(advance_summary['total_debt'])}\n\n"
 			"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
 			"• Comprovante de pagamento\n"
 			"• Ticket da balanca\n\n"
@@ -104,6 +114,7 @@ def _build_purchase_notification_message(purchase) -> str:
 		"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
 		f"• Valor pago: R$ {value_text}\n"
 		f"• Valor pago por kg: R$ {_format_brl(purchase.value_per_kg)}\n"
+		f"• Peso total (kg): {_format_weight_kg(purchase.weight)}\n"
 		f"• Data: {date_text}\n\n"
 		"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
 		"• Comprovante de pagamento\n"
