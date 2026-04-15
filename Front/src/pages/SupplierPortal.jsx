@@ -1128,6 +1128,8 @@ function PixTypeSelect({ value, onChange, options }) {
             <button
               key={option.value}
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onPointerDown={(e) => e.preventDefault()}
               onClick={() => {
                 onChange(option.value);
                 setOpen(false);

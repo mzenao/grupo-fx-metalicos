@@ -131,6 +131,8 @@ function SearchSelect({ label, placeholder, options, selectedId, onSelect }) {
 							<button
 								key={option.id}
 								type="button"
+								onMouseDown={(e) => e.preventDefault()}
+								onPointerDown={(e) => e.preventDefault()}
 								onClick={() => {
 									onSelect(option.id);
 									setQuery(option.label);
