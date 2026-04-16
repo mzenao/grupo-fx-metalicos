@@ -32,6 +32,7 @@ const personTypeBadge = {
 function formatSupplierPix(supplier) {
 	if (!supplier) return "";
 	const keyType = (supplier.pixKeyType || (supplier.personType === "PF" ? "cpf" : "cnpj")).toLowerCase();
+	const pixKeyValue = String(supplier.pixKeyValue || "").trim();
 	const digits = (value) => String(value || "").replace(/\D/g, "");
 
 	if (keyType === "cpf") {
@@ -46,8 +47,9 @@ function formatSupplierPix(supplier) {
 		return `(CNPJ) ${cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")}`;
 	}
 
-	if (keyType === "phone") return `(PHONE)${supplier.phone || ""}`;
-	if (keyType === "email") return `(EMAIL)${supplier.email || ""}`;
+	if (keyType === "phone") return pixKeyValue ? `(PHONE) ${pixKeyValue}` : "";
+	if (keyType === "email") return pixKeyValue ? `(EMAIL) ${pixKeyValue}` : "";
+	if (keyType === "random") return pixKeyValue ? `(RANDOM) ${pixKeyValue}` : "";
 	return "";
 }
 
