@@ -3,6 +3,7 @@ import { Save, UserRound, Building2 } from "lucide-react";
 import { fetchMe, getSessionUser, updateMyAccount } from "@/services/authApi";
 import SuccessModal from "@/components/internal/successModal";
 import ErrorModal from "@/components/internal/errorModal";
+import { emptyAddressFields, mergeAddressFields } from "@/services/addressData";
 
 const personTypeBadge = {
 	PF: "bg-sky-100 text-sky-800",
@@ -75,7 +76,7 @@ export default function Account() {
 				documento: "",
 				email: authUser?.email || "",
 				telefone: "",
-				enderecoUnificado: "",
+				...emptyAddressFields(),
 				pixKeyType: "cpf",
 				pixKeyValue: "",
 				senhaAtual: "",
@@ -84,12 +85,25 @@ export default function Account() {
 			};
 		}
 
+		const initialAddress = mergeAddressFields(
+			{
+				rua: currentSupplier.rua,
+				numero: currentSupplier.numero,
+				bairro: currentSupplier.bairro,
+				cidade: currentSupplier.cidade,
+				estado: currentSupplier.estado,
+				pais: currentSupplier.pais,
+				cep: currentSupplier.cep,
+			},
+			currentSupplier.reference_address || currentSupplier.endereco_unificado
+		);
+
 		return {
 			nomeOuEmpresa: isPf ? currentSupplier.name || "" : currentSupplier.company_name || "",
 			documento: isPf ? currentSupplier.cpf || "" : currentSupplier.cnpj || "",
 			email: authUser?.email || "",
 			telefone: currentSupplier.phone || "",
-			enderecoUnificado: currentSupplier.reference_address || "",
+			...initialAddress,
 			pixKeyType: (currentSupplier.pix_key_type || (isPf ? "cpf" : "cnpj")).toLowerCase(),
 			pixKeyValue: currentSupplier.pix_key_value || "",
 			senhaAtual: "",
@@ -147,12 +161,31 @@ export default function Account() {
 
 		setSaving(true);
 		try {
+			const requiredAddressFields = ["rua", "numero", "bairro", "cidade", "estado", "pais", "cep"];
+			const missingAddress = requiredAddressFields.find((field) => !String(formData[field] || "").trim());
+			if (missingAddress) {
+				setFeedbackModal({
+					open: true,
+					type: "error",
+					title: "Erro de validação",
+					message: "Preencha todos os campos obrigatórios do endereço.",
+				});
+				setSaving(false);
+				return;
+			}
+
 			const updated = await updateMyAccount({
 				name_or_company: formData.nomeOuEmpresa,
 				document: formData.documento,
 				email: formData.email,
 				phone: formData.telefone,
-				reference_address: formData.enderecoUnificado,
+				rua: formData.rua,
+				numero: formData.numero,
+				bairro: formData.bairro,
+				cidade: formData.cidade,
+				estado: formData.estado,
+				pais: formData.pais,
+				cep: formData.cep,
 				pix_key_type: formData.pixKeyType,
 				pix_key_value: formData.pixKeyValue,
 				current_password: formData.senhaAtual,
@@ -312,14 +345,21 @@ export default function Account() {
 								readOnly={!(["email", "random"].includes(formData.pixKeyType))}
 								className="md:col-span-2"
 							/>
-							<TextAreaField
-								label="Endereço"
-								name="enderecoUnificado"
-								value={formData.enderecoUnificado}
-								onChange={handleChange}
-								placeholder="Ex.: Rua X, 123, Bairro Y, Cidade/UF, CEP 00000-000"
-								className="md:col-span-2"
-							/>
+							<div className="md:col-span-2">
+								<div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4">
+									<h3 className="text-sm font-semibold text-slate-900">Campos de Endereco</h3>
+									<p className="text-xs text-slate-600 mt-1 mb-4">Preencha os dados de endereco abaixo para atualizar seu cadastro.</p>
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+										<InputField label="CEP" name="cep" value={formData.cep} onChange={handleChange} />
+										<InputField label="Rua" name="rua" value={formData.rua} onChange={handleChange} />
+										<InputField label="Numero" name="numero" value={formData.numero} onChange={handleChange} />
+										<InputField label="Bairro" name="bairro" value={formData.bairro} onChange={handleChange} />
+										<InputField label="Cidade" name="cidade" value={formData.cidade} onChange={handleChange} />
+										<InputField label="Estado" name="estado" value={formData.estado} onChange={handleChange} />
+										<InputField label="Pais" name="pais" value={formData.pais} onChange={handleChange} className="md:col-span-2" />
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 
@@ -396,18 +436,3 @@ function InputField({ label, name, value, onChange, type = "text", className = "
 	);
 }
 
-function TextAreaField({ label, name, value, onChange, placeholder = "", className = "" }) {
-	return (
-		<label className={`flex flex-col gap-2 ${className}`}>
-			<span className="text-sm font-medium text-slate-700">{label}</span>
-			<textarea
-				name={name}
-				value={value}
-				onChange={onChange}
-				placeholder={placeholder}
-				rows={4}
-				className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-slate-800 outline-none focus:border-[#b8891f] focus:ring-2 focus:ring-amber-200 resize-y"
-			/>
-		</label>
-	);
-}

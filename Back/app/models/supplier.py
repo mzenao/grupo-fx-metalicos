@@ -47,6 +47,14 @@ class Supplier(db.Model):
 	vehicle_plate: Mapped[str | None] = mapped_column(String(10), nullable=True)
 	vehicle_plates_extra: Mapped[str | None] = mapped_column(Text, nullable=True)
 	reference_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+	endereco_unificado: Mapped[str | None] = mapped_column(String(255), nullable=True)
+	rua: Mapped[str | None] = mapped_column(String(120), nullable=True)
+	numero: Mapped[str | None] = mapped_column(String(20), nullable=True)
+	bairro: Mapped[str | None] = mapped_column(String(120), nullable=True)
+	cidade: Mapped[str | None] = mapped_column(String(120), nullable=True)
+	estado: Mapped[str | None] = mapped_column(String(2), nullable=True)
+	pais: Mapped[str | None] = mapped_column(String(120), nullable=True)
+	cep: Mapped[str | None] = mapped_column(String(9), nullable=True)
 	phone: Mapped[str | None] = mapped_column(String(25), nullable=True)
 	pix_key_type: Mapped[str] = mapped_column(String(10), nullable=False)
 	pix_key_value: Mapped[str] = mapped_column(String(150), nullable=False)
@@ -79,7 +87,15 @@ class Supplier(db.Model):
 			"cnpj": self.cnpj,
 			"vehicle_plate": vehicle_plate,
 			"vehicle_plates_extra": plates_extra,
-			"reference_address": self.reference_address,
+			"reference_address": self.reference_address or self.endereco_unificado,
+			"endereco_unificado": self.endereco_unificado or self.reference_address,
+			"rua": self.rua,
+			"numero": self.numero,
+			"bairro": self.bairro,
+			"cidade": self.cidade,
+			"estado": self.estado,
+			"pais": self.pais,
+			"cep": self.cep,
 			"phone": self.phone,
 			"pix_key_type": self.pix_key_type,
 			"pix_key_value": self.pix_key_value,

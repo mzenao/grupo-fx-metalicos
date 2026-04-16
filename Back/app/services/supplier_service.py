@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models.supplier import Supplier
 from app.models.user import User
 from app.services.user_service import create_user
+from app.utils.address_utils import build_unified_address, normalize_cep, normalize_state, parse_unified_address
 from app.utils.validators import (
 	is_valid_email,
 	is_valid_phone,
@@ -173,6 +174,49 @@ def _resolve_pix_key_value(
 	raise ValueError("Tipo de chave Pix inválido")
 
 
+def _resolve_address_fields(payload: dict, supplier: Supplier | None = None) -> dict[str, str | None]:
+	base = {
+		"rua": normalize_string(getattr(supplier, "rua", None)),
+		"numero": normalize_string(getattr(supplier, "numero", None)),
+		"bairro": normalize_string(getattr(supplier, "bairro", None)),
+		"cidade": normalize_string(getattr(supplier, "cidade", None)),
+		"estado": normalize_string(getattr(supplier, "estado", None)),
+		"pais": normalize_string(getattr(supplier, "pais", None)),
+		"cep": normalize_string(getattr(supplier, "cep", None)),
+	}
+
+	legacy_reference = normalize_string(
+		payload.get("reference_address")
+		or payload.get("endereco_unificado")
+		or getattr(supplier, "endereco_unificado", None)
+		or getattr(supplier, "reference_address", None)
+	)
+
+	for field in ("rua", "numero", "bairro", "cidade", "estado", "pais", "cep"):
+		if field in payload:
+			base[field] = normalize_string(payload.get(field))
+
+	if not all(base.values()) and legacy_reference:
+		parsed = parse_unified_address(legacy_reference)
+		for key, value in parsed.items():
+			if not base.get(key) and value:
+				base[key] = value
+
+	base["estado"] = normalize_state(base.get("estado"))
+	base["cep"] = normalize_cep(base.get("cep"))
+
+	base["reference_address"] = build_unified_address(
+		rua=base.get("rua"),
+		numero=base.get("numero"),
+		bairro=base.get("bairro"),
+		cidade=base.get("cidade"),
+		estado=base.get("estado"),
+		pais=base.get("pais"),
+		cep=base.get("cep"),
+	)
+	return base
+
+
 def _next_supplier_code() -> int:
 	max_code = db.session.query(func.max(Supplier.supplier_code)).scalar() or 0
 	return max_code + 1
@@ -317,6 +361,16 @@ def create_supplier(payload: dict) -> Supplier:
 	name = normalize_string(payload.get("name"))
 	if not name:
 		raise ValueError("Nome é obrigatório")
+	address_fields = _resolve_address_fields(payload)
+	user.reference_address = address_fields["reference_address"]
+	user.endereco_unificado = address_fields["reference_address"]
+	user.rua = address_fields["rua"]
+	user.numero = address_fields["numero"]
+	user.bairro = address_fields["bairro"]
+	user.cidade = address_fields["cidade"]
+	user.estado = address_fields["estado"]
+	user.pais = address_fields["pais"]
+	user.cep = address_fields["cep"]
 
 	supplier = Supplier(
 		user_id=user.id,
@@ -328,7 +382,15 @@ def create_supplier(payload: dict) -> Supplier:
 		cnpj=cnpj,
 		vehicle_plate=plate,
 		vehicle_plates_extra=_serialize_vehicle_plates_extra(extra_plates),
-		reference_address=normalize_string(payload.get("reference_address")),
+		reference_address=address_fields["reference_address"],
+		endereco_unificado=address_fields["reference_address"],
+		rua=address_fields["rua"],
+		numero=address_fields["numero"],
+		bairro=address_fields["bairro"],
+		cidade=address_fields["cidade"],
+		estado=address_fields["estado"],
+		pais=address_fields["pais"],
+		cep=address_fields["cep"],
 		phone=phone,
 		pix_key_type=pix_key_type,
 		pix_key_value=pix_key_value,
@@ -386,17 +448,33 @@ def update_supplier(supplier_id: int, payload: dict) -> Supplier:
 	supplier.is_pf = is_pf
 	supplier.cpf = cpf
 	supplier.cnpj = cnpj
+	address_fields = _resolve_address_fields(payload, supplier)
 	supplier.phone = phone
 	supplier.vehicle_plate = plate
 	supplier.vehicle_plates_extra = _serialize_vehicle_plates_extra(extra_plates)
+	supplier.reference_address = address_fields["reference_address"]
+	supplier.endereco_unificado = address_fields["reference_address"]
+	supplier.user.reference_address = address_fields["reference_address"]
+	supplier.user.endereco_unificado = address_fields["reference_address"]
+	supplier.user.rua = address_fields["rua"]
+	supplier.user.numero = address_fields["numero"]
+	supplier.user.bairro = address_fields["bairro"]
+	supplier.user.cidade = address_fields["cidade"]
+	supplier.user.estado = address_fields["estado"]
+	supplier.user.pais = address_fields["pais"]
+	supplier.user.cep = address_fields["cep"]
+	supplier.rua = address_fields["rua"]
+	supplier.numero = address_fields["numero"]
+	supplier.bairro = address_fields["bairro"]
+	supplier.cidade = address_fields["cidade"]
+	supplier.estado = address_fields["estado"]
+	supplier.pais = address_fields["pais"]
+	supplier.cep = address_fields["cep"]
 
 	if "supplier_code" in payload:
 		supplier.supplier_code = int(payload.get("supplier_code"))
 	if "company_name" in payload:
 		supplier.company_name = normalize_string(payload.get("company_name"))
-	if "reference_address" in payload:
-		supplier.reference_address = normalize_string(payload.get("reference_address"))
-
 	if "email" in payload:
 		email = normalize_string(payload.get("email"))
 		if email:

@@ -16,6 +16,7 @@ else
 fi
 
 echo "[startup] Running database migrations"
+"$PYTHON_BIN" -m flask --app wsgi db migrate -m "auto_startup_migration" || true
 "$PYTHON_BIN" -m flask --app wsgi db upgrade
 
 echo "[startup] Syncing primary key sequences"

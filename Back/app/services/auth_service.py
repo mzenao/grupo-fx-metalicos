@@ -10,6 +10,7 @@ from app.models.supplier import Supplier
 from app.models.user import User
 from app.services.supplier_service import (
 	_normalize_pix_key_type,
+	_resolve_address_fields,
 	_resolve_pix_key_value,
 	create_supplier,
 )
@@ -79,7 +80,15 @@ def get_me(user: User) -> dict:
 			"cnpj": supplier.cnpj,
 			"vehicle_plate": supplier_data.get("vehicle_plate"),
 			"vehicle_plates_extra": supplier_data.get("vehicle_plates_extra", []),
-			"reference_address": supplier.reference_address,
+			"reference_address": supplier.reference_address or supplier.endereco_unificado,
+			"endereco_unificado": supplier.endereco_unificado or supplier.reference_address,
+			"rua": supplier.rua,
+			"numero": supplier.numero,
+			"bairro": supplier.bairro,
+			"cidade": supplier.cidade,
+			"estado": supplier.estado,
+			"pais": supplier.pais,
+			"cep": supplier.cep,
 			"phone": supplier.phone,
 			"pix_key_type": supplier.pix_key_type,
 			"pix_key_value": supplier.pix_key_value,
@@ -220,10 +229,28 @@ def update_me(user: User, payload: dict) -> dict:
 		supplier.cpf = None
 
 	supplier.phone = phone
-	supplier.reference_address = normalize_string(payload.get("reference_address"))
+	address_fields = _resolve_address_fields(payload, supplier)
+	supplier.reference_address = address_fields["reference_address"]
+	supplier.endereco_unificado = address_fields["reference_address"]
+	supplier.rua = address_fields["rua"]
+	supplier.numero = address_fields["numero"]
+	supplier.bairro = address_fields["bairro"]
+	supplier.cidade = address_fields["cidade"]
+	supplier.estado = address_fields["estado"]
+	supplier.pais = address_fields["pais"]
+	supplier.cep = address_fields["cep"]
 	supplier.pix_key_type = pix_key_type
 	supplier.pix_key_value = pix_key_value
 	user.email = email
+	user.reference_address = address_fields["reference_address"]
+	user.endereco_unificado = address_fields["reference_address"]
+	user.rua = address_fields["rua"]
+	user.numero = address_fields["numero"]
+	user.bairro = address_fields["bairro"]
+	user.cidade = address_fields["cidade"]
+	user.estado = address_fields["estado"]
+	user.pais = address_fields["pais"]
+	user.cep = address_fields["cep"]
 
 	if new_password:
 		user.password_hash = hash_password(new_password)

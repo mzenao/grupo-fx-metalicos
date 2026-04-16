@@ -4,6 +4,7 @@ import InternalSupplierLayout, { useSectionContext } from "@/layouts/InternalSup
 import { fetchMe, getSessionUser, updateMyAccount } from "@/services/authApi";
 import SuccessModal from "@/components/internal/successModal";
 import ErrorModal from "@/components/internal/errorModal";
+import { emptyAddressFields, mergeAddressFields } from "@/services/addressData";
 import {
   fetchMaterialTypes,
   fetchPurchases,
@@ -53,8 +54,8 @@ function formatPixValue(pixKeyType, supplier) {
     return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
   }
 
-  if (type === "phone") return supplier.phone || "";
-  if (type === "email") return supplier.email || "";
+  if (type === "phone") return supplier.pix_key_value || supplier.phone || "";
+  if (type === "email") return supplier.pix_key_value || supplier.email || "";
   return "";
 }
 
@@ -777,7 +778,7 @@ function AccountPortalWrapper() {
         documento: "",
         email: authUser?.email || "",
         telefone: "",
-        enderecoUnificado: "",
+        ...emptyAddressFields(),
         pixKeyType: "cpf",
         senhaAtual: "",
         novaSenha: "",
@@ -785,12 +786,25 @@ function AccountPortalWrapper() {
       };
     }
 
+    const initialAddress = mergeAddressFields(
+      {
+        rua: currentSupplier.rua,
+        numero: currentSupplier.numero,
+        bairro: currentSupplier.bairro,
+        cidade: currentSupplier.cidade,
+        estado: currentSupplier.estado,
+        pais: currentSupplier.pais,
+        cep: currentSupplier.cep,
+      },
+      currentSupplier.reference_address || currentSupplier.endereco_unificado,
+    );
+
     return {
       nomeOuEmpresa: isPf ? currentSupplier.name || "" : currentSupplier.company_name || "",
       documento: isPf ? currentSupplier.cpf || "" : currentSupplier.cnpj || "",
       email: authUser?.email || "",
       telefone: currentSupplier.phone || "",
-      enderecoUnificado: currentSupplier.reference_address || "",
+      ...initialAddress,
       pixKeyType: (currentSupplier.pix_key_type || (isPf ? "cpf" : "cnpj")).toLowerCase(),
       senhaAtual: "",
       novaSenha: "",
@@ -851,12 +865,31 @@ function AccountPortalWrapper() {
 
     setSaving(true);
     try {
+      const requiredAddressFields = ["rua", "numero", "bairro", "cidade", "estado", "pais", "cep"];
+      const missingAddress = requiredAddressFields.find((field) => !String(formData[field] || "").trim());
+      if (missingAddress) {
+        setFeedbackModal({
+          open: true,
+          type: "error",
+          title: "Erro de validação",
+          message: "Preencha todos os campos obrigatórios do endereço.",
+        });
+        setSaving(false);
+        return;
+      }
+
       const updated = await updateMyAccount({
         name_or_company: formData.nomeOuEmpresa,
         document: formData.documento,
         email: formData.email,
         phone: formData.telefone,
-        reference_address: formData.enderecoUnificado,
+        rua: formData.rua,
+        numero: formData.numero,
+        bairro: formData.bairro,
+        cidade: formData.cidade,
+        estado: formData.estado,
+        pais: formData.pais,
+        cep: formData.cep,
         pix_key_type: formData.pixKeyType,
         current_password: formData.senhaAtual,
         new_password: formData.novaSenha,
@@ -992,16 +1025,87 @@ function AccountPortalWrapper() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
-            <textarea
-              name="enderecoUnificado"
-              value={formData.enderecoUnificado}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Ex.: Rua X, 123, Bairro Y, Cidade/UF, CEP 00000-000"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y"
-            />
+          <div className="rounded-lg bg-white p-0">
+            <h4 className="text-sm font-semibold text-gray-900">Campos de Endereço</h4>
+            <p className="text-xs text-gray-600 mt-1 mb-4">Preencha os dados de endereço abaixo para atualizar sua conta.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+                <input
+                  type="text"
+                  name="cep"
+                  value={formData.cep}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rua</label>
+                <input
+                  type="text"
+                  name="rua"
+                  value={formData.rua}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Número</label>
+                <input
+                  type="text"
+                  name="numero"
+                  value={formData.numero}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bairro</label>
+                <input
+                  type="text"
+                  name="bairro"
+                  value={formData.bairro}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+                <input
+                  type="text"
+                  name="cidade"
+                  value={formData.cidade}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                <input
+                  type="text"
+                  name="estado"
+                  value={formData.estado}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+                <input
+                  type="text"
+                  name="pais"
+                  value={formData.pais}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
           </div>
         </div>
 

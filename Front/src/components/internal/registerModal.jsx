@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
 import { registerSupplierAccount } from "@/services/authApi";
+import AddressFieldsCard from "@/components/internal/addressFieldsCard";
+import { emptyAddressFields } from "@/services/addressData";
 
 const fieldLabelClass = "block text-sm font-medium mb-1 text-[#4a3918]";
 const fieldInputClass = "w-full h-12 px-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]";
@@ -83,7 +85,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
     cpf: "",
     cnpj: "",
     vehiclePlate: "",
-    referenceAddress: "",
+    ...emptyAddressFields(),
     email: "",
     phone: "",
     pixKeyValue: "",
@@ -215,8 +217,10 @@ export default function RegisterModal({ onClose, onSuccess }) {
       return;
     }
 
-    if (!form.referenceAddress.trim()) {
-      setError("Endereço de referência é obrigatório.");
+    const requiredAddressFields = ["rua", "numero", "bairro", "cidade", "estado", "pais", "cep"];
+    const missingAddress = requiredAddressFields.find((field) => !String(form[field] || "").trim());
+    if (missingAddress) {
+      setError("Preencha todos os campos obrigatórios do endereço.");
       return;
     }
 
@@ -261,7 +265,13 @@ export default function RegisterModal({ onClose, onSuccess }) {
         cnpj: form.personType === "PJ" ? form.cnpj : null,
         vehicle_plate: form.vehiclePlate,
         vehicle_plates_extra: JSON.stringify(normalizedExtraPlates),
-        reference_address: form.referenceAddress,
+        rua: form.rua,
+        numero: form.numero,
+        bairro: form.bairro,
+        cidade: form.cidade,
+        estado: form.estado,
+        pais: form.pais,
+        cep: form.cep,
         email: form.email,
         phone: form.phone,
         pix_key_type: form.pixKeyType,
@@ -527,13 +537,27 @@ export default function RegisterModal({ onClose, onSuccess }) {
             </div>
 
             <div className="md:col-span-2">
-              <label className={fieldLabelClass}>Endereço de Referência *</label>
-              <textarea
-                placeholder="Endereço de Referência"
-                value={form.referenceAddress}
-                onChange={(e) => set("referenceAddress", e.target.value)}
-                rows="3"
-                className="w-full px-3 py-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f] resize-none"
+              <AddressFieldsCard
+                title="Endereco"
+                required
+                defaultExpanded
+                inputClassNameOverride={fieldInputClass}
+                labelClassName={fieldLabelClass}
+                value={{
+                  rua: form.rua,
+                  numero: form.numero,
+                  bairro: form.bairro,
+                  cidade: form.cidade,
+                  estado: form.estado,
+                  pais: form.pais,
+                  cep: form.cep,
+                }}
+                onChange={(nextAddress) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    ...nextAddress,
+                  }));
+                }}
               />
             </div>
 

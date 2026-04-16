@@ -3,6 +3,11 @@ import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
+import AddressFieldsCard from "@/components/internal/addressFieldsCard";
+import { emptyAddressFields, mergeAddressFields } from "@/services/addressData";
+
+const fieldLabelClass = "block text-sm font-medium mb-1 text-[#4a3918]";
+const fieldInputClass = "w-full h-12 px-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]";
 
 function formatCpfInput(value) {
 	const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -80,7 +85,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			cpf: "",
 			cnpj: "",
 			vehiclePlate: "",
-			referenceAddress: "",
+			...emptyAddressFields(),
 			email: "",
 			phone: "",
 			pixKeyValue: "",
@@ -91,6 +96,25 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 
 		if (!Supplier) return base;
 		const next = { ...base, ...Supplier, password: "" };
+		const parsedAddress = mergeAddressFields(
+			{
+				rua: next.rua,
+				numero: next.numero,
+				bairro: next.bairro,
+				cidade: next.cidade,
+				estado: next.estado,
+				pais: next.pais,
+				cep: next.cep,
+			},
+			next.referenceAddress
+		);
+		next.rua = parsedAddress.rua;
+		next.numero = parsedAddress.numero;
+		next.bairro = parsedAddress.bairro;
+		next.cidade = parsedAddress.cidade;
+		next.estado = parsedAddress.estado;
+		next.pais = parsedAddress.pais;
+		next.cep = parsedAddress.cep;
 		const allowedPixTypes = next.personType === "PF" ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
 		if (!allowedPixTypes.includes((next.pixKeyType || "").toLowerCase())) {
 			next.pixKeyType = next.personType === "PF" ? "cpf" : "cnpj";
@@ -226,8 +250,10 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			return;
 		}
 
-		if (!form.referenceAddress.trim()) {
-			setError("Endereco de referencia e obrigatorio.");
+		const requiredAddressFields = ["rua", "numero", "bairro", "cidade", "estado", "pais", "cep"];
+		const missingAddress = requiredAddressFields.find((field) => !String(form[field] || "").trim());
+		if (missingAddress) {
+			setError("Preencha todos os campos obrigatorios do endereco.");
 			return;
 		}
 
@@ -334,52 +360,52 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 							</div>
 						</div>
 
-						<div className="grid sm:grid-cols-2 gap-x-4 gap-y-4">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 							{form.personType === "PF" ? (
 								<>
 									<div>
-										<label className="block text-sm font-medium mb-1 text-[#4a3918]">Nome *</label>
+										<label className={fieldLabelClass}>Nome Completo *</label>
 										<input
 											required
-											placeholder="Nome"
+											placeholder="Nome Completo"
 											value={form.name}
 											onChange={(e) => set("name", e.target.value)}
-											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+											className={fieldInputClass}
 										/>
 									</div>
 
 									<div>
-										<label className="block text-sm font-medium mb-1 text-[#4a3918]">CPF *</label>
+										<label className={fieldLabelClass}>CPF *</label>
 										<input
 											required
 											placeholder="CPF"
 											value={form.cpf}
 											onChange={(e) => set("cpf", formatCpfInput(e.target.value))}
-											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+											className={fieldInputClass}
 										/>
 									</div>
 								</>
 							) : (
 								<>
 									<div>
-										<label className="block text-sm font-medium mb-1 text-[#4a3918]">Nome da empresa *</label>
+										<label className={fieldLabelClass}>Nome da Empresa *</label>
 										<input
 											required
-											placeholder="Nome da empresa"
+											placeholder="Nome da Empresa"
 											value={form.companyName}
 											onChange={(e) => set("companyName", e.target.value)}
-											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+											className={fieldInputClass}
 										/>
 									</div>
 
 									<div>
-										<label className="block text-sm font-medium mb-1 text-[#4a3918]">CNPJ *</label>
+										<label className={fieldLabelClass}>CNPJ *</label>
 										<input
 											required
 											placeholder="CNPJ"
 											value={form.cnpj}
 											onChange={(e) => set("cnpj", formatCnpjInput(e.target.value))}
-											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+											className={fieldInputClass}
 										/>
 									</div>
 								</>
@@ -388,21 +414,21 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 							<div className="md:col-span-2 space-y-3">
 								<div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
 									<div className="md:col-span-2">
-										<label className="block text-sm font-medium mb-1 text-[#4a3918]">Placa do veiculo *</label>
+										<label className={fieldLabelClass}>Placa do Veículo *</label>
 										<input
 											required
-											placeholder="ABC1234"
+											placeholder="Placa do Veículo"
 											value={form.vehiclePlate}
 											onChange={(e) => set("vehiclePlate", normalizePlate(e.target.value))}
-											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+											className={fieldInputClass}
 										/>
 									</div>
 
 									<div className="md:col-span-1">
-										<label className="block text-sm font-medium mb-1 text-[#4a3918]">Placa adicional</label>
+										<label className={fieldLabelClass}>Placa adicional</label>
 										<input
 											type="text"
-											placeholder="XYZ9999"
+											placeholder="Digite a placa adicional"
 											value={form.extraPlateInput}
 											onChange={(e) => set("extraPlateInput", normalizePlate(e.target.value))}
 											onKeyDown={(e) => {
@@ -411,17 +437,17 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 												handleAddExtraPlate();
 											}
 										}}
-											className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+											className={fieldInputClass}
 										/>
 									</div>
 
 									<div className="md:col-span-1">
-										<label className="block text-sm font-medium mb-1 text-[#4a3918] opacity-0 select-none">Adicionar</label>
+										<label className={`${fieldLabelClass} opacity-0 select-none`}>Adicionar</label>
 										<Button
 											type="button"
 											onClick={handleAddExtraPlate}
 											disabled={!form.extraPlateInput.trim() || !canAddExtra}
-											className="w-full h-11 bg-[#1e1608] text-[#f5e7c0] hover:bg-[#2b2010] disabled:opacity-50"
+											className="w-full h-12 bg-[#b8891f] text-white hover:brightness-105 disabled:opacity-50"
 										>
 											Adicionar
 										</Button>
@@ -442,138 +468,113 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 									</div>
 									<p className="mt-2 text-xs text-[#7b6024]">Máximo de 3 placas adicionais. A placa principal não entra no total das tags.</p>
 								</div>
-								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Endereco de referencia *</label>
-								<input
+								<AddressFieldsCard
+									title="Endereco"
 									required
-									placeholder="Endereco de referencia"
-									value={form.referenceAddress}
-									onChange={(e) => set("referenceAddress", e.target.value)}
-									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+									defaultExpanded
+									inputClassNameOverride={fieldInputClass}
+									labelClassName={fieldLabelClass}
+									value={{
+										rua: form.rua,
+										numero: form.numero,
+										bairro: form.bairro,
+										cidade: form.cidade,
+										estado: form.estado,
+										pais: form.pais,
+										cep: form.cep,
+									}}
+									onChange={(nextAddress) => setForm((prev) => ({ ...prev, ...nextAddress }))}
 								/>
 							</div>
 
 							<div>
-								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Email *</label>
+								<label className={fieldLabelClass}>Email *</label>
 								<input
 									type="email"
 									required
 									placeholder="Email"
 									value={form.email}
 									onChange={(e) => set("email", e.target.value)}
-									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+									className={fieldInputClass}
 								/>
 							</div>
 
 							<div>
-								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Telefone *</label>
+								<label className={fieldLabelClass}>Telefone *</label>
 								<input
 									required
 									placeholder="Telefone"
 									value={form.phone}
 									onChange={(e) => set("phone", e.target.value)}
-									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+									className={fieldInputClass}
 								/>
 							</div>
 
 							<div>
-								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Tipo da chave Pix *</label>
-								<PixTypeSelect
+								<label className={fieldLabelClass}>Tipo da chave Pix *</label>
+								<select
+									required
 									value={form.pixKeyType}
-									onChange={(value) => {
-										handlePixTypeChange(value);
-									}}
-									options={form.personType === "PF"
-										? [
-											{ value: "cpf", label: "CPF" },
-											{ value: "phone", label: "Telefone" },
-											{ value: "email", label: "Email" },
-											{ value: "random", label: "Aleatoria" },
-										]
-										: [
-											{ value: "cnpj", label: "CNPJ" },
-											{ value: "phone", label: "Telefone" },
-											{ value: "email", label: "Email" },
-											{ value: "random", label: "Aleatoria" },
-										]}
-								/>
+									onChange={(e) => handlePixTypeChange(e.target.value)}
+									className={fieldInputClass}
+								>
+									{form.personType === "PF" ? (
+										<>
+											<option value="cpf">CPF</option>
+											<option value="phone">Telefone</option>
+											<option value="email">Email</option>
+											<option value="random">Aleatória</option>
+										</>
+									) : (
+										<>
+											<option value="cnpj">CNPJ</option>
+											<option value="phone">Telefone</option>
+											<option value="email">Email</option>
+											<option value="random">Aleatória</option>
+										</>
+									)}
+								</select>
 							</div>
 
 							<div>
-								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Chave Pix</label>
+								<label className={fieldLabelClass}>Chave Pix</label>
 								<input
 									type="text"
-									readOnly={form.pixKeyType === "cpf"}
+									readOnly={form.pixKeyType === "cpf" || form.pixKeyType === "cnpj"}
 									placeholder={form.pixKeyType === "cpf" ? "Chave Pix" : "Digite a chave Pix"}
 									value={pixValue || ""}
 									onChange={(e) => set("pixKeyValue", e.target.value)}
-									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-gray-50 text-[#4a3918]"
+									className={fieldInputClass}
 								/>
 							</div>
 
 							{!Supplier && (
-								<div className="sm:col-span-2 sm:max-w-sm sm:mx-auto w-full mt-1">
-									<label className="block text-sm font-medium mb-1 text-[#4a3918]">Senha para login *</label>
+								<div>
+									<label className={fieldLabelClass}>Senha *</label>
 									<input
 										type="password"
 										required
 										minLength={6}
 										value={form.password}
 										onChange={(e) => set("password", e.target.value)}
-										placeholder="Minimo 6 caracteres"
-										className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+										placeholder="Senha"
+										className={fieldInputClass}
 									/>
 								</div>
 							)}
 						</div>
 
-						<div className="flex gap-3 justify-end pt-4 border-t border-[#d6ab4a]/25">
-							<Button type="button" variant="outline" onClick={onClose} className="border-[#c7a04a] text-[#6a521f] hover:bg-[#f5e7c0]">
+						<div className="flex gap-3 pt-4 border-t border-[#d6ab4a]/25">
+							<Button type="button" variant="cancel" onClick={onClose} className="flex-1 rounded-full transition">
 								Cancelar
 							</Button>
-							<Button type="submit" disabled={saving} className="bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white hover:brightness-105">
-								{saving ? "Salvando..." : "Salvar"}
+							<Button type="submit" disabled={saving} className="flex-1 rounded-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white font-semibold hover:from-[#a67917] hover:to-[#c79a39] transition disabled:opacity-60">
+								{saving ? "Salvando..." : Supplier ? "Salvar" : "Criar Conta"}
 							</Button>
 						</div>
 					</form>
 				</motion.div>
 			</AnimatePresence>
-		</div>
-	);
-}
-
-function PixTypeSelect({ value, onChange, options }) {
-	const [open, setOpen] = useState(false);
-	const selected = options.find((option) => option.value === value) || options[0];
-
-	return (
-		<div className="relative" tabIndex={0} onBlur={() => setTimeout(() => setOpen(false), 120)}>
-			<button
-				type="button"
-				onClick={() => setOpen((prev) => !prev)}
-				className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white text-left outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-			>
-				{selected?.label || "Selecione"}
-			</button>
-
-			{open && (
-				<div className="absolute z-20 mt-1 w-full bg-white border border-amber-200 rounded-lg shadow-md overflow-hidden">
-					{options.map((option) => (
-						<button
-							key={option.value}
-							type="button"
-							onMouseDown={(e) => e.preventDefault()}
-							onPointerDown={(e) => e.preventDefault()}
-							onClick={() => {
-								onChange(option.value);
-								setOpen(false);
-							}}
-							className="w-full text-left px-3 py-2 text-sm text-gray-900 hover:bg-amber-500/25"
-						>
-							{option.label}
-						</button>
-					))}
-				</div>
-			)}
 		</div>
 	);
 }
