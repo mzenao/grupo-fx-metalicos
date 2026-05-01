@@ -1,7 +1,12 @@
-from flask import Blueprint, g, request
+from decimal import Decimal
 
+from flask import Blueprint, g, request
+from sqlalchemy import func
+
+from app.extensions import db
 from app.middlewares.auth_middleware import login_required
 from app.middlewares.role_middleware import roles_required
+from app.models.advance import Advance
 from app.services.resend_service import ResendService
 from app.services.advance_service import (
 	apply_pending_advance,
@@ -45,11 +50,21 @@ def _build_advance_notification_message(advance) -> str:
 	if supplier:
 		supplier_name = supplier.name if supplier.is_pf else (supplier.company_name or supplier.name)
 
+	# Calcular total de adiantamentos pendentes para o fornecedor
+	total_pending = Decimal("0.00")
+	if supplier:
+		result = db.session.query(func.sum(Advance.value_remaining)).filter(
+			Advance.supplier_id == supplier.id,
+			Advance.status == "pendente",
+		).scalar()
+		total_pending = result or Decimal("0.00")
+
 	return (
 		f"Prezado(a), {supplier_name}.\n\n"
 		"Grupo FX Metálicos informa que seu adiantamento foi registrado com sucesso.\n\n"
 		f"• Valor total do adiantamento: R$ {_format_brl(advance.value_total)}\n"
 		f"• Saldo Devedor atual do adiantamento: R$ {_format_brl(advance.value_remaining)}\n"
+		f"• Saldo Devedor Total dos adiantamentos pendentes: R$ {_format_brl(total_pending)}\n"
 		f"• Status: {str(advance.status or 'pendente').capitalize()}\n"
 		f"• Data: {_format_advance_datetime(advance.advance_datetime)}\n\n"
 		"Segue abaixo o(s) comprovante(s) referente(s) ao adiantamento.\n\n"

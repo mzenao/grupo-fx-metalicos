@@ -808,7 +808,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 													<span className="text-gray-500">Valor total:</span> {formatMoney(advance.valueTotal)}
 												</p>
 												<p>
-													<span className="text-gray-500">Slado Devedor:</span> {formatMoney(advance.valueRemaining)}
+													<span className="text-gray-500">Sald0 Devedor:</span> {formatMoney(advance.valueRemaining)}
 												</p>
 											</div>
 										</button>
@@ -993,7 +993,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 				<div className="p-8 space-y-6">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
 						<SummaryCard label="Total de adiantamentos" value={`${summary.total}`} />
-						<SummaryCard label="Slado Devedor" value={formatMoney(summary.remaining)} />
+						<SummaryCard label="Sald0 Devedor" value={formatMoney(summary.remaining)} />
 					</div>
 
 					<div>
@@ -1057,7 +1057,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 													<p><span className="text-gray-500">Fornecedor:</span> {advance.SupplierName || "-"}</p>
 													<p><span className="text-gray-500">Funcionário:</span> {advance.employeeName || "-"}</p>
 													<p><span className="text-gray-500">Valor total:</span> {formatMoney(advance.valueTotal)}</p>
-													<p><span className="text-gray-500">Slado Devedor:</span> {formatMoney(advance.valueRemaining)}</p>
+													<p><span className="text-gray-500">Sald0 Devedor:</span> {formatMoney(advance.valueRemaining)}</p>
 												</div>
 												<p className="text-xs text-gray-500 mt-2">
 													Comprovantes: {advance.attachmentNames?.join(", ") || "Nenhum"}

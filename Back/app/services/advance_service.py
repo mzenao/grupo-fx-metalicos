@@ -243,9 +243,12 @@ def update_advance(advance_id: int, payload: dict) -> Advance:
 	if not validate_non_negative_value(value_total) or value_total <= 0:
 		raise ValueError("Value must be greater than zero")
 
+	old_value_total = _normalize_value(to_decimal(advance.value_total))
+	new_value_total = _normalize_value(value_total)
+
 	advance.supplier_id = supplier_id
 	advance.employee_id = employee_id
-	advance.value_total = _normalize_value(value_total)
+	advance.value_total = new_value_total
 
 	if "advance_datetime" in payload or "data" in payload:
 		advance.advance_datetime = parse_iso_datetime(payload.get("advance_datetime") or payload.get("data"))
@@ -256,8 +259,14 @@ def update_advance(advance_id: int, payload: dict) -> Advance:
 			raise ValueError("Invalid status")
 		advance.status = status
 
-	if advance.status == "pendente" and advance.value_remaining > advance.value_total:
-		advance.value_remaining = advance.value_total
+	# Se o adiantamento está pendente (nunca foi usado), ajusta value_remaining junto com value_total
+	if advance.status == "pendente":
+		value_difference = _normalize_value(new_value_total - old_value_total)
+		new_remaining = _normalize_value(to_decimal(advance.value_remaining) + value_difference)
+		advance.value_remaining = max(new_remaining, Decimal("0.00"))
+	elif advance.status == "finalizado":
+		# Se finalizado, garante que value_remaining é 0
+		advance.value_remaining = Decimal("0.00")
 
 	db.session.commit()
 	return advance
