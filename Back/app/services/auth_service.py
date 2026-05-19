@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from flask import current_app
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from app.extensions import db
 from app.models.auth_token import AuthToken
@@ -26,6 +28,61 @@ from app.utils.validators import (
 	validate_supplier_documents,
 )
 from app.utils.token import generate_raw_token, hash_token
+
+
+PASSWORD_RESET_SALT = "password-reset"
+PASSWORD_RESET_MAX_AGE_SECONDS = 60 * 60
+
+
+def _password_reset_serializer() -> URLSafeTimedSerializer:
+	return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt=PASSWORD_RESET_SALT)
+
+
+def _build_password_reset_token(user: User) -> str:
+	return _password_reset_serializer().dumps(
+		{
+			"user_id": user.id,
+			"email": user.email,
+			"password_hash": user.password_hash,
+		}
+	)
+
+
+def _load_password_reset_user(token: str) -> User:
+	if not token:
+		raise ValueError("Token de recuperacao invalido")
+
+	try:
+		payload = _password_reset_serializer().loads(token, max_age=PASSWORD_RESET_MAX_AGE_SECONDS)
+	except SignatureExpired as exc:
+		raise ValueError("Link de recuperacao expirado") from exc
+	except BadSignature as exc:
+		raise ValueError("Link de recuperacao invalido") from exc
+
+	user = db.session.get(User, payload.get("user_id"))
+	if not user or user.email != payload.get("email") or user.password_hash != payload.get("password_hash"):
+		raise ValueError("Link de recuperacao invalido")
+	if not user.is_active:
+		raise ValueError("Usuario inativo")
+
+	return user
+
+
+def _normalize_app_url(app_url: str) -> str:
+	clean_url = (app_url or current_app.config.get("APP_BASE_URL", "") or "").strip().rstrip("/")
+	return clean_url or "http://localhost:5173"
+
+
+def _support_from_email() -> str:
+	support_email = (current_app.config.get("RESEND_SUPPORT_FROM_EMAIL") or "").strip()
+	if support_email:
+		return support_email
+
+	default_email = (current_app.config.get("RESEND_FROM_EMAIL") or "").strip()
+	if "financeiro" in default_email.lower():
+		return default_email.replace("financeiro", "suporte").replace("Financeiro", "Suporte")
+
+	return default_email
 
 
 def login(email: str, password: str, remember_me: bool = False) -> dict:
@@ -62,6 +119,48 @@ def login(email: str, password: str, remember_me: bool = False) -> dict:
 
 def logout(token_record: AuthToken) -> None:
 	token_record.revoked = True
+	db.session.commit()
+
+
+def request_password_reset(email: str, app_url: str = "") -> None:
+	normalized_email = (email or "").strip().lower()
+	if not normalized_email or not is_valid_email(normalized_email):
+		raise ValueError("E-mail invalido")
+
+	user = User.query.filter_by(email=normalized_email).first()
+	if not user or not user.is_active:
+		return
+
+	token = _build_password_reset_token(user)
+	reset_url = f"{_normalize_app_url(app_url)}/?{urlencode({'reset_password_token': token})}"
+	message = (
+		"Recebemos uma solicitacao para redefinir sua senha no sistema Grupo FX Metalicos.\n\n"
+		f"Acesse o link abaixo para criar uma nova senha:\n{reset_url}\n\n"
+		"Este link expira em 1 hora. Se voce nao solicitou essa alteracao, ignore este e-mail."
+	)
+
+	try:
+		ResendService().send_email(
+			to_email=normalized_email,
+			subject="Recuperacao de senha",
+			body_text=message,
+			from_email=_support_from_email(),
+		)
+	except Exception as exc:
+		current_app.logger.warning("Falha ao enviar recuperacao de senha para %s: %s", normalized_email, exc)
+
+
+def reset_password(token: str, password: str) -> None:
+	user = _load_password_reset_user(token)
+	new_password = password or ""
+
+	if len(new_password) < 6:
+		raise ValueError("A nova senha deve ter ao menos 6 caracteres")
+	if verify_password(user.password_hash, new_password):
+		raise ValueError("A nova senha deve ser diferente da senha atual")
+
+	user.password_hash = hash_password(new_password)
+	AuthToken.query.filter_by(user_id=user.id, revoked=False).update({"revoked": True})
 	db.session.commit()
 
 

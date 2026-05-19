@@ -301,9 +301,9 @@ export default function RegisterModal({ onClose, onSuccess }) {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
-          className="relative bg-[#fffdf8] rounded-3xl border border-[#1e1608]/60 shadow-2xl shadow-[#1e1608]/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-3xl border border-[#1e1608]/60 bg-[#fffdf8] shadow-2xl shadow-[#1e1608]/20"
         >
-          <div className="sticky top-0 bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6 z-40">
+          <div className="bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6 z-40">
             <h2 className="text-xl font-bold text-[#f5e7c0]">Criar Conta</h2>
             <button
               type="button"
@@ -315,7 +315,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-5 bg-[#fffdf8]">
+          <form onSubmit={handleSubmit} className="modal-scrollbar max-h-[calc(90vh-88px)] space-y-5 overflow-y-auto rounded-b-3xl bg-[#fffdf8] p-6">
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                 {error}

@@ -58,6 +58,20 @@ export async function login(email, password, rememberMe = false) {
   return user;
 }
 
+export async function requestPasswordReset(email) {
+  return apiRequest("auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email, app_url: window.location.origin }),
+  });
+}
+
+export async function resetPassword(token, password) {
+  return apiRequest("auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 export async function logout() {
   try {
     await apiRequest("auth/logout", { method: "POST" });

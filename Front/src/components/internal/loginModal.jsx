@@ -2,12 +2,14 @@ import { useState } from "react";
 import { X, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { login } from "@/services/authApi";
+import { login, requestPasswordReset } from "@/services/authApi";
 
 export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  {
   const [form, setForm] = useState({ email: "", password: "", rememberMe: true });
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -15,6 +17,7 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
 
     if (!form.email.trim()) {
       setError("Email é obrigatório.");
@@ -38,6 +41,27 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
     }
   };
 
+  const handleForgotPassword = async () => {
+    setError("");
+    setSuccess("");
+
+    const email = form.email.trim();
+    if (!email) {
+      setError("Informe seu email para recuperar a senha.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await requestPasswordReset(email);
+      setSuccess("Se o email estiver cadastrado, enviaremos as instrucoes de recuperacao.");
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel solicitar a recuperacao de senha.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#1e1608]/60 backdrop-blur-[2px]" onClick={onClose} />
@@ -47,7 +71,7 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
-          className="relative bg-[#fffdf8] rounded-3xl border border-[#1e1608]/60 shadow-2xl shadow-[#1e1608]/20 w-full max-w-md"
+          className="relative w-full max-w-md max-h-[90vh] overflow-hidden rounded-3xl border border-[#1e1608]/60 bg-[#fffdf8] shadow-2xl shadow-[#1e1608]/20"
         >
           <div className="bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6">
             <h2 className="text-xl font-bold text-[#f5e7c0]">Entrar</h2>
@@ -61,11 +85,17 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 space-y-5 bg-[#fffdf8]">
+          <form onSubmit={handleSubmit} className="modal-scrollbar max-h-[calc(90vh-88px)] space-y-5 overflow-y-auto rounded-b-3xl bg-[#fffdf8] p-8">
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <span className="text-red-700 text-sm">{error}</span>
+              </div>
+            )}
+
+            {success && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-sm">
+                {success}
               </div>
             )}
 
@@ -81,7 +111,17 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToRegister })  
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#4a3918] mb-2">Senha</label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium text-[#4a3918]">Senha</label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={resetLoading || loading}
+                  className="text-xs font-semibold text-[#b8891f] hover:text-[#7b6024] hover:underline disabled:opacity-60 disabled:hover:no-underline"
+                >
+                  {resetLoading ? "Enviando..." : "Esqueci minha senha"}
+                </button>
+              </div>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}

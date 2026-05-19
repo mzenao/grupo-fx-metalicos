@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import LoginModal from "@/components/internal/loginModal";
 import RegisterModal from "@/components/internal/registerModal";
+import ResetPasswordModal from "@/components/internal/resetPasswordModal";
 import logo from "@/assets/fenix.png";
 import { fetchMe, getSessionSnapshot, logout } from "@/services/authApi";
 
@@ -16,6 +17,7 @@ export default function Navbar() {
   const [userRole, setUserRole] = useState(session.role);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [resetPasswordToken, setResetPasswordToken] = useState("");
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,6 +42,11 @@ export default function Navbar() {
     setIsLoggedIn(true);
     setUserRole(user.role);
     window.location.reload();
+  };
+
+  const closeResetPasswordModal = () => {
+    setResetPasswordToken("");
+    navigate("/", { replace: true });
   };
 
   const handleLogout = async () => {
@@ -95,6 +102,18 @@ export default function Navbar() {
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get("reset_password_token");
+
+    if (location.pathname === "/" && token) {
+      setResetPasswordToken(token);
+      setShowLoginModal(false);
+      setShowRegisterModal(false);
+      setIsMobileMenuOpen(false);
+    }
+  }, [location.pathname, location.search]);
 
   const navItems = [
     { label: "Início", id: "hero" },
@@ -348,6 +367,14 @@ export default function Navbar() {
         <RegisterModal
           onClose={() => setShowRegisterModal(false)}
           onSuccess={handleRegisterSuccess}
+        />
+      )}
+
+      {resetPasswordToken && (
+        <ResetPasswordModal
+          token={resetPasswordToken}
+          onClose={closeResetPasswordModal}
+          onSuccess={() => navigate("/", { replace: true })}
         />
       )}
     </>

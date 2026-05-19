@@ -19,14 +19,16 @@ class ResendService:
 		subject: str,
 		body_text: str,
 		body_html: str | None = None,
+		from_email: str | None = None,
 	) -> dict:
 		if not self.api_key:
 			raise ValueError("RESEND_API_KEY is not configured")
-		if not self.from_email:
+		sender_email = from_email or self.from_email
+		if not sender_email:
 			raise ValueError("RESEND_FROM_EMAIL is not configured")
 
 		payload: dict = {
-			"from": self.from_email,
+			"from": sender_email,
 			"to": [to_email],
 			"subject": subject,
 			"text": body_text,

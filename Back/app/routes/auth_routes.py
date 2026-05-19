@@ -1,7 +1,15 @@
 from flask import Blueprint, g, request
 
 from app.middlewares.auth_middleware import login_required
-from app.services.auth_service import get_me, login, logout, register_supplier, update_me
+from app.services.auth_service import (
+	get_me,
+	login,
+	logout,
+	register_supplier,
+	request_password_reset,
+	reset_password,
+	update_me,
+)
 from app.utils.response import success_response
 
 
@@ -24,6 +32,26 @@ def register_supplier_route():
 	payload = request.get_json(silent=True) or {}
 	result = register_supplier(payload)
 	return success_response("Supplier account created successfully", result, 201)
+
+
+@auth_bp.post("/forgot-password")
+def forgot_password_route():
+	payload = request.get_json(silent=True) or {}
+	request_password_reset(
+		email=payload.get("email", ""),
+		app_url=payload.get("app_url", ""),
+	)
+	return success_response("Password reset instructions sent", None, 200)
+
+
+@auth_bp.post("/reset-password")
+def reset_password_route():
+	payload = request.get_json(silent=True) or {}
+	reset_password(
+		token=payload.get("token", ""),
+		password=payload.get("password", ""),
+	)
+	return success_response("Password reset successfully", None, 200)
 
 
 @auth_bp.post("/logout")
