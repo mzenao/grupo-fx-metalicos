@@ -177,9 +177,14 @@ def apply_pending_advance(
 	supplier_id: int,
 	purchase_value: Decimal,
 	advance_id: int | None = None,
+	allow_positive_balance: bool = False,
 ) -> dict | None:
 	if purchase_value <= 0:
 		return None
+
+	supplier = Supplier.query.get(supplier_id)
+	if not supplier:
+		raise ValueError("Supplier not found")
 
 	query = Advance.query.filter(Advance.supplier_id == supplier_id, Advance.status == "pendente")
 	if advance_id is not None:
@@ -189,7 +194,7 @@ def apply_pending_advance(
 	else:
 		advances = query.order_by(Advance.advance_datetime.asc(), Advance.id.asc()).all()
 
-	if not advances:
+	if not advances and not allow_positive_balance:
 		return None
 
 	remaining_to_cover = _normalize_value(purchase_value)
@@ -218,7 +223,14 @@ def apply_pending_advance(
 		last_remaining_after = next_remaining
 		applied_advance_ids.append(advance.id)
 
-	if total_abatement <= 0:
+	credit_added = Decimal("0.00")
+	if allow_positive_balance and remaining_to_cover > 0:
+		credit_added = remaining_to_cover
+		current_credit = _normalize_value(to_decimal(supplier.advance_credit_balance or 0))
+		supplier.advance_credit_balance = _normalize_value(current_credit + credit_added)
+		remaining_to_cover = Decimal("0.00")
+
+	if total_abatement <= 0 and credit_added <= 0:
 		return None
 
 	db.session.flush()
@@ -228,6 +240,8 @@ def apply_pending_advance(
 		"advance_ids": applied_advance_ids,
 		"advance_abatement_value": total_abatement,
 		"advance_remaining_after": last_remaining_after,
+		"advance_credit_added": credit_added,
+		"advance_credit_after": _normalize_value(to_decimal(supplier.advance_credit_balance or 0)),
 		"purchase_remaining_after_advance": remaining_to_cover,
 	}
 

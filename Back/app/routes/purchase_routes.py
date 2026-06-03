@@ -3,6 +3,7 @@ from flask import Blueprint, g, request
 from app.middlewares.auth_middleware import login_required
 from app.middlewares.role_middleware import roles_required
 from app.models.advance import Advance
+from app.models.supplier import Supplier
 from app.services.purchase_service import (
 	create_purchase,
 	create_purchase_with_attachments,
@@ -56,10 +57,12 @@ def _get_supplier_advance_summary(supplier_id: int | None) -> dict:
 		return {
 			"total_advanced": 0.0,
 			"total_debt": 0.0,
+			"positive_balance": 0.0,
 			"open_count": 0,
 		}
 
 	advances = Advance.query.filter(Advance.supplier_id == supplier_id).all()
+	supplier = Supplier.query.get(supplier_id)
 	total_advanced = sum(float(advance.value_total or 0) for advance in advances)
 	total_debt = sum(float(advance.value_remaining or 0) for advance in advances)
 	open_count = sum(
@@ -71,6 +74,7 @@ def _get_supplier_advance_summary(supplier_id: int | None) -> dict:
 	return {
 		"total_advanced": total_advanced,
 		"total_debt": total_debt,
+		"positive_balance": float(getattr(supplier, "advance_credit_balance", 0) or 0),
 		"open_count": open_count,
 	}
 
@@ -84,11 +88,17 @@ def _build_purchase_notification_message(purchase) -> str:
 	value_text = _format_brl(purchase.value)
 	date_text = _format_purchase_datetime(purchase.purchase_datetime)
 	advance_abatement_value = float(getattr(purchase, "advance_abatement_value", 0) or 0)
-	advance_remaining_after = float(getattr(purchase, "advance_remaining_after", 0) or 0)
-	has_abatement = bool(getattr(purchase, "advance_id", None) and advance_abatement_value > 0)
+	advance_credit_after = float(getattr(purchase, "advance_credit_after", 0) or 0)
+	has_advance_balance_change = advance_abatement_value > 0 or advance_credit_after > 0
 	advance_summary = _get_supplier_advance_summary(getattr(purchase, "supplier_id", None))
+	balance_line = (
+		f"- Saldo positivo atual: R$ {_format_brl(advance_summary['positive_balance'])}\n"
+		if advance_summary["total_debt"] <= 0 and advance_summary["positive_balance"] > 0
+		else f"- Saldo devedor restante: R$ {_format_brl(advance_summary['total_debt'])}\n"
+	)
+	credit_line = f"- Saldo positivo gerado/atual: R$ {_format_brl(advance_credit_after)}\n" if advance_credit_after > 0 else ""
 
-	if has_abatement:
+	if has_advance_balance_change:
 		return (
 			f"Prezado(a), {supplier_name}.\n\n"
 			"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
@@ -96,10 +106,11 @@ def _build_purchase_notification_message(purchase) -> str:
 			f"• Valor pago por kg: R$ {_format_brl(purchase.value_per_kg)}\n"
 			f"• Peso total (kg): {_format_weight_kg(purchase.weight)}\n"
 			f"• Valor abatido no adiantamento: R$ {_format_brl(advance_abatement_value)}\n"
+			f"{credit_line}"
 			f"• Data: {date_text}\n\n"
 			f"• Você possui {advance_summary['open_count']} adiantamento(s) em aberto.\n"
-			f"• Valor total adiantado: R$ {_format_brl(advance_summary['total_advanced'])}\n"
-			f"• Saldo devedor restante: R$ {_format_brl(advance_summary['total_debt'])}\n\n"
+			
+			f"{balance_line}\n"
 			"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
 			"• Comprovante de pagamento\n"
 			"• Ticket da balanca\n\n"
@@ -203,6 +214,8 @@ def create_purchase_with_attachments_route():
 		"supplier_id": request.form.get("supplier_id"),
 		"employee_id": request.form.get("employee_id"),
 		"material_type_id": request.form.get("material_type_id"),
+		"material_types_extra": request.form.get("material_types_extra"),
+		"impurity_percentage": request.form.get("impurity_percentage"),
 		"weight": request.form.get("weight"),
 		"value": request.form.get("value"),
 		"purchase_datetime": request.form.get("purchase_datetime"),

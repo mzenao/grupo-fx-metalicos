@@ -23,6 +23,7 @@ import {
 	updateSupplier,
 } from "@/services/entityData";
 import { fetchPurchases } from "@/services/ordersData";
+import { fetchAdvances } from "@/services/advancesData";
 
 const personTypeBadge = {
 	PF: "bg-sky-100 text-sky-800",
@@ -63,10 +64,19 @@ function getNextSupplierCode(suppliers) {
 	return maxCode + 1;
 }
 
+function formatMoney(value) {
+	return Number(value || 0).toLocaleString("pt-BR", {
+		style: "currency",
+		currency: "BRL",
+		minimumFractionDigits: 2,
+	});
+}
+
 export default function Suppliers() {
 	const navigate = useNavigate();
 	const [suppliers, setSuppliers] = useState([]);
 	const [purchases, setPurchases] = useState([]);
+	const [advances, setAdvances] = useState([]);
 	const [search, setSearch] = useState("");
 	const [showModal, setShowModal] = useState(false);
 	const [editingSupplier, setEditingSupplier] = useState(null);
@@ -81,11 +91,12 @@ export default function Suppliers() {
 		let mounted = true;
 		setLoading(true);
 
-		Promise.all([fetchSuppliers(), fetchPurchases()])
-			.then(([suppliersData, purchasesData]) => {
+		Promise.all([fetchSuppliers(), fetchPurchases(), fetchAdvances()])
+			.then(([suppliersData, purchasesData, advancesData]) => {
 				if (mounted) {
 					setSuppliers(suppliersData);
 					setPurchases(purchasesData);
+					setAdvances(advancesData);
 				}
 			})
 			.catch((err) => {
@@ -122,6 +133,16 @@ export default function Suppliers() {
 
 		return grouped;
 	}, [purchases]);
+
+	const advanceDebtBySupplierId = useMemo(() => {
+		const grouped = new Map();
+		advances.forEach((advance) => {
+			const supplierId = advance.SupplierId;
+			if (!supplierId) return;
+			grouped.set(supplierId, (grouped.get(supplierId) || 0) + (Number(advance.valueRemaining) || 0));
+		});
+		return grouped;
+	}, [advances]);
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -277,6 +298,8 @@ export default function Suppliers() {
 							const displayName =
 								supplier.personType === "PF" ? supplier.name || "Sem nome" : supplier.companyName || "Sem empresa";
 							const initial = displayName?.[0] || "V";
+							const debtBalance = advanceDebtBySupplierId.get(supplier.id) || 0;
+							const positiveBalance = Number(supplier.advanceCreditBalance || 0);
 
 							return (
 								<div key={supplier.id}>
@@ -313,6 +336,12 @@ export default function Suppliers() {
 														{supplier.email}
 													</span>
 												)}
+												<span className="text-xs font-semibold text-red-700">
+													Devedor: {formatMoney(debtBalance)}
+												</span>
+												<span className="text-xs font-semibold text-emerald-700">
+													Positivo: {formatMoney(positiveBalance)}
+												</span>
 											</div>
 										</div>
 
@@ -379,6 +408,16 @@ export default function Suppliers() {
 													) : (
 														<p className="font-medium text-gray-500 mt-1">Este Fornecedor ainda nao realizou uma venda.</p>
 													)}
+												</div>
+
+												<div>
+													<p className="text-xs text-gray-500">Saldo devedor</p>
+													<p className="font-medium text-red-700">{formatMoney(debtBalance)}</p>
+												</div>
+
+												<div>
+													<p className="text-xs text-gray-500">Saldo positivo</p>
+													<p className="font-medium text-emerald-700">{formatMoney(positiveBalance)}</p>
 												</div>
 
 												<div>

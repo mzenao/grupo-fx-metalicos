@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text
+from decimal import Decimal
+
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -46,6 +48,7 @@ class Supplier(db.Model):
 	cnpj: Mapped[str | None] = mapped_column(String(18), nullable=True)
 	vehicle_plate: Mapped[str | None] = mapped_column(String(10), nullable=True)
 	vehicle_plates_extra: Mapped[str | None] = mapped_column(Text, nullable=True)
+	advance_credit_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 	reference_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
 	endereco_unificado: Mapped[str | None] = mapped_column(String(255), nullable=True)
 	rua: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -87,6 +90,7 @@ class Supplier(db.Model):
 			"cnpj": self.cnpj,
 			"vehicle_plate": vehicle_plate,
 			"vehicle_plates_extra": plates_extra,
+			"advance_credit_balance": float(self.advance_credit_balance or 0),
 			"reference_address": self.reference_address or self.endereco_unificado,
 			"endereco_unificado": self.endereco_unificado or self.reference_address,
 			"rua": self.rua,

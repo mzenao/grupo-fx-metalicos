@@ -56,6 +56,54 @@ function formatComputedNumber(value) {
 	return value.toFixed(2);
 }
 
+function formatMixedMaterial(materialName, weightValue, impurityValue, valuePerKgValue) {
+	const percentage = Number(impurityValue);
+	const formattedPercentage = Number.isFinite(percentage)
+		? percentage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+		: String(impurityValue || "").trim();
+	const weight = Number(weightValue);
+	const formattedWeight = Number.isFinite(weight)
+		? weight.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+		: String(weightValue || "").trim();
+	const valuePerKg = Number(valuePerKgValue);
+	const formattedValuePerKg = Number.isFinite(valuePerKg)
+		? valuePerKg.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+		: String(valuePerKgValue || "").trim();
+	return `${materialName.trim()} - ${formattedWeight} kg - ${formattedPercentage}% - ${formattedValuePerKg}/kg`;
+}
+
+function parseLocalizedNumber(value) {
+	const normalized = String(value || "").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
+	const parsed = Number(normalized);
+	return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getMixedMaterialWeight(material) {
+	const match = String(material || "").match(/-\s*([\d.,]+)\s*kg\s*-/i);
+	return match ? parseLocalizedNumber(match[1]) : 0;
+}
+
+function getMixedMaterialValuePerKg(material) {
+	const match = String(material || "").match(/-\s*[^-]+%\s*-\s*(.+?)\/kg/i);
+	return match ? parseLocalizedNumber(match[1]) : 0;
+}
+
+function getMixedMaterialTotal(material) {
+	return getMixedMaterialWeight(material) * getMixedMaterialValuePerKg(material);
+}
+
+function getMixedMaterialName(material) {
+	return String(material || "").split(" - ")[0].trim();
+}
+
+function formatMixedMaterialNames(materials) {
+	return materials.map(getMixedMaterialName).filter(Boolean).join(" e ");
+}
+
+function isMixedLabel(label) {
+	return String(label || "").trim().toLowerCase().includes("mist");
+}
+
 function formatSupplierLabel(supplier) {
 	if (!supplier) return "Fornecedor";
 
@@ -150,6 +198,123 @@ function SearchSelect({ label, placeholder, options, selectedId, onSelect }) {
 	);
 }
 
+function MaterialsCard({
+	materials,
+	materialValue,
+	onMaterialChange,
+	weightValue,
+	onWeightChange,
+	impurityValue,
+	onImpurityChange,
+	valuePerKgValue,
+	onValuePerKgChange,
+	onAdd,
+	onRemove,
+}) {
+	const [expanded, setExpanded] = useState(false);
+
+	return (
+		<div className="rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20">
+			<button
+				type="button"
+				onClick={() => setExpanded((prev) => !prev)}
+				className="w-full px-4 py-3 flex items-center justify-between text-left"
+			>
+				<div className="flex items-center gap-2">
+					<PackagePlus className="w-4 h-4 text-[#7b6024]" />
+					<span className="text-sm font-semibold text-[#4a3918]">
+						Materiais {materials.length > 0 ? `(${materials.length})` : "(obrigatorio para sucata mista)"}
+					</span>
+				</div>
+				{expanded ? <ChevronUp className="w-4 h-4 text-[#7b6024]" /> : <ChevronDown className="w-4 h-4 text-[#7b6024]" />}
+			</button>
+
+			{expanded && (
+				<div className="px-4 pb-4 space-y-3">
+					<div className="grid grid-cols-1 md:grid-cols-[minmax(220px,1.4fr)_minmax(120px,.7fr)_minmax(110px,.55fr)_minmax(140px,.8fr)_auto] gap-3 items-end">
+						<div>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Material</label>
+							<input
+								type="text"
+								value={materialValue}
+								onChange={(event) => onMaterialChange(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										onAdd();
+									}
+								}}
+								placeholder="Digite o material"
+								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+							/>
+						</div>
+						<div>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg)</label>
+							<input
+								type="number"
+								step="0.01"
+								min="0"
+								value={weightValue}
+								onChange={(event) => onWeightChange(event.target.value)}
+								placeholder="Ex.: 820"
+								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+							/>
+						</div>
+						<div>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Impureza (%)</label>
+							<input
+								type="number"
+								step="0.01"
+								min="0"
+								max="100"
+								value={impurityValue}
+								onChange={(event) => onImpurityChange(event.target.value)}
+								placeholder="Ex.: 5"
+								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+							/>
+						</div>
+						<div>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor/kg (R$)</label>
+							<input
+								type="number"
+								step="0.01"
+								min="0"
+								value={valuePerKgValue}
+								onChange={(event) => onValuePerKgChange(event.target.value)}
+								placeholder="Ex.: 3.50"
+								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+							/>
+						</div>
+						<Button
+							type="button"
+							onClick={onAdd}
+							disabled={!materialValue.trim() || !String(weightValue || "").trim() || !String(impurityValue || "").trim() || !String(valuePerKgValue || "").trim() || materials.length >= 3}
+							className="h-11 bg-[#b8891f] text-white hover:brightness-105 disabled:opacity-50"
+						>
+							Adicionar
+						</Button>
+					</div>
+
+					{materials.length > 0 ? (
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+							{materials.map((material) => (
+								<div key={material} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-[#4a3918] text-sm font-semibold border border-[#d6ab4a]/40">
+									<span className="min-w-0 break-words">{material}</span>
+									<button type="button" onClick={() => onRemove(material)} className="text-[#7b6024] hover:text-[#1e1608] flex-shrink-0" aria-label={`Remover material ${material}`}>
+										<X className="w-3 h-3" />
+									</button>
+								</div>
+							))}
+						</div>
+					) : (
+						<p className="text-xs text-[#7b6024]">Nenhum material informado.</p>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
 export default function Orders() {
 	const location = useLocation();
 	const fileInputRef = useRef(null);
@@ -158,6 +323,11 @@ export default function Orders() {
 	const [SupplierId, setSupplierId] = useState(null);
 	const [employeeId, setEmployeeId] = useState(null);
 	const [materialTypeId, setMaterialTypeId] = useState(null);
+	const [materialsExtra, setMaterialsExtra] = useState([]);
+	const [extraMaterialName, setExtraMaterialName] = useState("");
+	const [extraMaterialWeight, setExtraMaterialWeight] = useState("");
+	const [extraMaterialImpurity, setExtraMaterialImpurity] = useState("");
+	const [extraMaterialValuePerKg, setExtraMaterialValuePerKg] = useState("");
 	const [weight, setWeight] = useState("");
 	const [valuePerKg, setValuePerKg] = useState("");
 	const [totalValue, setTotalValue] = useState("");
@@ -179,6 +349,11 @@ export default function Orders() {
 	const [editSupplierId, setEditSupplierId] = useState(null);
 	const [editEmployeeId, setEditEmployeeId] = useState(null);
 	const [editMaterialTypeId, setEditMaterialTypeId] = useState(null);
+	const [editMaterialsExtra, setEditMaterialsExtra] = useState([]);
+	const [editExtraMaterialName, setEditExtraMaterialName] = useState("");
+	const [editExtraMaterialWeight, setEditExtraMaterialWeight] = useState("");
+	const [editExtraMaterialImpurity, setEditExtraMaterialImpurity] = useState("");
+	const [editExtraMaterialValuePerKg, setEditExtraMaterialValuePerKg] = useState("");
 	const [editWeight, setEditWeight] = useState("");
 	const [editValuePerKg, setEditValuePerKg] = useState("");
 	const [editTotalValue, setEditTotalValue] = useState("");
@@ -275,6 +450,166 @@ export default function Orders() {
 		return map;
 	}, [suppliers]);
 
+	const selectedMaterialType = materialTypeOptions.find((option) => option.id === materialTypeId);
+	const selectedEditMaterialType = materialTypeOptions.find((option) => option.id === editMaterialTypeId);
+	const isMixedMaterial = isMixedLabel(selectedMaterialType?.label);
+	const isEditMixedMaterial = isMixedLabel(selectedEditMaterialType?.label);
+	const mixedMaterialsWeight = useMemo(() => {
+		return materialsExtra.reduce((sum, material) => sum + getMixedMaterialWeight(material), 0);
+	}, [materialsExtra]);
+	const mixedMaterialsTotal = useMemo(() => {
+		return materialsExtra.reduce((sum, material) => sum + getMixedMaterialTotal(material), 0);
+	}, [materialsExtra]);
+	const editMixedMaterialsWeight = useMemo(() => {
+		return editMaterialsExtra.reduce((sum, material) => sum + getMixedMaterialWeight(material), 0);
+	}, [editMaterialsExtra]);
+	const editMixedMaterialsTotal = useMemo(() => {
+		return editMaterialsExtra.reduce((sum, material) => sum + getMixedMaterialTotal(material), 0);
+	}, [editMaterialsExtra]);
+
+	useEffect(() => {
+		if (isMixedMaterial) {
+			setTotalValue(formatComputedNumber(mixedMaterialsTotal));
+		}
+	}, [isMixedMaterial, mixedMaterialsTotal]);
+
+	useEffect(() => {
+		if (isEditMixedMaterial) {
+			setEditTotalValue(formatComputedNumber(editMixedMaterialsTotal));
+		}
+	}, [editMixedMaterialsTotal, isEditMixedMaterial]);
+
+	const handleMaterialTypeSelect = (nextMaterialTypeId) => {
+		setMaterialTypeId(nextMaterialTypeId);
+		const nextMaterialType = materialTypeOptions.find((option) => option.id === nextMaterialTypeId);
+		if (!isMixedLabel(nextMaterialType?.label)) {
+			setMaterialsExtra([]);
+			setExtraMaterialName("");
+			setExtraMaterialWeight("");
+			setExtraMaterialImpurity("");
+			setExtraMaterialValuePerKg("");
+		}
+	};
+
+	const handleEditMaterialTypeSelect = (nextMaterialTypeId) => {
+		setEditMaterialTypeId(nextMaterialTypeId);
+		const nextMaterialType = materialTypeOptions.find((option) => option.id === nextMaterialTypeId);
+		if (!isMixedLabel(nextMaterialType?.label)) {
+			setEditMaterialsExtra([]);
+			setEditExtraMaterialName("");
+			setEditExtraMaterialWeight("");
+			setEditExtraMaterialImpurity("");
+			setEditExtraMaterialValuePerKg("");
+		}
+	};
+
+	const selectedSupplier = SupplierId ? suppliersById.get(SupplierId) : null;
+	const totalPendingAdvanceValue = useMemo(() => {
+		return pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0);
+	}, [pendingAdvances]);
+	const advancePreview = useMemo(() => {
+		if (!applyAdvance) return null;
+
+		const purchaseValue = Number(totalValue) || 0;
+		const currentCredit = Number(selectedSupplier?.advanceCreditBalance || 0);
+		const debtAfter = Math.max(totalPendingAdvanceValue - purchaseValue, 0);
+		const creditAfter = debtAfter > 0
+			? currentCredit
+			: currentCredit + Math.max(purchaseValue - totalPendingAdvanceValue, 0);
+
+		return { debtAfter, creditAfter };
+	}, [applyAdvance, selectedSupplier, totalPendingAdvanceValue, totalValue]);
+
+	const addMaterialExtra = () => {
+		const materialName = extraMaterialName.trim();
+		const materialWeight = String(extraMaterialWeight || "").trim();
+		const impurity = String(extraMaterialImpurity || "").trim();
+		const materialValuePerKg = String(extraMaterialValuePerKg || "").trim();
+		const weightNumber = Number(materialWeight);
+		const impurityNumber = Number(impurity);
+		const valuePerKgNumber = Number(materialValuePerKg);
+		if (!materialName) {
+			setError("Informe o material.");
+			return;
+		}
+		if (!materialWeight || !Number.isFinite(weightNumber) || weightNumber <= 0) {
+			setError("Informe um peso valido para o material.");
+			return;
+		}
+		if (!impurity || !Number.isFinite(impurityNumber) || impurityNumber < 0 || impurityNumber > 100) {
+			setError("Informe uma impureza entre 0 e 100% para o material.");
+			return;
+		}
+		if (!materialValuePerKg || !Number.isFinite(valuePerKgNumber) || valuePerKgNumber <= 0) {
+			setError("Informe um valor por kg valido para o material.");
+			return;
+		}
+		if (materialsExtra.some((item) => item.split(" - ")[0].toLowerCase() === materialName.toLowerCase())) {
+			setError("Esse material ja foi adicionado.");
+			return;
+		}
+		if (materialsExtra.length >= 3) {
+			setError("O limite de 3 materiais foi atingido.");
+			return;
+		}
+
+		setError("");
+		setMaterialsExtra((prev) => [...prev, formatMixedMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
+		setExtraMaterialName("");
+		setExtraMaterialWeight("");
+		setExtraMaterialImpurity("");
+		setExtraMaterialValuePerKg("");
+	};
+
+	const removeMaterialExtra = (materialName) => {
+		setMaterialsExtra((prev) => prev.filter((item) => item !== materialName));
+	};
+
+	const addEditMaterialExtra = () => {
+		const materialName = editExtraMaterialName.trim();
+		const materialWeight = String(editExtraMaterialWeight || "").trim();
+		const impurity = String(editExtraMaterialImpurity || "").trim();
+		const materialValuePerKg = String(editExtraMaterialValuePerKg || "").trim();
+		const weightNumber = Number(materialWeight);
+		const impurityNumber = Number(impurity);
+		const valuePerKgNumber = Number(materialValuePerKg);
+		if (!materialName) {
+			setEditError("Informe o material.");
+			return;
+		}
+		if (!materialWeight || !Number.isFinite(weightNumber) || weightNumber <= 0) {
+			setEditError("Informe um peso valido para o material.");
+			return;
+		}
+		if (!impurity || !Number.isFinite(impurityNumber) || impurityNumber < 0 || impurityNumber > 100) {
+			setEditError("Informe uma impureza entre 0 e 100% para o material.");
+			return;
+		}
+		if (!materialValuePerKg || !Number.isFinite(valuePerKgNumber) || valuePerKgNumber <= 0) {
+			setEditError("Informe um valor por kg valido para o material.");
+			return;
+		}
+		if (editMaterialsExtra.some((item) => item.split(" - ")[0].toLowerCase() === materialName.toLowerCase())) {
+			setEditError("Esse material ja foi adicionado.");
+			return;
+		}
+		if (editMaterialsExtra.length >= 3) {
+			setEditError("O limite de 3 materiais foi atingido.");
+			return;
+		}
+
+		setEditError("");
+		setEditMaterialsExtra((prev) => [...prev, formatMixedMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
+		setEditExtraMaterialName("");
+		setEditExtraMaterialWeight("");
+		setEditExtraMaterialImpurity("");
+		setEditExtraMaterialValuePerKg("");
+	};
+
+	const removeEditMaterialExtra = (materialName) => {
+		setEditMaterialsExtra((prev) => prev.filter((item) => item !== materialName));
+	};
+
 	const hashPurchase = useMemo(() => {
 		if (!hashId) return null;
 		return purchases.find((purchase) => purchase.id === hashId) || null;
@@ -311,8 +646,9 @@ export default function Orders() {
 		setDeletingPurchase(true);
 		try {
 			await deletePurchase(purchaseId, confirmDelete.password);
-			const refreshedPurchases = await fetchPurchases();
+			const [refreshedPurchases, refreshedSuppliers] = await Promise.all([fetchPurchases(), fetchSuppliers()]);
 			setPurchases(refreshedPurchases);
+			setSuppliers(refreshedSuppliers);
 			setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" });
 			setIsEditOpen(false);
 			setEditingPurchaseId(null);
@@ -462,6 +798,11 @@ export default function Orders() {
 		setEditSupplierId(purchase.SupplierId || null);
 		setEditEmployeeId(purchase.employeeId || null);
 		setEditMaterialTypeId(purchase.materialTypeId || null);
+		setEditMaterialsExtra(Array.isArray(purchase.materialsExtra) ? purchase.materialsExtra : []);
+		setEditExtraMaterialName("");
+		setEditExtraMaterialWeight("");
+		setEditExtraMaterialImpurity("");
+		setEditExtraMaterialValuePerKg("");
 		setEditWeight(purchase.weight || "");
 		const purchaseWeight = parsePositiveNumber(purchase.weight);
 		const purchaseTotalValue = parsePositiveNumber(purchase.value);
@@ -568,17 +909,23 @@ export default function Orders() {
 			return;
 		}
 
-		if (!editWeight || Number(editWeight) <= 0) {
+		if (isEditMixedMaterial && editMaterialsExtra.length === 0) {
+			setEditError("Adicione pelo menos um material para sucata mista.");
+			return;
+		}
+
+		if (!isEditMixedMaterial && (!editWeight || Number(editWeight) <= 0)) {
 			setEditError("Informe um peso valido.");
 			return;
 		}
 
-		if (!editValuePerKg || Number(editValuePerKg) <= 0) {
+		if (!isEditMixedMaterial && (!editValuePerKg || Number(editValuePerKg) <= 0)) {
 			setEditError("Informe um valor por kg valido.");
 			return;
 		}
 
-		if (!editTotalValue || Number(editTotalValue) <= 0) {
+		const editTotalForSubmit = isEditMixedMaterial ? formatComputedNumber(editMixedMaterialsTotal) : editTotalValue;
+		if (!editTotalForSubmit || Number(editTotalForSubmit) <= 0) {
 			setEditError("Informe um valor total valido.");
 			return;
 		}
@@ -598,8 +945,10 @@ export default function Orders() {
 				supplier_id: editSupplierId,
 				employee_id: editEmployeeId,
 				material_type_id: editMaterialTypeId,
-				weight: editWeight,
-				value: editTotalValue,
+				material_types_extra: isEditMixedMaterial ? editMaterialsExtra : [],
+				impurity_percentage: 0,
+				weight: isEditMixedMaterial ? formatComputedNumber(editMixedMaterialsWeight) : editWeight,
+				value: editTotalForSubmit,
 				purchase_datetime: formatDateTimeForApi(editDatetime),
 			});
 
@@ -632,17 +981,23 @@ export default function Orders() {
 			return;
 		}
 
-		if (!weight || Number(weight) <= 0) {
+		if (isMixedMaterial && materialsExtra.length === 0) {
+			setError("Adicione pelo menos um material para sucata mista.");
+			return;
+		}
+
+		if (!isMixedMaterial && (!weight || Number(weight) <= 0)) {
 			setError("Informe um peso valido.");
 			return;
 		}
 
-		if (!valuePerKg || Number(valuePerKg) <= 0) {
+		if (!isMixedMaterial && (!valuePerKg || Number(valuePerKg) <= 0)) {
 			setError("Informe um valor por kg valido.");
 			return;
 		}
 
-		if (!totalValue || Number(totalValue) <= 0) {
+		const totalForSubmit = isMixedMaterial ? formatComputedNumber(mixedMaterialsTotal) : totalValue;
+		if (!totalForSubmit || Number(totalForSubmit) <= 0) {
 			setError("Informe um valor total valido.");
 			return;
 		}
@@ -664,19 +1019,27 @@ export default function Orders() {
 				supplier_id: SupplierId,
 				employee_id: employeeId,
 				material_type_id: materialTypeId,
-				weight,
-				value: totalValue,
+				material_types_extra: isMixedMaterial ? materialsExtra : [],
+				impurity_percentage: 0,
+				weight: isMixedMaterial ? formatComputedNumber(mixedMaterialsWeight) : weight,
+				value: totalForSubmit,
 				purchase_datetime: formatDateTimeForApi(datetime),
 					apply_advance: applyAdvance,
 				},
 				files: attachments,
 			});
 
-			const refreshedPurchases = await fetchPurchases();
+			const [refreshedPurchases, refreshedSuppliers] = await Promise.all([fetchPurchases(), fetchSuppliers()]);
 			setPurchases(refreshedPurchases);
+			setSuppliers(refreshedSuppliers);
 			setSupplierId(null);
 			setEmployeeId(null);
 			setMaterialTypeId(null);
+			setMaterialsExtra([]);
+			setExtraMaterialName("");
+			setExtraMaterialWeight("");
+			setExtraMaterialImpurity("");
+			setExtraMaterialValuePerKg("");
 			setWeight("");
 			setValuePerKg("");
 			setTotalValue("");
@@ -745,7 +1108,7 @@ export default function Orders() {
 							onSelect={setEmployeeId}
 						/>
 
-						{SupplierId && pendingAdvances.length > 0 && (
+						{SupplierId && (
 							<div className="md:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
 								<label className="flex items-start gap-2.5 cursor-pointer">
 									<input
@@ -755,55 +1118,34 @@ export default function Orders() {
 										className="mt-0.5 h-3.5 w-3.5 rounded border-emerald-400 accent-emerald-600 checked:bg-emerald-600 checked:border-emerald-600 focus:ring-emerald-500"
 									/>
 									<div className="space-y-0.5 leading-tight">
-										<p className="text-sm font-semibold text-emerald-900">Abater valor do adiantamento</p>
+										<p className="text-sm font-semibold text-emerald-900">Abater valor do adiantamento / gerar saldo positivo</p>
 										<p className="text-xs text-emerald-800">
 											Existe(m) {pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.
 										</p>
 										<p className="text-[11px] text-emerald-700">
-											Saldo Devedor disponivel: {formatMoney(pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0))}
+											Saldo devedor disponivel: {formatMoney(totalPendingAdvanceValue)}
+											{selectedSupplier?.advanceCreditBalance > 0 ? ` | Saldo positivo atual: ${formatMoney(selectedSupplier.advanceCreditBalance)}` : ""}
 										</p>
+										{advancePreview && (
+											<p className="text-[11px] font-semibold text-emerald-800">
+												{advancePreview.debtAfter > 0
+													? `Apos a compra, ainda deve ${formatMoney(advancePreview.debtAfter)}.`
+													: `Apos a compra, saldo positivo de ${formatMoney(advancePreview.creditAfter)}.`}
+											</p>
+										)}
 									</div>
 								</label>
 							</div>
 						)}
 
-						<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-3">
-							<div>
-								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
-								<div className="relative">
-									<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-									<input
-										type="number"
-										step="0.01"
-										min="0"
-										value={weight}
-										onChange={(e) => handleWeightChange(e.target.value)}
-										placeholder="Ex.: 820"
-										className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
-									/>
-								</div>
-							</div>
-
+						<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
 							<SearchSelect
 								label="Tipo de sucata"
 								placeholder="Pesquisar tipo de sucata..."
 								options={materialTypeOptions}
 								selectedId={materialTypeId}
-								onSelect={setMaterialTypeId}
+								onSelect={handleMaterialTypeSelect}
 							/>
-
-							<div>
-								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
-								<input
-									type="number"
-									step="0.01"
-									min="0"
-									value={valuePerKg}
-									onChange={(e) => handleValuePerKgChange(e.target.value)}
-									placeholder="Valor por kg"
-									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-								/>
-							</div>
 
 							<div>
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor total (R$) *</label>
@@ -814,34 +1156,86 @@ export default function Orders() {
 									value={totalValue}
 									onChange={(e) => handleTotalValueChange(e.target.value)}
 									placeholder="Valor total"
-									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+									readOnly={isMixedMaterial}
+									className={`w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] ${isMixedMaterial ? "bg-amber-50/60 text-[#4a3918]" : "bg-white"}`}
 								/>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Dia e hora *</label>
+								<div className="relative">
+									<Calendar className="absolute z-10 pointer-events-none left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+									<DatePicker
+										selected={datetime}
+										onChange={(date) => setDatetime(date || new Date())}
+										onInputClick={() => {
+											if (!datetime) setDatetime(getNowLocalDateTime());
+										}}
+										showTimeSelect
+										timeIntervals={5}
+										timeFormat="HH:mm"
+										dateFormat="dd/MM/yyyy HH:mm"
+										locale="pt-BR"
+										placeholderText="Data e hora"
+										wrapperClassName="w-full"
+										className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+										calendarClassName="border-0 shadow-lg"
+										popperPlacement="bottom-start"
+									/>
+								</div>
 							</div>
 						</div>
 
-						<div className="md:col-span-2">
-							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Dia e hora *</label>
-							<div className="relative max-w-sm">
-								<Calendar className="absolute z-10 pointer-events-none left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-								<DatePicker
-									selected={datetime}
-									onChange={(date) => setDatetime(date || new Date())}
-									onInputClick={() => {
-										if (!datetime) setDatetime(getNowLocalDateTime());
-									}}
-									showTimeSelect
-									timeIntervals={5}
-									timeFormat="HH:mm"
-									dateFormat="dd/MM/yyyy HH:mm"
-									locale="pt-BR"
-									placeholderText="Data e hora"
-									wrapperClassName="w-full"
-									className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-									calendarClassName="border-0 shadow-lg"
-									popperPlacement="bottom-start"
-								/>
+						{!isMixedMaterial && materialTypeId && (
+							<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+								<div>
+									<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
+									<div className="relative">
+										<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+										<input
+											type="number"
+											step="0.01"
+											min="0"
+											value={weight}
+											onChange={(e) => handleWeightChange(e.target.value)}
+											placeholder="Ex.: 820"
+											className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
+										/>
+									</div>
+								</div>
+
+								<div>
+									<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
+									<input
+										type="number"
+										step="0.01"
+										min="0"
+										value={valuePerKg}
+										onChange={(e) => handleValuePerKgChange(e.target.value)}
+										placeholder="Valor por kg"
+										className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+									/>
+								</div>
 							</div>
-						</div>
+						)}
+
+						{isMixedMaterial && (
+							<div className="md:col-span-2">
+							<MaterialsCard
+								materials={materialsExtra}
+								materialValue={extraMaterialName}
+								onMaterialChange={setExtraMaterialName}
+								weightValue={extraMaterialWeight}
+								onWeightChange={setExtraMaterialWeight}
+								onAdd={addMaterialExtra}
+								onRemove={removeMaterialExtra}
+								impurityValue={extraMaterialImpurity}
+								onImpurityChange={setExtraMaterialImpurity}
+								valuePerKgValue={extraMaterialValuePerKg}
+								onValuePerKgChange={setExtraMaterialValuePerKg}
+							/>
+							</div>
+						)}
 					</div>
 
 					<div>
@@ -969,9 +1363,20 @@ export default function Orders() {
 										<p><span className="text-gray-500">Fornecedor:</span> {supplierLabelById.get(purchase.SupplierId) || purchase.SupplierName}</p>
 										<p><span className="text-gray-500">Funcionario:</span> {purchase.employeeName}</p>
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
-										<p><span className="text-gray-500">Tipo de Sucata:</span> {materialTypeOptions.find((t) => t.id === purchase.materialTypeId)?.label || "Não especificado"}</p>
-										<p><span className="text-gray-500">Valor/kg:</span> {Number(purchase.valuePerKg || (Number(purchase.value) / Number(purchase.weight) || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+										<p><span className="text-gray-500">Tipo de sucata:</span> {materialTypeOptions.find((t) => t.id === purchase.materialTypeId)?.label || purchase.materialTypeName || "Nao especificado"}</p>
+										{purchase.materialsExtra?.length > 0 && (
+											<p><span className="text-gray-500">Materiais:</span> {formatMixedMaterialNames(purchase.materialsExtra)}</p>
+										)}
+										{!purchase.materialsExtra?.length && (
+											<p><span className="text-gray-500">Valor/kg:</span> {Number(purchase.valuePerKg || (Number(purchase.value) / Number(purchase.weight) || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+										)}
 										<p><span className="text-gray-500">Valor total:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+										{Number(purchase.advanceAbatementValue || 0) > 0 && (
+											<p><span className="text-gray-500">Abatido:</span> {formatMoney(purchase.advanceAbatementValue)}</p>
+										)}
+										{Number(purchase.advanceCreditAfter || 0) > 0 && (
+											<p><span className="text-gray-500">Saldo positivo:</span> {formatMoney(purchase.advanceCreditAfter)}</p>
+										)}
 									</div>
 									<p className="text-xs text-gray-500 mt-2">
 										Comprovantes: {purchase.attachmentNames.join(", ")}
@@ -1004,43 +1409,14 @@ export default function Orders() {
 													onSelect={setEditEmployeeId}
 												/>
 
-												<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-3">
-													<div>
-														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
-														<div className="relative">
-															<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-															<input
-																type="number"
-																step="0.01"
-																min="0"
-																value={editWeight}
-																onChange={(e) => handleEditWeightChange(e.target.value)}
-																placeholder="Ex.: 820"
-																className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
-															/>
-														</div>
-													</div>
-
+												<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
 													<SearchSelect
 														label="Tipo de sucata"
 														placeholder="Pesquisar tipo de sucata..."
 														options={materialTypeOptions}
 														selectedId={editMaterialTypeId}
-														onSelect={setEditMaterialTypeId}
+														onSelect={handleEditMaterialTypeSelect}
 													/>
-
-													<div>
-														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
-														<input
-															type="number"
-															step="0.01"
-															min="0"
-															value={editValuePerKg}
-															onChange={(e) => handleEditValuePerKgChange(e.target.value)}
-															placeholder="Valor por kg"
-															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-														/>
-													</div>
 
 													<div>
 														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor total (R$) *</label>
@@ -1051,33 +1427,86 @@ export default function Orders() {
 															value={editTotalValue}
 															onChange={(e) => handleEditTotalValueChange(e.target.value)}
 															placeholder="Valor total"
-															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+															readOnly={isEditMixedMaterial}
+															className={`w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] ${isEditMixedMaterial ? "bg-amber-50/60 text-[#4a3918]" : "bg-white"}`}
 														/>
 													</div>
-												</div>
-												<div className="md:col-span-2">
-													<label className="block text-sm font-medium mb-1 text-[#4a3918]">Dia e hora *</label>
-													<div className="relative max-w-sm">
-														<Calendar className="absolute z-10 pointer-events-none left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-														<DatePicker
-															selected={editDatetime}
-															onChange={(date) => setEditDatetime(date || new Date())}
-															onInputClick={() => {
-																if (!editDatetime) setEditDatetime(getNowLocalDateTime());
-															}}
-															showTimeSelect
-															timeIntervals={5}
-															timeFormat="HH:mm"
-															dateFormat="dd/MM/yyyy HH:mm"
-															locale="pt-BR"
-															placeholderText="Data e hora"
-															wrapperClassName="w-full"
-															className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-															calendarClassName="border-0 shadow-lg"
-															popperPlacement="bottom-start"
-														/>
+
+													<div>
+														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Dia e hora *</label>
+														<div className="relative">
+															<Calendar className="absolute z-10 pointer-events-none left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+															<DatePicker
+																selected={editDatetime}
+																onChange={(date) => setEditDatetime(date || new Date())}
+																onInputClick={() => {
+																	if (!editDatetime) setEditDatetime(getNowLocalDateTime());
+																}}
+																showTimeSelect
+																timeIntervals={5}
+																timeFormat="HH:mm"
+																dateFormat="dd/MM/yyyy HH:mm"
+																locale="pt-BR"
+																placeholderText="Data e hora"
+																wrapperClassName="w-full"
+																className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+																calendarClassName="border-0 shadow-lg"
+																popperPlacement="bottom-start"
+															/>
+														</div>
 													</div>
 												</div>
+
+												{!isEditMixedMaterial && editMaterialTypeId && (
+													<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+														<div>
+															<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
+															<div className="relative">
+																<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+																<input
+																	type="number"
+																	step="0.01"
+																	min="0"
+																	value={editWeight}
+																	onChange={(e) => handleEditWeightChange(e.target.value)}
+																	placeholder="Ex.: 820"
+																	className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
+																/>
+															</div>
+														</div>
+
+														<div>
+															<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
+															<input
+																type="number"
+																step="0.01"
+																min="0"
+																value={editValuePerKg}
+																onChange={(e) => handleEditValuePerKgChange(e.target.value)}
+																placeholder="Valor por kg"
+																className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+															/>
+														</div>
+													</div>
+												)}
+
+												{isEditMixedMaterial && (
+													<div className="md:col-span-2">
+														<MaterialsCard
+															materials={editMaterialsExtra}
+															materialValue={editExtraMaterialName}
+															onMaterialChange={setEditExtraMaterialName}
+															weightValue={editExtraMaterialWeight}
+															onWeightChange={setEditExtraMaterialWeight}
+															onAdd={addEditMaterialExtra}
+															onRemove={removeEditMaterialExtra}
+															impurityValue={editExtraMaterialImpurity}
+															onImpurityChange={setEditExtraMaterialImpurity}
+															valuePerKgValue={editExtraMaterialValuePerKg}
+															onValuePerKgChange={setEditExtraMaterialValuePerKg}
+														/>
+													</div>
+												)}
 											</div>
 
 											<div>

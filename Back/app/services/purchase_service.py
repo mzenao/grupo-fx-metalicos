@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
@@ -27,6 +28,36 @@ def _parse_int_field(value, field_name: str) -> int:
 		return int(value)
 	except (TypeError, ValueError):
 		raise ValueError(f"{field_name} is required and must be an integer")
+
+
+def _parse_material_types_extra(raw_value) -> list[str]:
+	if raw_value is None:
+		return []
+
+	raw_items = raw_value if isinstance(raw_value, list) else None
+	if raw_items is None:
+		text = str(raw_value or "").strip()
+		if not text:
+			return []
+		if text.startswith("["):
+			try:
+				decoded = json.loads(text)
+				raw_items = decoded if isinstance(decoded, list) else []
+			except (TypeError, ValueError, json.JSONDecodeError):
+				raw_items = []
+		else:
+			raw_items = [item.strip() for item in text.split(",") if item.strip()]
+
+	parsed: list[str] = []
+	for item in raw_items:
+		material_name = str(item or "").strip()
+		if material_name and material_name.lower() not in {name.lower() for name in parsed}:
+			parsed.append(material_name)
+	return parsed
+
+
+def _serialize_material_types_extra(material_names: list[str]) -> str:
+	return json.dumps(material_names, ensure_ascii=False)
 
 
 def _resolve_supplier_id(raw_supplier_ref) -> int:
@@ -79,6 +110,22 @@ def _validate_foreign_keys(supplier_id: int, employee_id: int, material_type_id:
 		raise ValueError("Material type not found")
 
 
+def _normalize_material_selection(material_types_extra: list[str]) -> list[str]:
+	if len(material_types_extra) > 3:
+		raise ValueError("O limite de 3 materiais adicionais foi atingido")
+	return material_types_extra
+
+
+def _parse_impurity_percentage(value) -> Decimal:
+	if value in (None, ""):
+		return Decimal("0.00")
+
+	percentage = to_decimal(value)
+	if percentage < 0 or percentage > 100:
+		raise ValueError("Impureza deve estar entre 0 e 100")
+	return percentage.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
 def _is_truthy(value) -> bool:
 	if isinstance(value, bool):
 		return value
@@ -98,7 +145,9 @@ def create_purchase(payload: dict) -> Purchase:
 	supplier_id = _resolve_supplier_id(payload.get("supplier_id"))
 	employee_id = _parse_int_field(payload.get("employee_id"), "employee_id")
 	material_type_id = _parse_int_field(payload.get("material_type_id"), "material_type_id")
+	material_types_extra = _normalize_material_selection(_parse_material_types_extra(payload.get("material_types_extra")))
 	_validate_foreign_keys(supplier_id, employee_id, material_type_id)
+	impurity_percentage = _parse_impurity_percentage(payload.get("impurity_percentage"))
 
 	advance_info = None
 	if _is_truthy(payload.get("apply_advance")):
@@ -106,6 +155,7 @@ def create_purchase(payload: dict) -> Purchase:
 			supplier_id=supplier_id,
 			purchase_value=value,
 			advance_id=None,
+			allow_positive_balance=True,
 		)
 		if not advance_info:
 			raise ValueError("No pending advances available to apply for this supplier")
@@ -116,12 +166,15 @@ def create_purchase(payload: dict) -> Purchase:
 		supplier_id=supplier_id,
 		employee_id=employee_id,
 		material_type_id=material_type_id,
+		material_types_extra=_serialize_material_types_extra(material_types_extra),
 		advance_id=advance_info["advance_id"] if advance_info else None,
 		weight=weight,
 		value=value,
 		value_per_kg=value_per_kg,
+		impurity_percentage=impurity_percentage,
 		advance_abatement_value=advance_info["advance_abatement_value"] if advance_info else Decimal("0.00"),
 		advance_remaining_after=advance_info["advance_remaining_after"] if advance_info else Decimal("0.00"),
+		advance_credit_after=advance_info["advance_credit_after"] if advance_info else Decimal("0.00"),
 		purchase_datetime=parse_iso_datetime(payload.get("purchase_datetime")),
 	)
 
@@ -150,7 +203,9 @@ def create_purchase_with_attachments(payload: dict, files: list) -> Purchase:
 	supplier_id = _resolve_supplier_id(payload.get("supplier_id"))
 	employee_id = _parse_int_field(payload.get("employee_id"), "employee_id")
 	material_type_id = _parse_int_field(payload.get("material_type_id"), "material_type_id")
+	material_types_extra = _normalize_material_selection(_parse_material_types_extra(payload.get("material_types_extra")))
 	_validate_foreign_keys(supplier_id, employee_id, material_type_id)
+	impurity_percentage = _parse_impurity_percentage(payload.get("impurity_percentage"))
 
 	advance_info = None
 	if _is_truthy(payload.get("apply_advance")):
@@ -158,6 +213,7 @@ def create_purchase_with_attachments(payload: dict, files: list) -> Purchase:
 			supplier_id=supplier_id,
 			purchase_value=value,
 			advance_id=None,
+			allow_positive_balance=True,
 		)
 		if not advance_info:
 			raise ValueError("No pending advances available to apply for this supplier")
@@ -166,12 +222,15 @@ def create_purchase_with_attachments(payload: dict, files: list) -> Purchase:
 		supplier_id=supplier_id,
 		employee_id=employee_id,
 		material_type_id=material_type_id,
+		material_types_extra=_serialize_material_types_extra(material_types_extra),
 		advance_id=advance_info["advance_id"] if advance_info else None,
 		weight=weight,
 		value=value,
 		value_per_kg=_calculate_value_per_kg(value=value, weight=weight),
+		impurity_percentage=impurity_percentage,
 		advance_abatement_value=advance_info["advance_abatement_value"] if advance_info else Decimal("0.00"),
 		advance_remaining_after=advance_info["advance_remaining_after"] if advance_info else Decimal("0.00"),
+		advance_credit_after=advance_info["advance_credit_after"] if advance_info else Decimal("0.00"),
 		purchase_datetime=parse_iso_datetime(payload.get("purchase_datetime")),
 	)
 
@@ -210,6 +269,7 @@ def update_purchase(purchase_id: int, payload: dict) -> Purchase:
 	supplier_id = _resolve_supplier_id(payload.get("supplier_id", purchase.supplier_id))
 	employee_id = _parse_int_field(payload.get("employee_id", purchase.employee_id), "employee_id")
 	material_type_id = _parse_int_field(payload.get("material_type_id", purchase.material_type_id), "material_type_id")
+	material_types_extra = _normalize_material_selection(_parse_material_types_extra(payload.get("material_types_extra", purchase.material_types_extra)))
 	_validate_foreign_keys(supplier_id, employee_id, material_type_id)
 
 	weight = to_decimal(payload.get("weight", purchase.weight))
@@ -222,9 +282,11 @@ def update_purchase(purchase_id: int, payload: dict) -> Purchase:
 	purchase.supplier_id = supplier_id
 	purchase.employee_id = employee_id
 	purchase.material_type_id = material_type_id
+	purchase.material_types_extra = _serialize_material_types_extra(material_types_extra)
 	purchase.weight = weight
 	purchase.value = value
 	purchase.value_per_kg = _calculate_value_per_kg(value=value, weight=weight)
+	purchase.impurity_percentage = _parse_impurity_percentage(payload.get("impurity_percentage", purchase.impurity_percentage))
 
 	if "purchase_datetime" in payload:
 		purchase.purchase_datetime = parse_iso_datetime(payload.get("purchase_datetime"))

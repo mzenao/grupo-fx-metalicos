@@ -12,6 +12,9 @@ function mapPurchaseFromApi(item, refs) {
   const supplier = refs.suppliersById.get(item.supplier_id);
   const employee = refs.employeesById.get(item.employee_id);
   const material = refs.materialsById.get(item.material_type_id);
+  const extraMaterials = Array.isArray(item.material_types_extra)
+    ? item.material_types_extra.map((name) => String(name || "").trim()).filter(Boolean)
+    : [];
 
   const attachments = Array.isArray(item.attachments) ? item.attachments : [];
   return {
@@ -26,12 +29,15 @@ function mapPurchaseFromApi(item, refs) {
     employeeName: employee?.name || `Funcionario #${item.employee_id}`,
     materialTypeId: item.material_type_id,
     materialTypeName: material?.label || "",
+    materialsExtra: extraMaterials,
     advanceId: item.advance_id ?? null,
     advanceAbatementValue: String(item.advance_abatement_value ?? "0"),
     advanceRemainingAfter: String(item.advance_remaining_after ?? "0"),
+    advanceCreditAfter: String(item.advance_credit_after ?? "0"),
     weight: String(item.weight ?? ""),
     valuePerKg: String(item.value_per_kg ?? ""),
     value: String(item.value ?? ""),
+    impurityPercentage: String(item.impurity_percentage ?? "0"),
     datetime: item.purchase_datetime,
     attachmentNames: attachments.map((attachment) => attachment.file_name).filter(Boolean),
     attachments,
@@ -80,6 +86,8 @@ export async function createPurchaseWithAttachments({ purchasePayload, files }) 
   formData.append("supplier_id", String(purchasePayload.supplier_id));
   formData.append("employee_id", String(purchasePayload.employee_id));
   formData.append("material_type_id", String(purchasePayload.material_type_id));
+  formData.append("material_types_extra", JSON.stringify(purchasePayload.material_types_extra || []));
+  formData.append("impurity_percentage", String(purchasePayload.impurity_percentage || 0));
   formData.append("weight", String(purchasePayload.weight));
   formData.append("value", String(purchasePayload.value));
   formData.append("purchase_datetime", String(purchasePayload.purchase_datetime));

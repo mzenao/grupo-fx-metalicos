@@ -69,6 +69,7 @@ function mapSupplierFromApi(item) {
     phone: item.phone || "",
     pixKeyType,
     pixKeyValue: item.pix_key_value || "",
+    advanceCreditBalance: Number(item.advance_credit_balance || 0),
   };
 }
 

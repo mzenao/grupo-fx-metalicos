@@ -47,6 +47,10 @@ function formatMoney(value) {
 	});
 }
 
+function getSupplierPositiveBalance(supplier) {
+	return Number(supplier?.advanceCreditBalance ?? supplier?.advance_credit_balance ?? 0) || 0;
+}
+
 function parsePositiveNumber(input) {
 	const parsed = Number(input);
 	if (!Number.isFinite(parsed) || parsed <= 0) return null;
@@ -315,6 +319,19 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 		const totalValue = visibleAdvances.reduce((sum, advance) => sum + (Number(advance.valueTotal) || 0), 0);
 		return { total, pending, finalized, remaining, totalValue };
 	}, [visibleAdvances]);
+
+	const positiveBalanceSummary = useMemo(() => {
+		if (isSupplier || supplierMode) {
+			return getSupplierPositiveBalance(currentSupplier);
+		}
+
+		const visibleSupplierIds = new Set(visibleAdvances.map((advance) => advance.SupplierId).filter(Boolean));
+		if (visibleSupplierIds.size === 0 && searchId.trim()) return 0;
+		return suppliers.reduce((sum, supplier) => {
+			if (visibleSupplierIds.size > 0 && !visibleSupplierIds.has(supplier.id)) return sum;
+			return sum + getSupplierPositiveBalance(supplier);
+		}, 0);
+	}, [currentSupplier, isSupplier, searchId, supplierMode, suppliers, visibleAdvances]);
 
 	const pendingAdvancesForSupplier = useMemo(() => {
 		if (!supplierId) return [];
@@ -758,6 +775,12 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 					</div>
 				)}
 
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<SummaryCard label="Total de adiantamentos" value={`${summary.total}`} />
+					<SummaryCard label="Saldo devedor" value={formatMoney(summary.remaining)} />
+					<SummaryCard label="Saldo positivo" value={formatMoney(positiveBalanceSummary)} />
+				</div>
+
 				<section className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
 					<div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between">
 						<h3 className="font-semibold text-gray-900">Adiantamentos registrados</h3>
@@ -772,6 +795,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 								const isExpanded = expandedAdvanceId === advance.id;
 								const total = Number(advance.valueTotal) || 0;
 								const remaining = Number(advance.valueRemaining) || 0;
+								const supplierPositiveBalance = getSupplierPositiveBalance(suppliersById.get(advance.SupplierId));
 								const applied = Math.max(0, total - remaining);
 								const percent = total > 0 ? Math.round((applied / total) * 100) : 0;
 
@@ -808,7 +832,10 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 													<span className="text-gray-500">Valor total:</span> {formatMoney(advance.valueTotal)}
 												</p>
 												<p>
-													<span className="text-gray-500">Sald0 Devedor:</span> {formatMoney(advance.valueRemaining)}
+													<span className="text-gray-500">Saldo devedor:</span> {formatMoney(advance.valueRemaining)}
+												</p>
+												<p>
+													<span className="text-gray-500">Saldo positivo:</span> {formatMoney(supplierPositiveBalance)}
 												</p>
 											</div>
 										</button>
@@ -818,6 +845,9 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 												<div className="pt-4 space-y-3">
 													<p className="text-xs text-gray-500">
 														Status: <span className="font-semibold text-gray-800">{advance.status || "pendente"}</span>
+													</p>
+													<p className="text-xs text-gray-500">
+														Saldo positivo do fornecedor: <span className="font-semibold text-gray-800">{formatMoney(supplierPositiveBalance)}</span>
 													</p>
 													<p className="text-xs text-gray-500">Progresso de abatimento: {percent}%</p>
 													<ProgressBar value={applied} max={total} />
@@ -991,9 +1021,10 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 				</header>
 
 				<div className="p-8 space-y-6">
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 						<SummaryCard label="Total de adiantamentos" value={`${summary.total}`} />
-						<SummaryCard label="Sald0 Devedor" value={formatMoney(summary.remaining)} />
+						<SummaryCard label="Saldo devedor" value={formatMoney(summary.remaining)} />
+						<SummaryCard label="Saldo positivo" value={formatMoney(positiveBalanceSummary)} />
 					</div>
 
 					<div>
@@ -1028,6 +1059,7 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 									const isExpanded = expandedAdvanceId === advance.id;
 									const total = Number(advance.valueTotal) || 0;
 									const remaining = Number(advance.valueRemaining) || 0;
+									const supplierPositiveBalance = getSupplierPositiveBalance(suppliersById.get(advance.SupplierId) || currentSupplier);
 									const applied = Math.max(0, total - remaining);
 									const percent = total > 0 ? Math.round((applied / total) * 100) : 0;
 
@@ -1057,7 +1089,8 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 													<p><span className="text-gray-500">Fornecedor:</span> {advance.SupplierName || "-"}</p>
 													<p><span className="text-gray-500">Funcionário:</span> {advance.employeeName || "-"}</p>
 													<p><span className="text-gray-500">Valor total:</span> {formatMoney(advance.valueTotal)}</p>
-													<p><span className="text-gray-500">Sald0 Devedor:</span> {formatMoney(advance.valueRemaining)}</p>
+													<p><span className="text-gray-500">Saldo devedor:</span> {formatMoney(advance.valueRemaining)}</p>
+													<p><span className="text-gray-500">Saldo positivo:</span> {formatMoney(supplierPositiveBalance)}</p>
 												</div>
 												<p className="text-xs text-gray-500 mt-2">
 													Comprovantes: {advance.attachmentNames?.join(", ") || "Nenhum"}
@@ -1071,7 +1104,8 @@ export default function AdiantamentosPage({ supplierMode = false, embedded = fal
 															<InfoSection label="Fornecedor" value={advance.SupplierName || "-"} />
 															<InfoSection label="Funcionário" value={advance.employeeName || "-"} />
 															<InfoSection label="Valor total" value={formatMoney(advance.valueTotal)} />
-															<InfoSection label="Valor restante" value={formatMoney(advance.valueRemaining)} />
+															<InfoSection label="Saldo devedor" value={formatMoney(advance.valueRemaining)} />
+															<InfoSection label="Saldo positivo" value={formatMoney(supplierPositiveBalance)} />
 															<InfoSection label="Data e Hora" value={formatDateTime(advance.advanceDatetime)} />
 															<InfoSection label="Status" value={advance.status || "pendente"} />
 														</div>
