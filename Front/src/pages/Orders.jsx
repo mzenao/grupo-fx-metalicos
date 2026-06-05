@@ -56,6 +56,30 @@ function formatComputedNumber(value) {
 	return value.toFixed(2);
 }
 
+function getNetWeight(weightValue, impurityValue) {
+	const weight = Number(weightValue);
+	const impurity = Number(impurityValue || 0);
+	if (!Number.isFinite(weight) || weight <= 0) return null;
+	if (!Number.isFinite(impurity) || impurity < 0 || impurity > 100) return null;
+	return weight * (1 - impurity / 100);
+}
+
+function calculateTotalByImpurity(weightValue, valuePerKgValue, impurityValue) {
+	const netWeight = getNetWeight(weightValue, impurityValue);
+	const valuePerKg = Number(valuePerKgValue);
+	if (!netWeight || !Number.isFinite(valuePerKg) || valuePerKg <= 0) return "";
+	return formatComputedNumber(netWeight * valuePerKg);
+}
+
+function getGrossWeightFromNet(netWeightValue, impurityValue) {
+	const netWeight = Number(netWeightValue);
+	const impurity = Number(impurityValue || 0);
+	const multiplier = 1 - impurity / 100;
+	if (!Number.isFinite(netWeight) || netWeight <= 0) return null;
+	if (!Number.isFinite(impurity) || impurity < 0 || impurity >= 100 || multiplier <= 0) return null;
+	return netWeight / multiplier;
+}
+
 function formatExtraMaterial(materialName, weightValue, impurityValue, valuePerKgValue) {
 	const percentage = Number(impurityValue);
 	const formattedPercentage = Number.isFinite(percentage)
@@ -176,8 +200,9 @@ function SearchSelect({ label, placeholder, options, selectedId, onSelect }) {
 
 function MaterialsCard({
 	materials,
-	materialValue,
-	onMaterialChange,
+	materialOptions,
+	selectedMaterialId,
+	onMaterialSelect,
 	weightValue,
 	onWeightChange,
 	impurityValue,
@@ -209,19 +234,12 @@ function MaterialsCard({
 				<div className="px-4 pb-4 space-y-3">
 					<div className="grid grid-cols-1 md:grid-cols-[minmax(220px,1.4fr)_minmax(120px,.7fr)_minmax(110px,.55fr)_minmax(140px,.8fr)_auto] gap-3 items-end">
 						<div>
-							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Material</label>
-							<input
-								type="text"
-								value={materialValue}
-								onChange={(event) => onMaterialChange(event.target.value)}
-								onKeyDown={(event) => {
-									if (event.key === "Enter") {
-										event.preventDefault();
-										onAdd();
-									}
-								}}
-								placeholder="Digite o material"
-								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+							<SearchSelect
+								label="Material"
+								placeholder="Pesquisar material..."
+								options={materialOptions}
+								selectedId={selectedMaterialId}
+								onSelect={onMaterialSelect}
 							/>
 						</div>
 						<div>
@@ -264,7 +282,7 @@ function MaterialsCard({
 						<Button
 							type="button"
 							onClick={onAdd}
-							disabled={!materialValue.trim() || !String(weightValue || "").trim() || !String(impurityValue || "").trim() || !String(valuePerKgValue || "").trim() || materials.length >= 3}
+							disabled={!selectedMaterialId || !String(weightValue || "").trim() || !String(impurityValue || "").trim() || !String(valuePerKgValue || "").trim() || materials.length >= 3}
 							className="h-11 bg-[#b8891f] text-white hover:brightness-105 disabled:opacity-50"
 						>
 							Adicionar
@@ -300,7 +318,7 @@ export default function Orders() {
 	const [employeeId, setEmployeeId] = useState(null);
 	const [materialTypeId, setMaterialTypeId] = useState(null);
 	const [materialsExtra, setMaterialsExtra] = useState([]);
-	const [extraMaterialName, setExtraMaterialName] = useState("");
+	const [extraMaterialTypeId, setExtraMaterialTypeId] = useState(null);
 	const [extraMaterialWeight, setExtraMaterialWeight] = useState("");
 	const [extraMaterialImpurity, setExtraMaterialImpurity] = useState("");
 	const [extraMaterialValuePerKg, setExtraMaterialValuePerKg] = useState("");
@@ -327,7 +345,7 @@ export default function Orders() {
 	const [editEmployeeId, setEditEmployeeId] = useState(null);
 	const [editMaterialTypeId, setEditMaterialTypeId] = useState(null);
 	const [editMaterialsExtra, setEditMaterialsExtra] = useState([]);
-	const [editExtraMaterialName, setEditExtraMaterialName] = useState("");
+	const [editExtraMaterialTypeId, setEditExtraMaterialTypeId] = useState(null);
 	const [editExtraMaterialWeight, setEditExtraMaterialWeight] = useState("");
 	const [editExtraMaterialImpurity, setEditExtraMaterialImpurity] = useState("");
 	const [editExtraMaterialValuePerKg, setEditExtraMaterialValuePerKg] = useState("");
@@ -446,7 +464,8 @@ export default function Orders() {
 	}, [applyAdvance, selectedSupplier, totalPendingAdvanceValue, totalValue]);
 
 	const addMaterialExtra = () => {
-		const materialName = extraMaterialName.trim();
+		const selectedExtraMaterial = materialTypeOptions.find((option) => option.id === extraMaterialTypeId);
+		const materialName = selectedExtraMaterial?.label || "";
 		const materialWeight = String(extraMaterialWeight || "").trim();
 		const impurity = String(extraMaterialImpurity || "").trim();
 		const materialValuePerKg = String(extraMaterialValuePerKg || "").trim();
@@ -469,7 +488,7 @@ export default function Orders() {
 			setError("Informe um valor por kg valido para o material extra.");
 			return;
 		}
-		if (materialsExtra.some((item) => item.split(" - ")[0].toLowerCase() === materialName.toLowerCase())) {
+		if (materialsExtra.some((item) => getExtraMaterialName(item).toLowerCase() === materialName.toLowerCase())) {
 			setError("Esse material extra ja foi adicionado.");
 			return;
 		}
@@ -480,7 +499,7 @@ export default function Orders() {
 
 		setError("");
 		setMaterialsExtra((prev) => [...prev, formatExtraMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
-		setExtraMaterialName("");
+		setExtraMaterialTypeId(null);
 		setExtraMaterialWeight("");
 		setExtraMaterialImpurity("");
 		setExtraMaterialValuePerKg("");
@@ -491,7 +510,8 @@ export default function Orders() {
 	};
 
 	const addEditMaterialExtra = () => {
-		const materialName = editExtraMaterialName.trim();
+		const selectedExtraMaterial = materialTypeOptions.find((option) => option.id === editExtraMaterialTypeId);
+		const materialName = selectedExtraMaterial?.label || "";
 		const materialWeight = String(editExtraMaterialWeight || "").trim();
 		const impurity = String(editExtraMaterialImpurity || "").trim();
 		const materialValuePerKg = String(editExtraMaterialValuePerKg || "").trim();
@@ -514,7 +534,7 @@ export default function Orders() {
 			setEditError("Informe um valor por kg valido para o material extra.");
 			return;
 		}
-		if (editMaterialsExtra.some((item) => item.split(" - ")[0].toLowerCase() === materialName.toLowerCase())) {
+		if (editMaterialsExtra.some((item) => getExtraMaterialName(item).toLowerCase() === materialName.toLowerCase())) {
 			setEditError("Esse material extra ja foi adicionado.");
 			return;
 		}
@@ -525,7 +545,7 @@ export default function Orders() {
 
 		setEditError("");
 		setEditMaterialsExtra((prev) => [...prev, formatExtraMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
-		setEditExtraMaterialName("");
+		setEditExtraMaterialTypeId(null);
 		setEditExtraMaterialWeight("");
 		setEditExtraMaterialImpurity("");
 		setEditExtraMaterialValuePerKg("");
@@ -662,17 +682,17 @@ export default function Orders() {
 	const handleWeightChange = (nextWeightValue) => {
 		setWeight(nextWeightValue);
 
-		const nextWeightNumber = parsePositiveNumber(nextWeightValue);
+		const nextNetWeight = getNetWeight(nextWeightValue, impurityPercentage);
 		const valuePerKgNumber = parsePositiveNumber(valuePerKg);
 		const totalValueNumber = parsePositiveNumber(totalValue);
 
-		if (nextWeightNumber && valuePerKgNumber) {
-			setTotalValue(formatComputedNumber(nextWeightNumber * valuePerKgNumber));
+		if (nextNetWeight && valuePerKgNumber) {
+			setTotalValue(formatComputedNumber(nextNetWeight * valuePerKgNumber));
 			return;
 		}
 
-		if (nextWeightNumber && totalValueNumber) {
-			setValuePerKg(formatComputedNumber(totalValueNumber / nextWeightNumber));
+		if (nextNetWeight && totalValueNumber) {
+			setValuePerKg(formatComputedNumber(totalValueNumber / nextNetWeight));
 		}
 	};
 
@@ -680,16 +700,33 @@ export default function Orders() {
 		setValuePerKg(nextValuePerKgValue);
 
 		const nextValuePerKgNumber = parsePositiveNumber(nextValuePerKgValue);
-		const weightNumber = parsePositiveNumber(weight);
+		const netWeight = getNetWeight(weight, impurityPercentage);
 		const totalValueNumber = parsePositiveNumber(totalValue);
 
-		if (nextValuePerKgNumber && weightNumber) {
-			setTotalValue(formatComputedNumber(weightNumber * nextValuePerKgNumber));
+		if (nextValuePerKgNumber && netWeight) {
+			setTotalValue(formatComputedNumber(netWeight * nextValuePerKgNumber));
 			return;
 		}
 
 		if (nextValuePerKgNumber && totalValueNumber) {
-			setWeight(formatComputedNumber(totalValueNumber / nextValuePerKgNumber));
+			setWeight(formatComputedNumber(getGrossWeightFromNet(totalValueNumber / nextValuePerKgNumber, impurityPercentage) || 0));
+		}
+	};
+
+	const handleImpurityChange = (nextImpurityValue) => {
+		setImpurityPercentage(nextImpurityValue);
+
+		const nextTotal = calculateTotalByImpurity(weight, valuePerKg, nextImpurityValue);
+		if (nextTotal) {
+			setTotalValue(nextTotal);
+			return;
+		}
+
+		const totalValueNumber = parsePositiveNumber(totalValue);
+		const valuePerKgNumber = parsePositiveNumber(valuePerKg);
+		if (totalValueNumber && valuePerKgNumber) {
+			const nextGrossWeight = getGrossWeightFromNet(totalValueNumber / valuePerKgNumber, nextImpurityValue);
+			if (nextGrossWeight) setWeight(formatComputedNumber(nextGrossWeight));
 		}
 	};
 
@@ -697,16 +734,16 @@ export default function Orders() {
 		setTotalValue(nextTotalValue);
 
 		const nextTotalValueNumber = parsePositiveNumber(nextTotalValue);
-		const weightNumber = parsePositiveNumber(weight);
+		const netWeight = getNetWeight(weight, impurityPercentage);
 		const valuePerKgNumber = parsePositiveNumber(valuePerKg);
 
-		if (nextTotalValueNumber && weightNumber) {
-			setValuePerKg(formatComputedNumber(nextTotalValueNumber / weightNumber));
+		if (nextTotalValueNumber && netWeight) {
+			setValuePerKg(formatComputedNumber(nextTotalValueNumber / netWeight));
 			return;
 		}
 
 		if (nextTotalValueNumber && valuePerKgNumber) {
-			setWeight(formatComputedNumber(nextTotalValueNumber / valuePerKgNumber));
+			setWeight(formatComputedNumber(getGrossWeightFromNet(nextTotalValueNumber / valuePerKgNumber, impurityPercentage) || 0));
 		}
 	};
 
@@ -724,18 +761,17 @@ export default function Orders() {
 		setEditEmployeeId(purchase.employeeId || null);
 		setEditMaterialTypeId(purchase.materialTypeId || null);
 		setEditMaterialsExtra(Array.isArray(purchase.materialsExtra) ? purchase.materialsExtra : []);
-		setEditExtraMaterialName("");
+		setEditExtraMaterialTypeId(null);
 		setEditExtraMaterialWeight("");
 		setEditExtraMaterialImpurity("");
 		setEditExtraMaterialValuePerKg("");
 		setEditWeight(purchase.weight || "");
-		const purchaseWeight = parsePositiveNumber(purchase.weight);
+		const purchaseWeight = getNetWeight(purchase.weight, purchase.impurityPercentage || 0);
 		const purchaseTotalValue = parsePositiveNumber(purchase.value);
 		const purchaseValuePerKg =
-			parsePositiveNumber(purchase.valuePerKg) ||
-			(purchaseWeight && purchaseTotalValue
+			purchaseWeight && purchaseTotalValue
 				? parsePositiveNumber((purchaseTotalValue / purchaseWeight).toFixed(2))
-				: null);
+				: parsePositiveNumber(purchase.valuePerKg);
 		setEditValuePerKg(purchaseValuePerKg ? String(purchaseValuePerKg) : "");
 		setEditTotalValue(purchase.value || "");
 		setEditImpurityPercentage(purchase.impurityPercentage || "");
@@ -748,17 +784,17 @@ export default function Orders() {
 	const handleEditWeightChange = (nextWeightValue) => {
 		setEditWeight(nextWeightValue);
 
-		const nextWeightNumber = parsePositiveNumber(nextWeightValue);
+		const nextNetWeight = getNetWeight(nextWeightValue, editImpurityPercentage);
 		const valuePerKgNumber = parsePositiveNumber(editValuePerKg);
 		const totalValueNumber = parsePositiveNumber(editTotalValue);
 
-		if (nextWeightNumber && valuePerKgNumber) {
-			setEditTotalValue(formatComputedNumber(nextWeightNumber * valuePerKgNumber));
+		if (nextNetWeight && valuePerKgNumber) {
+			setEditTotalValue(formatComputedNumber(nextNetWeight * valuePerKgNumber));
 			return;
 		}
 
-		if (nextWeightNumber && totalValueNumber) {
-			setEditValuePerKg(formatComputedNumber(totalValueNumber / nextWeightNumber));
+		if (nextNetWeight && totalValueNumber) {
+			setEditValuePerKg(formatComputedNumber(totalValueNumber / nextNetWeight));
 		}
 	};
 
@@ -766,16 +802,33 @@ export default function Orders() {
 		setEditValuePerKg(nextValuePerKgValue);
 
 		const nextValuePerKgNumber = parsePositiveNumber(nextValuePerKgValue);
-		const weightNumber = parsePositiveNumber(editWeight);
+		const netWeight = getNetWeight(editWeight, editImpurityPercentage);
 		const totalValueNumber = parsePositiveNumber(editTotalValue);
 
-		if (nextValuePerKgNumber && weightNumber) {
-			setEditTotalValue(formatComputedNumber(weightNumber * nextValuePerKgNumber));
+		if (nextValuePerKgNumber && netWeight) {
+			setEditTotalValue(formatComputedNumber(netWeight * nextValuePerKgNumber));
 			return;
 		}
 
 		if (nextValuePerKgNumber && totalValueNumber) {
-			setEditWeight(formatComputedNumber(totalValueNumber / nextValuePerKgNumber));
+			setEditWeight(formatComputedNumber(getGrossWeightFromNet(totalValueNumber / nextValuePerKgNumber, editImpurityPercentage) || 0));
+		}
+	};
+
+	const handleEditImpurityChange = (nextImpurityValue) => {
+		setEditImpurityPercentage(nextImpurityValue);
+
+		const nextTotal = calculateTotalByImpurity(editWeight, editValuePerKg, nextImpurityValue);
+		if (nextTotal) {
+			setEditTotalValue(nextTotal);
+			return;
+		}
+
+		const totalValueNumber = parsePositiveNumber(editTotalValue);
+		const valuePerKgNumber = parsePositiveNumber(editValuePerKg);
+		if (totalValueNumber && valuePerKgNumber) {
+			const nextGrossWeight = getGrossWeightFromNet(totalValueNumber / valuePerKgNumber, nextImpurityValue);
+			if (nextGrossWeight) setEditWeight(formatComputedNumber(nextGrossWeight));
 		}
 	};
 
@@ -783,16 +836,16 @@ export default function Orders() {
 		setEditTotalValue(nextTotalValue);
 
 		const nextTotalValueNumber = parsePositiveNumber(nextTotalValue);
-		const weightNumber = parsePositiveNumber(editWeight);
+		const netWeight = getNetWeight(editWeight, editImpurityPercentage);
 		const valuePerKgNumber = parsePositiveNumber(editValuePerKg);
 
-		if (nextTotalValueNumber && weightNumber) {
-			setEditValuePerKg(formatComputedNumber(nextTotalValueNumber / weightNumber));
+		if (nextTotalValueNumber && netWeight) {
+			setEditValuePerKg(formatComputedNumber(nextTotalValueNumber / netWeight));
 			return;
 		}
 
 		if (nextTotalValueNumber && valuePerKgNumber) {
-			setEditWeight(formatComputedNumber(nextTotalValueNumber / valuePerKgNumber));
+			setEditWeight(formatComputedNumber(getGrossWeightFromNet(nextTotalValueNumber / valuePerKgNumber, editImpurityPercentage) || 0));
 		}
 	};
 
@@ -960,7 +1013,7 @@ export default function Orders() {
 			setEmployeeId(null);
 			setMaterialTypeId(null);
 			setMaterialsExtra([]);
-			setExtraMaterialName("");
+			setExtraMaterialTypeId(null);
 			setExtraMaterialWeight("");
 			setExtraMaterialImpurity("");
 			setExtraMaterialValuePerKg("");
@@ -1033,7 +1086,7 @@ export default function Orders() {
 							onSelect={setEmployeeId}
 						/>
 
-						{SupplierId && (
+						{SupplierId && pendingAdvances.length > 0 && (
 							<div className="md:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
 								<label className="flex items-start gap-2.5 cursor-pointer">
 									<input
@@ -1109,7 +1162,7 @@ export default function Orders() {
 									min="0"
 									max="100"
 									value={impurityPercentage}
-									onChange={(e) => setImpurityPercentage(e.target.value)}
+									onChange={(e) => handleImpurityChange(e.target.value)}
 									placeholder="Ex.: 2.5"
 									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 								/>
@@ -1156,8 +1209,9 @@ export default function Orders() {
 						<div className="md:col-span-2">
 							<MaterialsCard
 								materials={materialsExtra}
-								materialValue={extraMaterialName}
-								onMaterialChange={setExtraMaterialName}
+								materialOptions={materialTypeOptions}
+								selectedMaterialId={extraMaterialTypeId}
+								onMaterialSelect={setExtraMaterialTypeId}
 								weightValue={extraMaterialWeight}
 								onWeightChange={setExtraMaterialWeight}
 								onAdd={addMaterialExtra}
@@ -1275,6 +1329,10 @@ export default function Orders() {
 					{visiblePurchases.map((purchase) => {
 						const isHashTarget = hashId === purchase.id;
 						const isEditingThis = editingPurchaseId === purchase.id;
+						const purchaseNetWeight = getNetWeight(purchase.weight, purchase.impurityPercentage || 0);
+						const purchaseValuePerKg = purchaseNetWeight
+							? Number(purchase.value) / purchaseNetWeight
+							: 0;
 						return (
 							<div key={purchase.id}>
 								<button
@@ -1299,7 +1357,7 @@ export default function Orders() {
 										{purchase.materialsExtra?.length > 0 && (
 											<p><span className="text-gray-500">Materiais extras:</span> {formatExtraMaterialNames(purchase.materialsExtra)}</p>
 										)}
-										<p><span className="text-gray-500">Valor/kg:</span> {Number(purchase.valuePerKg || (Number(purchase.value) / Number(purchase.weight) || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+										<p><span className="text-gray-500">Valor/kg:</span> {purchaseValuePerKg.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 										<p><span className="text-gray-500">Impureza:</span> {Number(purchase.impurityPercentage || 0).toLocaleString("pt-BR")}%</p>
 										<p><span className="text-gray-500">Valor total:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 										{Number(purchase.advanceAbatementValue || 0) > 0 && (
@@ -1386,7 +1444,7 @@ export default function Orders() {
 															min="0"
 															max="100"
 															value={editImpurityPercentage}
-															onChange={(e) => setEditImpurityPercentage(e.target.value)}
+															onChange={(e) => handleEditImpurityChange(e.target.value)}
 															placeholder="Ex.: 2.5"
 															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 														/>
@@ -1433,8 +1491,9 @@ export default function Orders() {
 												<div className="md:col-span-2">
 													<MaterialsCard
 														materials={editMaterialsExtra}
-														materialValue={editExtraMaterialName}
-														onMaterialChange={setEditExtraMaterialName}
+														materialOptions={materialTypeOptions}
+														selectedMaterialId={editExtraMaterialTypeId}
+														onMaterialSelect={setEditExtraMaterialTypeId}
 														weightValue={editExtraMaterialWeight}
 														onWeightChange={setEditExtraMaterialWeight}
 														onAdd={addEditMaterialExtra}
