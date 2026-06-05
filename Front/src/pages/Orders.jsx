@@ -56,7 +56,7 @@ function formatComputedNumber(value) {
 	return value.toFixed(2);
 }
 
-function formatMixedMaterial(materialName, weightValue, impurityValue, valuePerKgValue) {
+function formatExtraMaterial(materialName, weightValue, impurityValue, valuePerKgValue) {
 	const percentage = Number(impurityValue);
 	const formattedPercentage = Number.isFinite(percentage)
 		? percentage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
@@ -72,36 +72,12 @@ function formatMixedMaterial(materialName, weightValue, impurityValue, valuePerK
 	return `${materialName.trim()} - ${formattedWeight} kg - ${formattedPercentage}% - ${formattedValuePerKg}/kg`;
 }
 
-function parseLocalizedNumber(value) {
-	const normalized = String(value || "").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
-	const parsed = Number(normalized);
-	return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function getMixedMaterialWeight(material) {
-	const match = String(material || "").match(/-\s*([\d.,]+)\s*kg\s*-/i);
-	return match ? parseLocalizedNumber(match[1]) : 0;
-}
-
-function getMixedMaterialValuePerKg(material) {
-	const match = String(material || "").match(/-\s*[^-]+%\s*-\s*(.+?)\/kg/i);
-	return match ? parseLocalizedNumber(match[1]) : 0;
-}
-
-function getMixedMaterialTotal(material) {
-	return getMixedMaterialWeight(material) * getMixedMaterialValuePerKg(material);
-}
-
-function getMixedMaterialName(material) {
+function getExtraMaterialName(material) {
 	return String(material || "").split(" - ")[0].trim();
 }
 
-function formatMixedMaterialNames(materials) {
-	return materials.map(getMixedMaterialName).filter(Boolean).join(" e ");
-}
-
-function isMixedLabel(label) {
-	return String(label || "").trim().toLowerCase().includes("mist");
+function formatExtraMaterialNames(materials) {
+	return materials.map(getExtraMaterialName).filter(Boolean).join(" e ");
 }
 
 function formatSupplierLabel(supplier) {
@@ -223,7 +199,7 @@ function MaterialsCard({
 				<div className="flex items-center gap-2">
 					<PackagePlus className="w-4 h-4 text-[#7b6024]" />
 					<span className="text-sm font-semibold text-[#4a3918]">
-						Materiais {materials.length > 0 ? `(${materials.length})` : "(obrigatorio para sucata mista)"}
+						Materiais extras {materials.length > 0 ? `(${materials.length})` : "(opcional)"}
 					</span>
 				</div>
 				{expanded ? <ChevronUp className="w-4 h-4 text-[#7b6024]" /> : <ChevronDown className="w-4 h-4 text-[#7b6024]" />}
@@ -256,7 +232,19 @@ function MaterialsCard({
 								min="0"
 								value={weightValue}
 								onChange={(event) => onWeightChange(event.target.value)}
-								placeholder="Ex.: 820"
+								placeholder="Ex.: 120"
+								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+							/>
+						</div>
+						<div>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor/kg (R$)</label>
+							<input
+								type="number"
+								step="0.01"
+								min="0"
+								value={valuePerKgValue}
+								onChange={(event) => onValuePerKgChange(event.target.value)}
+								placeholder="Ex.: 3.50"
 								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 							/>
 						</div>
@@ -270,18 +258,6 @@ function MaterialsCard({
 								value={impurityValue}
 								onChange={(event) => onImpurityChange(event.target.value)}
 								placeholder="Ex.: 5"
-								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-							/>
-						</div>
-						<div>
-							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor/kg (R$)</label>
-							<input
-								type="number"
-								step="0.01"
-								min="0"
-								value={valuePerKgValue}
-								onChange={(event) => onValuePerKgChange(event.target.value)}
-								placeholder="Ex.: 3.50"
 								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 							/>
 						</div>
@@ -307,7 +283,7 @@ function MaterialsCard({
 							))}
 						</div>
 					) : (
-						<p className="text-xs text-[#7b6024]">Nenhum material informado.</p>
+						<p className="text-xs text-[#7b6024]">Nenhum material extra informado.</p>
 					)}
 				</div>
 			)}
@@ -331,6 +307,7 @@ export default function Orders() {
 	const [weight, setWeight] = useState("");
 	const [valuePerKg, setValuePerKg] = useState("");
 	const [totalValue, setTotalValue] = useState("");
+	const [impurityPercentage, setImpurityPercentage] = useState("");
 	const [datetime, setDatetime] = useState(null);
 	const [attachments, setAttachments] = useState([]);
 	const [dragActive, setDragActive] = useState(false);
@@ -357,6 +334,7 @@ export default function Orders() {
 	const [editWeight, setEditWeight] = useState("");
 	const [editValuePerKg, setEditValuePerKg] = useState("");
 	const [editTotalValue, setEditTotalValue] = useState("");
+	const [editImpurityPercentage, setEditImpurityPercentage] = useState("");
 	const [editDatetime, setEditDatetime] = useState(null);
 	const [editAttachments, setEditAttachments] = useState([]);
 	const [editDragActive, setEditDragActive] = useState(false);
@@ -450,59 +428,6 @@ export default function Orders() {
 		return map;
 	}, [suppliers]);
 
-	const selectedMaterialType = materialTypeOptions.find((option) => option.id === materialTypeId);
-	const selectedEditMaterialType = materialTypeOptions.find((option) => option.id === editMaterialTypeId);
-	const isMixedMaterial = isMixedLabel(selectedMaterialType?.label);
-	const isEditMixedMaterial = isMixedLabel(selectedEditMaterialType?.label);
-	const mixedMaterialsWeight = useMemo(() => {
-		return materialsExtra.reduce((sum, material) => sum + getMixedMaterialWeight(material), 0);
-	}, [materialsExtra]);
-	const mixedMaterialsTotal = useMemo(() => {
-		return materialsExtra.reduce((sum, material) => sum + getMixedMaterialTotal(material), 0);
-	}, [materialsExtra]);
-	const editMixedMaterialsWeight = useMemo(() => {
-		return editMaterialsExtra.reduce((sum, material) => sum + getMixedMaterialWeight(material), 0);
-	}, [editMaterialsExtra]);
-	const editMixedMaterialsTotal = useMemo(() => {
-		return editMaterialsExtra.reduce((sum, material) => sum + getMixedMaterialTotal(material), 0);
-	}, [editMaterialsExtra]);
-
-	useEffect(() => {
-		if (isMixedMaterial) {
-			setTotalValue(formatComputedNumber(mixedMaterialsTotal));
-		}
-	}, [isMixedMaterial, mixedMaterialsTotal]);
-
-	useEffect(() => {
-		if (isEditMixedMaterial) {
-			setEditTotalValue(formatComputedNumber(editMixedMaterialsTotal));
-		}
-	}, [editMixedMaterialsTotal, isEditMixedMaterial]);
-
-	const handleMaterialTypeSelect = (nextMaterialTypeId) => {
-		setMaterialTypeId(nextMaterialTypeId);
-		const nextMaterialType = materialTypeOptions.find((option) => option.id === nextMaterialTypeId);
-		if (!isMixedLabel(nextMaterialType?.label)) {
-			setMaterialsExtra([]);
-			setExtraMaterialName("");
-			setExtraMaterialWeight("");
-			setExtraMaterialImpurity("");
-			setExtraMaterialValuePerKg("");
-		}
-	};
-
-	const handleEditMaterialTypeSelect = (nextMaterialTypeId) => {
-		setEditMaterialTypeId(nextMaterialTypeId);
-		const nextMaterialType = materialTypeOptions.find((option) => option.id === nextMaterialTypeId);
-		if (!isMixedLabel(nextMaterialType?.label)) {
-			setEditMaterialsExtra([]);
-			setEditExtraMaterialName("");
-			setEditExtraMaterialWeight("");
-			setEditExtraMaterialImpurity("");
-			setEditExtraMaterialValuePerKg("");
-		}
-	};
-
 	const selectedSupplier = SupplierId ? suppliersById.get(SupplierId) : null;
 	const totalPendingAdvanceValue = useMemo(() => {
 		return pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0);
@@ -529,11 +454,11 @@ export default function Orders() {
 		const impurityNumber = Number(impurity);
 		const valuePerKgNumber = Number(materialValuePerKg);
 		if (!materialName) {
-			setError("Informe o material.");
+			setError("Informe um material extra.");
 			return;
 		}
 		if (!materialWeight || !Number.isFinite(weightNumber) || weightNumber <= 0) {
-			setError("Informe um peso valido para o material.");
+			setError("Informe um peso valido para o material extra.");
 			return;
 		}
 		if (!impurity || !Number.isFinite(impurityNumber) || impurityNumber < 0 || impurityNumber > 100) {
@@ -541,20 +466,20 @@ export default function Orders() {
 			return;
 		}
 		if (!materialValuePerKg || !Number.isFinite(valuePerKgNumber) || valuePerKgNumber <= 0) {
-			setError("Informe um valor por kg valido para o material.");
+			setError("Informe um valor por kg valido para o material extra.");
 			return;
 		}
 		if (materialsExtra.some((item) => item.split(" - ")[0].toLowerCase() === materialName.toLowerCase())) {
-			setError("Esse material ja foi adicionado.");
+			setError("Esse material extra ja foi adicionado.");
 			return;
 		}
 		if (materialsExtra.length >= 3) {
-			setError("O limite de 3 materiais foi atingido.");
+			setError("O limite de 3 materiais extras foi atingido.");
 			return;
 		}
 
 		setError("");
-		setMaterialsExtra((prev) => [...prev, formatMixedMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
+		setMaterialsExtra((prev) => [...prev, formatExtraMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
 		setExtraMaterialName("");
 		setExtraMaterialWeight("");
 		setExtraMaterialImpurity("");
@@ -574,11 +499,11 @@ export default function Orders() {
 		const impurityNumber = Number(impurity);
 		const valuePerKgNumber = Number(materialValuePerKg);
 		if (!materialName) {
-			setEditError("Informe o material.");
+			setEditError("Informe um material extra.");
 			return;
 		}
 		if (!materialWeight || !Number.isFinite(weightNumber) || weightNumber <= 0) {
-			setEditError("Informe um peso valido para o material.");
+			setEditError("Informe um peso valido para o material extra.");
 			return;
 		}
 		if (!impurity || !Number.isFinite(impurityNumber) || impurityNumber < 0 || impurityNumber > 100) {
@@ -586,20 +511,20 @@ export default function Orders() {
 			return;
 		}
 		if (!materialValuePerKg || !Number.isFinite(valuePerKgNumber) || valuePerKgNumber <= 0) {
-			setEditError("Informe um valor por kg valido para o material.");
+			setEditError("Informe um valor por kg valido para o material extra.");
 			return;
 		}
 		if (editMaterialsExtra.some((item) => item.split(" - ")[0].toLowerCase() === materialName.toLowerCase())) {
-			setEditError("Esse material ja foi adicionado.");
+			setEditError("Esse material extra ja foi adicionado.");
 			return;
 		}
 		if (editMaterialsExtra.length >= 3) {
-			setEditError("O limite de 3 materiais foi atingido.");
+			setEditError("O limite de 3 materiais extras foi atingido.");
 			return;
 		}
 
 		setEditError("");
-		setEditMaterialsExtra((prev) => [...prev, formatMixedMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
+		setEditMaterialsExtra((prev) => [...prev, formatExtraMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
 		setEditExtraMaterialName("");
 		setEditExtraMaterialWeight("");
 		setEditExtraMaterialImpurity("");
@@ -813,6 +738,7 @@ export default function Orders() {
 				: null);
 		setEditValuePerKg(purchaseValuePerKg ? String(purchaseValuePerKg) : "");
 		setEditTotalValue(purchase.value || "");
+		setEditImpurityPercentage(purchase.impurityPercentage || "");
 		setEditDatetime(safeDate);
 		setEditAttachments([...(purchase.attachmentNames || [])]);
 		setEditError("");
@@ -909,23 +835,22 @@ export default function Orders() {
 			return;
 		}
 
-		if (isEditMixedMaterial && editMaterialsExtra.length === 0) {
-			setEditError("Adicione pelo menos um material para sucata mista.");
-			return;
-		}
-
-		if (!isEditMixedMaterial && (!editWeight || Number(editWeight) <= 0)) {
+		if (!editWeight || Number(editWeight) <= 0) {
 			setEditError("Informe um peso valido.");
 			return;
 		}
 
-		if (!isEditMixedMaterial && (!editValuePerKg || Number(editValuePerKg) <= 0)) {
+		if (!editValuePerKg || Number(editValuePerKg) <= 0) {
 			setEditError("Informe um valor por kg valido.");
 			return;
 		}
 
-		const editTotalForSubmit = isEditMixedMaterial ? formatComputedNumber(editMixedMaterialsTotal) : editTotalValue;
-		if (!editTotalForSubmit || Number(editTotalForSubmit) <= 0) {
+		if (Number(editImpurityPercentage || 0) < 0 || Number(editImpurityPercentage || 0) > 100) {
+			setEditError("Informe uma impureza entre 0 e 100%.");
+			return;
+		}
+
+		if (!editTotalValue || Number(editTotalValue) <= 0) {
 			setEditError("Informe um valor total valido.");
 			return;
 		}
@@ -945,10 +870,10 @@ export default function Orders() {
 				supplier_id: editSupplierId,
 				employee_id: editEmployeeId,
 				material_type_id: editMaterialTypeId,
-				material_types_extra: isEditMixedMaterial ? editMaterialsExtra : [],
-				impurity_percentage: 0,
-				weight: isEditMixedMaterial ? formatComputedNumber(editMixedMaterialsWeight) : editWeight,
-				value: editTotalForSubmit,
+				material_types_extra: editMaterialsExtra,
+				impurity_percentage: editImpurityPercentage || 0,
+				weight: editWeight,
+				value: editTotalValue,
 				purchase_datetime: formatDateTimeForApi(editDatetime),
 			});
 
@@ -981,23 +906,22 @@ export default function Orders() {
 			return;
 		}
 
-		if (isMixedMaterial && materialsExtra.length === 0) {
-			setError("Adicione pelo menos um material para sucata mista.");
-			return;
-		}
-
-		if (!isMixedMaterial && (!weight || Number(weight) <= 0)) {
+		if (!weight || Number(weight) <= 0) {
 			setError("Informe um peso valido.");
 			return;
 		}
 
-		if (!isMixedMaterial && (!valuePerKg || Number(valuePerKg) <= 0)) {
+		if (!valuePerKg || Number(valuePerKg) <= 0) {
 			setError("Informe um valor por kg valido.");
 			return;
 		}
 
-		const totalForSubmit = isMixedMaterial ? formatComputedNumber(mixedMaterialsTotal) : totalValue;
-		if (!totalForSubmit || Number(totalForSubmit) <= 0) {
+		if (Number(impurityPercentage || 0) < 0 || Number(impurityPercentage || 0) > 100) {
+			setError("Informe uma impureza entre 0 e 100%.");
+			return;
+		}
+
+		if (!totalValue || Number(totalValue) <= 0) {
 			setError("Informe um valor total valido.");
 			return;
 		}
@@ -1019,10 +943,10 @@ export default function Orders() {
 				supplier_id: SupplierId,
 				employee_id: employeeId,
 				material_type_id: materialTypeId,
-				material_types_extra: isMixedMaterial ? materialsExtra : [],
-				impurity_percentage: 0,
-				weight: isMixedMaterial ? formatComputedNumber(mixedMaterialsWeight) : weight,
-				value: totalForSubmit,
+				material_types_extra: materialsExtra,
+				impurity_percentage: impurityPercentage || 0,
+				weight,
+				value: totalValue,
 				purchase_datetime: formatDateTimeForApi(datetime),
 					apply_advance: applyAdvance,
 				},
@@ -1043,6 +967,7 @@ export default function Orders() {
 			setWeight("");
 			setValuePerKg("");
 			setTotalValue("");
+			setImpurityPercentage("");
 			setDatetime(null);
 			setAttachments([]);
 			setPendingAdvances([]);
@@ -1138,14 +1063,57 @@ export default function Orders() {
 							</div>
 						)}
 
-						<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+						<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-6 gap-3">
 							<SearchSelect
 								label="Tipo de sucata"
 								placeholder="Pesquisar tipo de sucata..."
 								options={materialTypeOptions}
 								selectedId={materialTypeId}
-								onSelect={handleMaterialTypeSelect}
+								onSelect={setMaterialTypeId}
 							/>
+
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
+								<div className="relative">
+									<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+									<input
+										type="number"
+										step="0.01"
+										min="0"
+										value={weight}
+										onChange={(e) => handleWeightChange(e.target.value)}
+										placeholder="Ex.: 820"
+										className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
+									/>
+								</div>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
+								<input
+									type="number"
+									step="0.01"
+									min="0"
+									value={valuePerKg}
+									onChange={(e) => handleValuePerKgChange(e.target.value)}
+									placeholder="Valor por kg"
+									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Impureza (%)</label>
+								<input
+									type="number"
+									step="0.01"
+									min="0"
+									max="100"
+									value={impurityPercentage}
+									onChange={(e) => setImpurityPercentage(e.target.value)}
+									placeholder="Ex.: 2.5"
+									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+								/>
+							</div>
 
 							<div>
 								<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor total (R$) *</label>
@@ -1156,8 +1124,7 @@ export default function Orders() {
 									value={totalValue}
 									onChange={(e) => handleTotalValueChange(e.target.value)}
 									placeholder="Valor total"
-									readOnly={isMixedMaterial}
-									className={`w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] ${isMixedMaterial ? "bg-amber-50/60 text-[#4a3918]" : "bg-white"}`}
+									className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 								/>
 							</div>
 
@@ -1186,41 +1153,7 @@ export default function Orders() {
 							</div>
 						</div>
 
-						{!isMixedMaterial && materialTypeId && (
-							<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-								<div>
-									<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
-									<div className="relative">
-										<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-										<input
-											type="number"
-											step="0.01"
-											min="0"
-											value={weight}
-											onChange={(e) => handleWeightChange(e.target.value)}
-											placeholder="Ex.: 820"
-											className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
-										/>
-									</div>
-								</div>
-
-								<div>
-									<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
-									<input
-										type="number"
-										step="0.01"
-										min="0"
-										value={valuePerKg}
-										onChange={(e) => handleValuePerKgChange(e.target.value)}
-										placeholder="Valor por kg"
-										className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-									/>
-								</div>
-							</div>
-						)}
-
-						{isMixedMaterial && (
-							<div className="md:col-span-2">
+						<div className="md:col-span-2">
 							<MaterialsCard
 								materials={materialsExtra}
 								materialValue={extraMaterialName}
@@ -1234,8 +1167,7 @@ export default function Orders() {
 								valuePerKgValue={extraMaterialValuePerKg}
 								onValuePerKgChange={setExtraMaterialValuePerKg}
 							/>
-							</div>
-						)}
+						</div>
 					</div>
 
 					<div>
@@ -1365,11 +1297,10 @@ export default function Orders() {
 										<p><span className="text-gray-500">Peso:</span> {purchase.weight} kg</p>
 										<p><span className="text-gray-500">Tipo de sucata:</span> {materialTypeOptions.find((t) => t.id === purchase.materialTypeId)?.label || purchase.materialTypeName || "Nao especificado"}</p>
 										{purchase.materialsExtra?.length > 0 && (
-											<p><span className="text-gray-500">Materiais:</span> {formatMixedMaterialNames(purchase.materialsExtra)}</p>
+											<p><span className="text-gray-500">Materiais extras:</span> {formatExtraMaterialNames(purchase.materialsExtra)}</p>
 										)}
-										{!purchase.materialsExtra?.length && (
-											<p><span className="text-gray-500">Valor/kg:</span> {Number(purchase.valuePerKg || (Number(purchase.value) / Number(purchase.weight) || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
-										)}
+										<p><span className="text-gray-500">Valor/kg:</span> {Number(purchase.valuePerKg || (Number(purchase.value) / Number(purchase.weight) || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+										<p><span className="text-gray-500">Impureza:</span> {Number(purchase.impurityPercentage || 0).toLocaleString("pt-BR")}%</p>
 										<p><span className="text-gray-500">Valor total:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 										{Number(purchase.advanceAbatementValue || 0) > 0 && (
 											<p><span className="text-gray-500">Abatido:</span> {formatMoney(purchase.advanceAbatementValue)}</p>
@@ -1409,14 +1340,57 @@ export default function Orders() {
 													onSelect={setEditEmployeeId}
 												/>
 
-												<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+												<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-6 gap-3">
 													<SearchSelect
 														label="Tipo de sucata"
 														placeholder="Pesquisar tipo de sucata..."
 														options={materialTypeOptions}
 														selectedId={editMaterialTypeId}
-														onSelect={handleEditMaterialTypeSelect}
+														onSelect={setEditMaterialTypeId}
 													/>
+
+													<div>
+														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
+														<div className="relative">
+															<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+															<input
+																type="number"
+																step="0.01"
+																min="0"
+																value={editWeight}
+																onChange={(e) => handleEditWeightChange(e.target.value)}
+																placeholder="Ex.: 820"
+																className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
+															/>
+														</div>
+													</div>
+
+													<div>
+														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
+														<input
+															type="number"
+															step="0.01"
+															min="0"
+															value={editValuePerKg}
+															onChange={(e) => handleEditValuePerKgChange(e.target.value)}
+															placeholder="Valor por kg"
+															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+														/>
+													</div>
+
+													<div>
+														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Impureza (%)</label>
+														<input
+															type="number"
+															step="0.01"
+															min="0"
+															max="100"
+															value={editImpurityPercentage}
+															onChange={(e) => setEditImpurityPercentage(e.target.value)}
+															placeholder="Ex.: 2.5"
+															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+														/>
+													</div>
 
 													<div>
 														<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor total (R$) *</label>
@@ -1427,8 +1401,7 @@ export default function Orders() {
 															value={editTotalValue}
 															onChange={(e) => handleEditTotalValueChange(e.target.value)}
 															placeholder="Valor total"
-															readOnly={isEditMixedMaterial}
-															className={`w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] ${isEditMixedMaterial ? "bg-amber-50/60 text-[#4a3918]" : "bg-white"}`}
+															className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 														/>
 													</div>
 
@@ -1457,56 +1430,21 @@ export default function Orders() {
 													</div>
 												</div>
 
-												{!isEditMixedMaterial && editMaterialTypeId && (
-													<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-														<div>
-															<label className="block text-sm font-medium mb-1 text-[#4a3918]">Peso (kg) *</label>
-															<div className="relative">
-																<Scale className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-																<input
-																	type="number"
-																	step="0.01"
-																	min="0"
-																	value={editWeight}
-																	onChange={(e) => handleEditWeightChange(e.target.value)}
-																	placeholder="Ex.: 820"
-																	className="w-full h-11 pl-9 pr-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f] placeholder:text-gray-400"
-																/>
-															</div>
-														</div>
-
-														<div>
-															<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor por kg (R$) *</label>
-															<input
-																type="number"
-																step="0.01"
-																min="0"
-																value={editValuePerKg}
-																onChange={(e) => handleEditValuePerKgChange(e.target.value)}
-																placeholder="Valor por kg"
-																className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-															/>
-														</div>
-													</div>
-												)}
-
-												{isEditMixedMaterial && (
-													<div className="md:col-span-2">
-														<MaterialsCard
-															materials={editMaterialsExtra}
-															materialValue={editExtraMaterialName}
-															onMaterialChange={setEditExtraMaterialName}
-															weightValue={editExtraMaterialWeight}
-															onWeightChange={setEditExtraMaterialWeight}
-															onAdd={addEditMaterialExtra}
-															onRemove={removeEditMaterialExtra}
-															impurityValue={editExtraMaterialImpurity}
-															onImpurityChange={setEditExtraMaterialImpurity}
-															valuePerKgValue={editExtraMaterialValuePerKg}
-															onValuePerKgChange={setEditExtraMaterialValuePerKg}
-														/>
-													</div>
-												)}
+												<div className="md:col-span-2">
+													<MaterialsCard
+														materials={editMaterialsExtra}
+														materialValue={editExtraMaterialName}
+														onMaterialChange={setEditExtraMaterialName}
+														weightValue={editExtraMaterialWeight}
+														onWeightChange={setEditExtraMaterialWeight}
+														onAdd={addEditMaterialExtra}
+														onRemove={removeEditMaterialExtra}
+														impurityValue={editExtraMaterialImpurity}
+														onImpurityChange={setEditExtraMaterialImpurity}
+														valuePerKgValue={editExtraMaterialValuePerKg}
+														onValuePerKgChange={setEditExtraMaterialValuePerKg}
+													/>
+												</div>
 											</div>
 
 											<div>
