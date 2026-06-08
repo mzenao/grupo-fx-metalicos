@@ -1,3 +1,6 @@
+import json
+import re
+
 from flask import Blueprint, g, request
 
 from app.middlewares.auth_middleware import login_required
@@ -48,6 +51,64 @@ def _format_weight_kg(value) -> str:
 	return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def _parse_decimal_from_text(value: str) -> float | None:
+	cleaned = re.sub(r"[^\d,.-]", "", str(value or "")).strip()
+	if not cleaned:
+		return None
+	if "," in cleaned:
+		cleaned = cleaned.replace(".", "").replace(",", ".")
+	try:
+		return float(cleaned)
+	except ValueError:
+		return None
+
+
+def _format_material_line(name: str, weight, paid_value) -> str:
+	return f"• {name}: {_format_weight_kg(weight)} kg | Valor pago: R$ {_format_brl(paid_value)}"
+
+
+def _parse_extra_material_line(raw_material: str) -> str:
+	parts = [part.strip() for part in str(raw_material or "").split(" - ") if part.strip()]
+	if not parts:
+		return ""
+
+	name = parts[0]
+	weight = _parse_decimal_from_text(parts[1]) if len(parts) > 1 else None
+	impurity = _parse_decimal_from_text(parts[2]) if len(parts) > 2 else 0
+	value_per_kg = _parse_decimal_from_text(parts[3]) if len(parts) > 3 else None
+
+	if weight is None or value_per_kg is None:
+		return f"• {name}"
+
+	net_weight = weight * (1 - max(0, min(impurity or 0, 100)) / 100)
+	return _format_material_line(name, weight, net_weight * value_per_kg)
+
+
+def _get_extra_materials(raw_extra: str | None) -> list[str]:
+	raw = str(raw_extra or "").strip()
+	if not raw.startswith("["):
+		return []
+	try:
+		decoded = json.loads(raw)
+	except (TypeError, ValueError, json.JSONDecodeError):
+		return []
+	if not isinstance(decoded, list):
+		return []
+	return [str(item).strip() for item in decoded if str(item).strip()]
+
+
+def _build_purchase_materials_summary(purchase) -> str:
+	main_material = purchase.material_type.label if purchase.material_type else "Material principal"
+	lines = [_format_material_line(main_material, purchase.weight, purchase.value)]
+
+	for extra_material in _get_extra_materials(getattr(purchase, "material_types_extra", None)):
+		line = _parse_extra_material_line(extra_material)
+		if line:
+			lines.append(line)
+
+	return "Materiais da compra:\n" + "\n".join(lines)
+
+
 def _build_portal_access_line() -> str:
 	return f"Você pode acessar as informacoes da sua venda em nosso site: {PORTAL_URL}"
 
@@ -87,6 +148,7 @@ def _build_purchase_notification_message(purchase) -> str:
 
 	value_text = _format_brl(purchase.value)
 	date_text = _format_purchase_datetime(purchase.purchase_datetime)
+	materials_summary = _build_purchase_materials_summary(purchase)
 	advance_abatement_value = float(getattr(purchase, "advance_abatement_value", 0) or 0)
 	advance_credit_after = float(getattr(purchase, "advance_credit_after", 0) or 0)
 	has_advance_balance_change = advance_abatement_value > 0 or advance_credit_after > 0
@@ -105,6 +167,7 @@ def _build_purchase_notification_message(purchase) -> str:
 			f"• Valor pago: R$ {value_text}\n"
 			f"• Valor pago por kg: R$ {_format_brl(purchase.value_per_kg)}\n"
 			f"• Peso total (kg): {_format_weight_kg(purchase.weight)}\n"
+			f"{materials_summary}\n"
 			f"• Valor abatido no adiantamento: R$ {_format_brl(advance_abatement_value)}\n"
 			f"{credit_line}"
 			f"• Data: {date_text}\n\n"
@@ -126,6 +189,7 @@ def _build_purchase_notification_message(purchase) -> str:
 		f"• Valor pago: R$ {value_text}\n"
 		f"• Valor pago por kg: R$ {_format_brl(purchase.value_per_kg)}\n"
 		f"• Peso total (kg): {_format_weight_kg(purchase.weight)}\n"
+		f"{materials_summary}\n"
 		f"• Data: {date_text}\n\n"
 		"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
 		"• Comprovante de pagamento\n"

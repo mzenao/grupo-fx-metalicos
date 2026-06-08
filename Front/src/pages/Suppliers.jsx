@@ -7,6 +7,7 @@ import {
 	ContactRound,
 	Phone,
 	Mail,
+	KeyRound,
 	ChevronDown,
 	ChevronUp,
 } from "lucide-react";
@@ -430,9 +431,16 @@ export default function Suppliers() {
 													<p className="font-medium text-gray-800 break-all">{supplier.email || "-"}</p>
 												</div>
 
-												<div>
-													<p className="text-xs text-gray-500">Chave Pix</p>
-													<p className="font-medium text-gray-800">{formatSupplierPix(supplier) || "-"}</p>
+												<div className="md:col-span-2 rounded-xl border border-[#d6ab4a]/35 bg-white/75 p-3">
+													<div className="flex items-start gap-3">
+														<div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#f5e7c0] text-[#7b6024]">
+															<KeyRound className="h-4 w-4" />
+														</div>
+														<div className="min-w-0">
+															<p className="text-xs font-semibold uppercase tracking-wide text-[#7b6024]">Chave Pix</p>
+															<p className="mt-1 break-all text-base font-semibold text-[#4a3918]">{formatSupplierPix(supplier) || "-"}</p>
+														</div>
+													</div>
 												</div>
 
 												<div>
