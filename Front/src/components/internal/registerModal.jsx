@@ -85,6 +85,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
     cpf: "",
     cnpj: "",
     vehiclePlate: "",
+    needsFob: false,
     ...emptyAddressFields(),
     email: "",
     phone: "",
@@ -103,6 +104,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleAddExtraPlate = () => {
+    if (form.needsFob) return;
     const nextPlate = normalizePlate(form.extraPlateInput);
     if (!nextPlate) {
       setError("Informe uma placa adicional.");
@@ -197,13 +199,13 @@ export default function RegisterModal({ onClose, onSuccess }) {
       return;
     }
 
-    if (!form.vehiclePlate.trim()) {
+    if (!form.needsFob && !form.vehiclePlate.trim()) {
       setError("Placa do veículo é obrigatória.");
       return;
     }
 
-    const normalizedMainPlate = normalizePlate(form.vehiclePlate);
-    const normalizedExtraPlates = (form.vehiclePlatesExtra || []).map((plate) => normalizePlate(plate)).filter(Boolean);
+    const normalizedMainPlate = form.needsFob ? "FOB" : normalizePlate(form.vehiclePlate);
+    const normalizedExtraPlates = form.needsFob ? [] : (form.vehiclePlatesExtra || []).map((plate) => normalizePlate(plate)).filter(Boolean);
     if (normalizedExtraPlates.length > 3) {
       setError("O limite de 3 placas adicionais foi atingido.");
       return;
@@ -263,7 +265,8 @@ export default function RegisterModal({ onClose, onSuccess }) {
         company_name: form.personType === "PJ" ? form.companyName : null,
         cpf: form.personType === "PF" ? form.cpf : null,
         cnpj: form.personType === "PJ" ? form.cnpj : null,
-        vehicle_plate: form.vehiclePlate,
+        vehicle_plate: normalizedMainPlate,
+        needs_fob: Boolean(form.needsFob),
         vehicle_plates_extra: JSON.stringify(normalizedExtraPlates),
         rua: form.rua,
         numero: form.numero,
@@ -404,15 +407,35 @@ export default function RegisterModal({ onClose, onSuccess }) {
               )}
 
               <div className="md:col-span-2 space-y-3">
+                <label className="inline-flex items-center gap-2 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/25 px-3 py-2 text-sm font-semibold text-[#4a3918]">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.needsFob)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setForm((prev) => ({
+                        ...prev,
+                        needsFob: checked,
+                        vehiclePlate: checked ? "FOB" : "",
+                        vehiclePlatesExtra: checked ? [] : prev.vehiclePlatesExtra,
+                        extraPlateInput: "",
+                      }));
+                    }}
+                    className="h-4 w-4 rounded border-[#d6ab4a] accent-[#b8891f]"
+                  />
+                  Preciso de FOB
+                </label>
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                   <div className="md:col-span-2">
-                    <Field label="Placa do Veículo *">
+                    <Field label={`Placa do Veículo ${form.needsFob ? "" : "*"}`}>
                       <input
                         type="text"
+                        disabled={form.needsFob}
                         placeholder="Placa do Veículo"
                         value={form.vehiclePlate}
                         onChange={(e) => set("vehiclePlate", normalizePlate(e.target.value))}
-                        className={fieldInputClass}
+                        className={`${fieldInputClass} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500`}
                       />
                     </Field>
                   </div>
@@ -424,13 +447,14 @@ export default function RegisterModal({ onClose, onSuccess }) {
                         placeholder="Digite a placa adicional"
                         value={form.extraPlateInput}
                         onChange={(e) => set("extraPlateInput", normalizePlate(e.target.value))}
+                        disabled={form.needsFob}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
                             handleAddExtraPlate();
                           }
                         }}
-                        className={fieldInputClass}
+                        className={`${fieldInputClass} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500`}
                       />
                     </Field>
                   </div>
@@ -440,7 +464,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
                     <Button
                       type="button"
                       onClick={handleAddExtraPlate}
-                      disabled={!form.extraPlateInput.trim() || !canAddExtra}
+                      disabled={form.needsFob || !form.extraPlateInput.trim() || !canAddExtra}
                       className="w-full h-12 bg-[#b8891f] text-white hover:brightness-105 disabled:opacity-50"
                     >
                       Adicionar

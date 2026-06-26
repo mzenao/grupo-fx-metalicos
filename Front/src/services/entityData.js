@@ -45,6 +45,8 @@ function mapSupplierFromApi(item) {
   const defaultPixType = item.is_pf ? "cpf" : "cnpj";
   const pixKeyType = (item.pix_key_type || defaultPixType || "").toLowerCase();
   const vehiclePlatesExtra = parseVehiclePlatesExtra(item.vehicle_plates_extra);
+  const vehiclePlate = normalizePlate(item.vehicle_plate);
+  const needsFob = Boolean(item.needs_fob) || vehiclePlate === "FOB";
 
   return {
     id: item.id,
@@ -55,8 +57,9 @@ function mapSupplierFromApi(item) {
     companyName: item.company_name || "",
     cpf: item.cpf || "",
     cnpj: item.cnpj || "",
-    vehiclePlate: normalizePlate(item.vehicle_plate),
-    vehiclePlatesExtra,
+    vehiclePlate,
+    needsFob,
+    vehiclePlatesExtra: needsFob ? [] : vehiclePlatesExtra,
     referenceAddress: item.reference_address || item.endereco_unificado || "",
     rua: item.rua || "",
     numero: item.numero || "",
@@ -92,8 +95,9 @@ function mapSupplierToApi(payload) {
     : isPf
       ? "cpf"
       : "cnpj";
-  const mainPlate = normalizePlate(payload.vehiclePlate);
-  const extraPlates = parseVehiclePlatesExtra(payload.vehiclePlatesExtra);
+  const needsFob = Boolean(payload.needsFob);
+  const mainPlate = needsFob ? "FOB" : normalizePlate(payload.vehiclePlate);
+  const extraPlates = needsFob ? [] : parseVehiclePlatesExtra(payload.vehiclePlatesExtra);
 
   return {
     is_pf: isPf,
@@ -102,6 +106,7 @@ function mapSupplierToApi(payload) {
     cpf: isPf ? payload.cpf : null,
     cnpj: isPf ? null : payload.cnpj,
     vehicle_plate: mainPlate,
+    needs_fob: needsFob,
     vehicle_plates_extra: JSON.stringify(extraPlates),
     rua: payload.rua,
     numero: payload.numero,

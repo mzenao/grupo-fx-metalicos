@@ -445,7 +445,7 @@ export default function Suppliers() {
 
 												<div>
 													<p className="text-xs text-gray-500">Placa do veiculo</p>
-													<p className="font-medium text-gray-800">{supplier.vehiclePlate || "-"}</p>
+													<p className="font-medium text-gray-800">{supplier.needsFob ? "Preciso de FOB" : supplier.vehiclePlate || "-"}</p>
 												</div>
 
 												<div className="md:col-span-2">

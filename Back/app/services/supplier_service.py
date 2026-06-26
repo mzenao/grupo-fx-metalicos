@@ -20,6 +20,7 @@ from app.utils.validators import (
 
 MAX_SUPPLIER_PLATES = 4
 MAX_EXTRA_SUPPLIER_PLATES = 3
+FOB_PLATE_VALUE = "FOB"
 
 
 def _normalize_plate_value(value: str | None) -> str | None:
@@ -27,6 +28,29 @@ def _normalize_plate_value(value: str | None) -> str | None:
 	if not plate:
 		return None
 	return plate.replace(" ", "").upper()
+
+
+def _is_truthy(value) -> bool:
+	if isinstance(value, bool):
+		return value
+	if value is None:
+		return False
+	return str(value).strip().lower() in {"1", "true", "yes", "on", "sim", "s"}
+
+
+def _is_fob_plate(plate: str | None) -> bool:
+	return _normalize_plate_value(plate) == FOB_PLATE_VALUE
+
+
+def _resolve_vehicle_plate_fields(payload: dict, current_plate: str | None = None, current_extra=None) -> tuple[str | None, list[str]]:
+	raw_plate = payload.get("vehicle_plate", current_plate)
+	plate = _normalize_plate_value(raw_plate)
+	needs_fob = _is_truthy(payload.get("needs_fob")) or _is_truthy(payload.get("preciso_fob")) or _is_fob_plate(plate)
+	if needs_fob:
+		return FOB_PLATE_VALUE, []
+
+	extra_source = payload.get("vehicle_plates_extra", current_extra)
+	return plate, _parse_vehicle_plates_extra(extra_source)
 
 
 def _parse_vehicle_plates_extra(raw_value) -> list[str]:
@@ -87,6 +111,8 @@ def _serialize_vehicle_plates_extra(extra_plates: list[str]) -> str:
 
 
 def _validate_plate_format(plate: str | None) -> None:
+	if _is_fob_plate(plate):
+		return
 	if not plate:
 		raise ValueError("Placa do veículo é obrigatória")
 	if not is_valid_vehicle_plate(plate):
@@ -106,7 +132,7 @@ def _validate_unique_supplier_plates(
 	extra_plates: list[str],
 	exclude_supplier_id: int | None = None,
 ) -> None:
-	all_plates = [plate for plate in [main_plate, *extra_plates] if plate]
+	all_plates = [plate for plate in [main_plate, *extra_plates] if plate and not _is_fob_plate(plate)]
 	if not all_plates:
 		return
 
@@ -117,7 +143,7 @@ def _validate_unique_supplier_plates(
 	for supplier in query.all():
 		other_plates: set[str] = set()
 		other_main = _normalize_plate_value(supplier.vehicle_plate)
-		if other_main:
+		if other_main and not _is_fob_plate(other_main):
 			other_plates.add(other_main)
 		for plate in _parse_vehicle_plates_extra(supplier.vehicle_plates_extra):
 			other_plates.add(plate)
@@ -254,7 +280,7 @@ def _validate_unique_supplier_fields(
 		if query.first():
 			raise ValueError("Telefone já cadastrado")
 
-	if plate:
+	if plate and not _is_fob_plate(plate):
 		query = Supplier.query.filter(Supplier.vehicle_plate == plate)
 		if exclude_supplier_id is not None:
 			query = query.filter(Supplier.id != exclude_supplier_id)
@@ -297,8 +323,7 @@ def create_supplier(payload: dict) -> Supplier:
 		raise ValueError(str(document_errors))
 
 	phone = normalize_string(payload.get("phone"))
-	plate = _normalize_plate_value(payload.get("vehicle_plate"))
-	extra_plates = _parse_vehicle_plates_extra(payload.get("vehicle_plates_extra"))
+	plate, extra_plates = _resolve_vehicle_plate_fields(payload)
 	email_from_payload = normalize_string(payload.get("email"))
 	if not is_valid_phone(phone):
 		raise ValueError("Telefone inválido")
@@ -418,9 +443,7 @@ def update_supplier(supplier_id: int, payload: dict) -> Supplier:
 		supplier.name = name
 
 	phone = normalize_string(payload.get("phone", supplier.phone))
-	plate = _normalize_plate_value(payload.get("vehicle_plate", supplier.vehicle_plate))
-	extra_plates_raw = payload.get("vehicle_plates_extra", supplier.vehicle_plates_extra)
-	extra_plates = _parse_vehicle_plates_extra(extra_plates_raw)
+	plate, extra_plates = _resolve_vehicle_plate_fields(payload, supplier.vehicle_plate, supplier.vehicle_plates_extra)
 	if not is_valid_phone(phone):
 		raise ValueError("Telefone inválido")
 	_validate_plate_format(plate)
@@ -509,4 +532,3 @@ def delete_supplier(supplier_id: int) -> None:
 	if user:
 		db.session.delete(user)
 	db.session.commit()
-

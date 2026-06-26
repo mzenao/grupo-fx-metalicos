@@ -76,12 +76,17 @@ def _parse_extra_material_line(raw_material: str) -> str:
 	weight = _parse_decimal_from_text(parts[1]) if len(parts) > 1 else None
 	impurity = _parse_decimal_from_text(parts[2]) if len(parts) > 2 else 0
 	value_per_kg = _parse_decimal_from_text(parts[3]) if len(parts) > 3 else None
+	total_value = _parse_decimal_from_text(parts[4]) if len(parts) > 4 else None
 
-	if weight is None or value_per_kg is None:
+	if weight is None:
 		return f"• {name}"
 
-	net_weight = weight * (1 - max(0, min(impurity or 0, 100)) / 100)
-	return _format_material_line(name, weight, net_weight * value_per_kg)
+	if total_value is None:
+		if value_per_kg is None:
+			return f"• {name}"
+		net_weight = weight * (1 - max(0, min(impurity or 0, 100)) / 100)
+		total_value = net_weight * value_per_kg
+	return _format_material_line(name, weight, total_value)
 
 
 def _get_extra_materials(raw_extra: str | None) -> list[str]:
@@ -352,6 +357,8 @@ def send_purchase_comprovantes_route(purchase_id: int):
 	if supplier_email:
 		try:
 			email_attachments = _build_email_attachments(purchase)
+			if not email_attachments:
+				raise ValueError("Nenhum comprovante resolvido para envio por e-mail")
 			resend.send_email_with_attachments(
 				to_email=supplier_email,
 				subject=_build_purchase_receipt_subject(purchase),
@@ -372,4 +379,3 @@ def send_purchase_comprovantes_route(purchase_id: int):
 		},
 		200,
 	)
-

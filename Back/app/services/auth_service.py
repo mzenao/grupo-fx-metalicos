@@ -178,6 +178,7 @@ def get_me(user: User) -> dict:
 			"cpf": supplier.cpf,
 			"cnpj": supplier.cnpj,
 			"vehicle_plate": supplier_data.get("vehicle_plate"),
+			"needs_fob": supplier_data.get("needs_fob", False),
 			"vehicle_plates_extra": supplier_data.get("vehicle_plates_extra", []),
 			"reference_address": supplier.reference_address or supplier.endereco_unificado,
 			"endereco_unificado": supplier.endereco_unificado or supplier.reference_address,
@@ -356,4 +357,3 @@ def update_me(user: User, payload: dict) -> dict:
 
 	db.session.commit()
 	return get_me(user)
-

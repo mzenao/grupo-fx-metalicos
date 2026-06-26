@@ -80,8 +80,12 @@ class ZapiService:
         return payload
 
     def send_text_message(self, phone: str, message: str):
+        normalized_phone = formatar_numero_br(phone or "")
+        if not normalized_phone:
+            raise ValueError("Telefone inválido para envio")
+
         payload = {
-            "phone": phone,
+            "phone": normalized_phone,
             "message": message
         }
 

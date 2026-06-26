@@ -80,7 +80,7 @@ function getGrossWeightFromNet(netWeightValue, impurityValue) {
 	return netWeight / multiplier;
 }
 
-function formatExtraMaterial(materialName, weightValue, impurityValue, valuePerKgValue) {
+function formatExtraMaterial(materialName, weightValue, impurityValue, valuePerKgValue, totalValue) {
 	const percentage = Number(impurityValue);
 	const formattedPercentage = Number.isFinite(percentage)
 		? percentage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
@@ -93,7 +93,11 @@ function formatExtraMaterial(materialName, weightValue, impurityValue, valuePerK
 	const formattedValuePerKg = Number.isFinite(valuePerKg)
 		? valuePerKg.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 		: String(valuePerKgValue || "").trim();
-	return `${materialName.trim()} - ${formattedWeight} kg - ${formattedPercentage}% - ${formattedValuePerKg}/kg`;
+	const total = Number(totalValue);
+	const formattedTotal = Number.isFinite(total)
+		? total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+		: String(totalValue || "").trim();
+	return `${materialName.trim()} - ${formattedWeight} kg - ${formattedPercentage}% - ${formattedValuePerKg}/kg - ${formattedTotal}`;
 }
 
 function getExtraMaterialName(material) {
@@ -209,6 +213,8 @@ function MaterialsCard({
 	onImpurityChange,
 	valuePerKgValue,
 	onValuePerKgChange,
+	totalValue,
+	onTotalChange,
 	onAdd,
 	onRemove,
 }) {
@@ -232,7 +238,7 @@ function MaterialsCard({
 
 			{expanded && (
 				<div className="px-4 pb-4 space-y-3">
-					<div className="grid grid-cols-1 md:grid-cols-[minmax(220px,1.4fr)_minmax(120px,.7fr)_minmax(110px,.55fr)_minmax(140px,.8fr)_auto] gap-3 items-end">
+					<div className="grid grid-cols-1 md:grid-cols-[minmax(200px,1.3fr)_minmax(105px,.55fr)_minmax(92px,.42fr)_minmax(110px,.55fr)_minmax(115px,.65fr)_auto] gap-3 items-end">
 						<div>
 							<SearchSelect
 								label="Material"
@@ -255,19 +261,7 @@ function MaterialsCard({
 							/>
 						</div>
 						<div>
-							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor/kg (R$)</label>
-							<input
-								type="number"
-								step="0.01"
-								min="0"
-								value={valuePerKgValue}
-								onChange={(event) => onValuePerKgChange(event.target.value)}
-								placeholder="Ex.: 3.50"
-								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
-							/>
-						</div>
-						<div>
-							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Impureza (%)</label>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Imp. (%)</label>
 							<input
 								type="number"
 								step="0.01"
@@ -279,10 +273,34 @@ function MaterialsCard({
 								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
 							/>
 						</div>
+						<div>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor/kg</label>
+							<input
+								type="number"
+								step="0.01"
+								min="0"
+								value={valuePerKgValue}
+								onChange={(event) => onValuePerKgChange(event.target.value)}
+								placeholder="Ex.: 3.50"
+								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+							/>
+						</div>
+						<div>
+							<label className="block text-sm font-medium mb-1 text-[#4a3918]">Valor total</label>
+							<input
+								type="number"
+								step="0.01"
+								min="0"
+								value={totalValue}
+								onChange={(event) => onTotalChange(event.target.value)}
+								placeholder="Total"
+								className="w-full h-11 px-3 border border-[#d6ab4a]/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#d6ab4a]/30 focus:border-[#b8891f]"
+							/>
+						</div>
 						<Button
 							type="button"
 							onClick={onAdd}
-							disabled={!selectedMaterialId || !String(weightValue || "").trim() || !String(impurityValue || "").trim() || !String(valuePerKgValue || "").trim() || materials.length >= 3}
+							disabled={!selectedMaterialId || !String(weightValue || "").trim() || !String(impurityValue || "").trim() || !String(valuePerKgValue || "").trim() || !String(totalValue || "").trim() || materials.length >= 3}
 							className="h-11 bg-[#b8891f] text-white hover:brightness-105 disabled:opacity-50"
 						>
 							Adicionar
@@ -322,6 +340,7 @@ export default function Orders() {
 	const [extraMaterialWeight, setExtraMaterialWeight] = useState("");
 	const [extraMaterialImpurity, setExtraMaterialImpurity] = useState("");
 	const [extraMaterialValuePerKg, setExtraMaterialValuePerKg] = useState("");
+	const [extraMaterialTotalValue, setExtraMaterialTotalValue] = useState("");
 	const [weight, setWeight] = useState("");
 	const [valuePerKg, setValuePerKg] = useState("");
 	const [totalValue, setTotalValue] = useState("");
@@ -349,6 +368,7 @@ export default function Orders() {
 	const [editExtraMaterialWeight, setEditExtraMaterialWeight] = useState("");
 	const [editExtraMaterialImpurity, setEditExtraMaterialImpurity] = useState("");
 	const [editExtraMaterialValuePerKg, setEditExtraMaterialValuePerKg] = useState("");
+	const [editExtraMaterialTotalValue, setEditExtraMaterialTotalValue] = useState("");
 	const [editWeight, setEditWeight] = useState("");
 	const [editValuePerKg, setEditValuePerKg] = useState("");
 	const [editTotalValue, setEditTotalValue] = useState("");
@@ -463,15 +483,71 @@ export default function Orders() {
 		return { debtAfter, creditAfter };
 	}, [applyAdvance, selectedSupplier, totalPendingAdvanceValue, totalValue]);
 
+	const handleExtraMaterialWeightChange = (nextWeightValue) => {
+		setExtraMaterialWeight(nextWeightValue);
+		const nextTotal = calculateTotalByImpurity(nextWeightValue, extraMaterialValuePerKg, extraMaterialImpurity);
+		if (nextTotal) setExtraMaterialTotalValue(nextTotal);
+	};
+
+	const handleExtraMaterialImpurityChange = (nextImpurityValue) => {
+		setExtraMaterialImpurity(nextImpurityValue);
+		const nextTotal = calculateTotalByImpurity(extraMaterialWeight, extraMaterialValuePerKg, nextImpurityValue);
+		if (nextTotal) setExtraMaterialTotalValue(nextTotal);
+	};
+
+	const handleExtraMaterialValuePerKgChange = (nextValuePerKgValue) => {
+		setExtraMaterialValuePerKg(nextValuePerKgValue);
+		const nextTotal = calculateTotalByImpurity(extraMaterialWeight, nextValuePerKgValue, extraMaterialImpurity);
+		if (nextTotal) setExtraMaterialTotalValue(nextTotal);
+	};
+
+	const handleExtraMaterialTotalChange = (nextTotalValue) => {
+		setExtraMaterialTotalValue(nextTotalValue);
+		const nextTotalNumber = parsePositiveNumber(nextTotalValue);
+		const netWeight = getNetWeight(extraMaterialWeight, extraMaterialImpurity);
+		if (nextTotalNumber && netWeight) {
+			setExtraMaterialValuePerKg(formatComputedNumber(nextTotalNumber / netWeight));
+		}
+	};
+
+	const handleEditExtraMaterialWeightChange = (nextWeightValue) => {
+		setEditExtraMaterialWeight(nextWeightValue);
+		const nextTotal = calculateTotalByImpurity(nextWeightValue, editExtraMaterialValuePerKg, editExtraMaterialImpurity);
+		if (nextTotal) setEditExtraMaterialTotalValue(nextTotal);
+	};
+
+	const handleEditExtraMaterialImpurityChange = (nextImpurityValue) => {
+		setEditExtraMaterialImpurity(nextImpurityValue);
+		const nextTotal = calculateTotalByImpurity(editExtraMaterialWeight, editExtraMaterialValuePerKg, nextImpurityValue);
+		if (nextTotal) setEditExtraMaterialTotalValue(nextTotal);
+	};
+
+	const handleEditExtraMaterialValuePerKgChange = (nextValuePerKgValue) => {
+		setEditExtraMaterialValuePerKg(nextValuePerKgValue);
+		const nextTotal = calculateTotalByImpurity(editExtraMaterialWeight, nextValuePerKgValue, editExtraMaterialImpurity);
+		if (nextTotal) setEditExtraMaterialTotalValue(nextTotal);
+	};
+
+	const handleEditExtraMaterialTotalChange = (nextTotalValue) => {
+		setEditExtraMaterialTotalValue(nextTotalValue);
+		const nextTotalNumber = parsePositiveNumber(nextTotalValue);
+		const netWeight = getNetWeight(editExtraMaterialWeight, editExtraMaterialImpurity);
+		if (nextTotalNumber && netWeight) {
+			setEditExtraMaterialValuePerKg(formatComputedNumber(nextTotalNumber / netWeight));
+		}
+	};
+
 	const addMaterialExtra = () => {
 		const selectedExtraMaterial = materialTypeOptions.find((option) => option.id === extraMaterialTypeId);
 		const materialName = selectedExtraMaterial?.label || "";
 		const materialWeight = String(extraMaterialWeight || "").trim();
 		const impurity = String(extraMaterialImpurity || "").trim();
 		const materialValuePerKg = String(extraMaterialValuePerKg || "").trim();
+		const materialTotalValue = String(extraMaterialTotalValue || "").trim();
 		const weightNumber = Number(materialWeight);
 		const impurityNumber = Number(impurity);
 		const valuePerKgNumber = Number(materialValuePerKg);
+		const totalValueNumber = Number(materialTotalValue);
 		if (!materialName) {
 			setError("Informe um material extra.");
 			return;
@@ -488,6 +564,10 @@ export default function Orders() {
 			setError("Informe um valor por kg valido para o material extra.");
 			return;
 		}
+		if (!materialTotalValue || !Number.isFinite(totalValueNumber) || totalValueNumber <= 0) {
+			setError("Informe um valor total valido para o material extra.");
+			return;
+		}
 		if (materialsExtra.some((item) => getExtraMaterialName(item).toLowerCase() === materialName.toLowerCase())) {
 			setError("Esse material extra ja foi adicionado.");
 			return;
@@ -498,11 +578,12 @@ export default function Orders() {
 		}
 
 		setError("");
-		setMaterialsExtra((prev) => [...prev, formatExtraMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
+		setMaterialsExtra((prev) => [...prev, formatExtraMaterial(materialName, materialWeight, impurity, materialValuePerKg, materialTotalValue)]);
 		setExtraMaterialTypeId(null);
 		setExtraMaterialWeight("");
 		setExtraMaterialImpurity("");
 		setExtraMaterialValuePerKg("");
+		setExtraMaterialTotalValue("");
 	};
 
 	const removeMaterialExtra = (materialName) => {
@@ -515,9 +596,11 @@ export default function Orders() {
 		const materialWeight = String(editExtraMaterialWeight || "").trim();
 		const impurity = String(editExtraMaterialImpurity || "").trim();
 		const materialValuePerKg = String(editExtraMaterialValuePerKg || "").trim();
+		const materialTotalValue = String(editExtraMaterialTotalValue || "").trim();
 		const weightNumber = Number(materialWeight);
 		const impurityNumber = Number(impurity);
 		const valuePerKgNumber = Number(materialValuePerKg);
+		const totalValueNumber = Number(materialTotalValue);
 		if (!materialName) {
 			setEditError("Informe um material extra.");
 			return;
@@ -534,6 +617,10 @@ export default function Orders() {
 			setEditError("Informe um valor por kg valido para o material extra.");
 			return;
 		}
+		if (!materialTotalValue || !Number.isFinite(totalValueNumber) || totalValueNumber <= 0) {
+			setEditError("Informe um valor total valido para o material extra.");
+			return;
+		}
 		if (editMaterialsExtra.some((item) => getExtraMaterialName(item).toLowerCase() === materialName.toLowerCase())) {
 			setEditError("Esse material extra ja foi adicionado.");
 			return;
@@ -544,11 +631,12 @@ export default function Orders() {
 		}
 
 		setEditError("");
-		setEditMaterialsExtra((prev) => [...prev, formatExtraMaterial(materialName, materialWeight, impurity, materialValuePerKg)]);
+		setEditMaterialsExtra((prev) => [...prev, formatExtraMaterial(materialName, materialWeight, impurity, materialValuePerKg, materialTotalValue)]);
 		setEditExtraMaterialTypeId(null);
 		setEditExtraMaterialWeight("");
 		setEditExtraMaterialImpurity("");
 		setEditExtraMaterialValuePerKg("");
+		setEditExtraMaterialTotalValue("");
 	};
 
 	const removeEditMaterialExtra = (materialName) => {
@@ -1017,6 +1105,7 @@ export default function Orders() {
 			setExtraMaterialWeight("");
 			setExtraMaterialImpurity("");
 			setExtraMaterialValuePerKg("");
+			setExtraMaterialTotalValue("");
 			setWeight("");
 			setValuePerKg("");
 			setTotalValue("");
@@ -1086,7 +1175,7 @@ export default function Orders() {
 							onSelect={setEmployeeId}
 						/>
 
-						{SupplierId && pendingAdvances.length > 0 && (
+						{SupplierId && (
 							<div className="md:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
 								<label className="flex items-start gap-2.5 cursor-pointer">
 									<input
@@ -1096,9 +1185,11 @@ export default function Orders() {
 										className="mt-0.5 h-3.5 w-3.5 rounded border-emerald-400 accent-emerald-600 checked:bg-emerald-600 checked:border-emerald-600 focus:ring-emerald-500"
 									/>
 									<div className="space-y-0.5 leading-tight">
-										<p className="text-sm font-semibold text-emerald-900">Abater valor do adiantamento / gerar saldo positivo</p>
+										<p className="text-sm font-semibold text-emerald-900">Abater adiantamento / gerar saldo positivo</p>
 										<p className="text-xs text-emerald-800">
-											Existe(m) {pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.
+											{pendingAdvances.length > 0
+												? `Existe(m) ${pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.`
+												: "Sem adiantamento pendente. Ao ativar, o valor da compra sera gerado como saldo positivo."}
 										</p>
 										<p className="text-[11px] text-emerald-700">
 											Saldo devedor disponivel: {formatMoney(totalPendingAdvanceValue)}
@@ -1213,13 +1304,15 @@ export default function Orders() {
 								selectedMaterialId={extraMaterialTypeId}
 								onMaterialSelect={setExtraMaterialTypeId}
 								weightValue={extraMaterialWeight}
-								onWeightChange={setExtraMaterialWeight}
+								onWeightChange={handleExtraMaterialWeightChange}
 								onAdd={addMaterialExtra}
 								onRemove={removeMaterialExtra}
 								impurityValue={extraMaterialImpurity}
-								onImpurityChange={setExtraMaterialImpurity}
+								onImpurityChange={handleExtraMaterialImpurityChange}
 								valuePerKgValue={extraMaterialValuePerKg}
-								onValuePerKgChange={setExtraMaterialValuePerKg}
+								onValuePerKgChange={handleExtraMaterialValuePerKgChange}
+								totalValue={extraMaterialTotalValue}
+								onTotalChange={handleExtraMaterialTotalChange}
 							/>
 						</div>
 					</div>
@@ -1495,13 +1588,15 @@ export default function Orders() {
 														selectedMaterialId={editExtraMaterialTypeId}
 														onMaterialSelect={setEditExtraMaterialTypeId}
 														weightValue={editExtraMaterialWeight}
-														onWeightChange={setEditExtraMaterialWeight}
+														onWeightChange={handleEditExtraMaterialWeightChange}
 														onAdd={addEditMaterialExtra}
 														onRemove={removeEditMaterialExtra}
 														impurityValue={editExtraMaterialImpurity}
-														onImpurityChange={setEditExtraMaterialImpurity}
+														onImpurityChange={handleEditExtraMaterialImpurityChange}
 														valuePerKgValue={editExtraMaterialValuePerKg}
-														onValuePerKgChange={setEditExtraMaterialValuePerKg}
+														onValuePerKgChange={handleEditExtraMaterialValuePerKgChange}
+														totalValue={editExtraMaterialTotalValue}
+														onTotalChange={handleEditExtraMaterialTotalChange}
 													/>
 												</div>
 											</div>

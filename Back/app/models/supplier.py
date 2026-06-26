@@ -89,6 +89,7 @@ class Supplier(db.Model):
 			"cpf": self.cpf,
 			"cnpj": self.cnpj,
 			"vehicle_plate": vehicle_plate,
+			"needs_fob": vehicle_plate == "FOB",
 			"vehicle_plates_extra": plates_extra,
 			"advance_credit_balance": float(self.advance_credit_balance or 0),
 			"reference_address": self.reference_address or self.endereco_unificado,
@@ -106,4 +107,3 @@ class Supplier(db.Model):
 			"created_at": self.created_at.isoformat(),
 			"email": self.user.email if self.user else None,
 		}
-

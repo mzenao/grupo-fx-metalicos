@@ -243,6 +243,8 @@ def send_advance_comprovantes_route(advance_id: int):
 	if supplier_email:
 		try:
 			email_attachments = _build_email_attachments(advance)
+			if not email_attachments:
+				raise ValueError("Nenhum comprovante resolvido para envio por e-mail")
 			resend.send_email_with_attachments(
 				to_email=supplier_email,
 				subject=_build_advance_receipt_subject(advance),
