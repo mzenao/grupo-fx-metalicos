@@ -7,6 +7,7 @@ from app.services.supplier_service import (
 	delete_supplier,
 	get_supplier,
 	list_suppliers,
+	update_supplier_balances,
 	update_supplier,
 )
 from app.utils.response import success_response
@@ -60,6 +61,16 @@ def update_supplier_route(supplier_id: int):
 	return success_response("Supplier updated successfully", supplier.to_dict())
 
 
+@supplier_bp.patch("/<int:supplier_id>/balances")
+@login_required
+@roles_required("admin", "employee")
+def update_supplier_balances_route(supplier_id: int):
+	payload = request.get_json(silent=True) or {}
+	current_user = getattr(g, "current_user", None)
+	data = update_supplier_balances(supplier_id, payload, current_user)
+	return success_response("Supplier balances updated successfully", data)
+
+
 @supplier_bp.delete("/<int:supplier_id>")
 @login_required
 @roles_required("admin", "employee")
@@ -67,4 +78,3 @@ def delete_supplier_route(supplier_id: int):
 	_require_current_password_for_delete()
 	delete_supplier(supplier_id)
 	return success_response("Supplier deleted successfully", None)
-

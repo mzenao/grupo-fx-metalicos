@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy import func
 
 from app.extensions import db
+from app.models.advance import Advance
+from app.models.employee import Employee
 from app.models.supplier import Supplier
 from app.models.user import User
 from app.services.user_service import create_user
@@ -21,6 +25,16 @@ from app.utils.validators import (
 MAX_SUPPLIER_PLATES = 4
 MAX_EXTRA_SUPPLIER_PLATES = 3
 FOB_PLATE_VALUE = "FOB"
+
+
+def _to_money(value) -> Decimal:
+	try:
+		amount = Decimal(str(value or "0").replace(",", "."))
+	except Exception:
+		raise ValueError("Valor de saldo inválido")
+	if amount < 0:
+		raise ValueError("Valor de saldo não pode ser negativo")
+	return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _normalize_plate_value(value: str | None) -> str | None:
@@ -523,6 +537,60 @@ def update_supplier(supplier_id: int, payload: dict) -> Supplier:
 
 	db.session.commit()
 	return supplier
+
+
+def _resolve_balance_employee_id(user: User | None) -> int:
+	employee = getattr(user, "employee", None)
+	if employee:
+		return employee.id
+
+	first_employee = Employee.query.order_by(Employee.id.asc()).first()
+	if not first_employee:
+		raise ValueError("Cadastre um funcionário antes de editar saldo devedor")
+	return first_employee.id
+
+
+def update_supplier_balances(supplier_id: int, payload: dict, current_user: User | None = None) -> dict:
+	supplier = get_supplier(supplier_id)
+	positive_balance = _to_money(payload.get("positive_balance"))
+	negative_balance = _to_money(payload.get("negative_balance"))
+
+	if positive_balance > 0 and negative_balance > 0:
+		raise ValueError("Fornecedor não pode ter saldo positivo e devedor ao mesmo tempo")
+
+	pending_advances = Advance.query.filter(
+		Advance.supplier_id == supplier.id,
+		Advance.status == "pendente",
+	).all()
+
+	for advance in pending_advances:
+		advance.value_remaining = Decimal("0.00")
+		advance.status = "finalizado"
+
+	if positive_balance > 0:
+		supplier.advance_credit_balance = positive_balance
+	elif negative_balance > 0:
+		supplier.advance_credit_balance = Decimal("0.00")
+		db.session.add(
+			Advance(
+				supplier_id=supplier.id,
+				employee_id=_resolve_balance_employee_id(current_user),
+				value_total=negative_balance,
+				value_remaining=negative_balance,
+				advance_datetime=datetime.utcnow(),
+				status="pendente",
+			)
+		)
+	else:
+		supplier.advance_credit_balance = Decimal("0.00")
+
+	db.session.commit()
+
+	return {
+		"supplier": supplier.to_dict(),
+		"positive_balance": float(supplier.advance_credit_balance or 0),
+		"negative_balance": float(negative_balance),
+	}
 
 
 def delete_supplier(supplier_id: int) -> None:

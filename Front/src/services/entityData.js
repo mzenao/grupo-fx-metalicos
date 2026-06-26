@@ -192,6 +192,17 @@ export async function updateSupplier(supplierId, payload) {
   return mapSupplierFromApi(response.data);
 }
 
+export async function updateSupplierBalances(supplierId, payload) {
+  const response = await apiRequest(`suppliers/${supplierId}/balances`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      positive_balance: payload?.positiveBalance || 0,
+      negative_balance: payload?.negativeBalance || 0,
+    }),
+  });
+  return response?.data?.supplier ? mapSupplierFromApi(response.data.supplier) : null;
+}
+
 export async function deleteSupplier(supplierId, currentPassword) {
   await apiRequest(`suppliers/${supplierId}`, {
     method: "DELETE",

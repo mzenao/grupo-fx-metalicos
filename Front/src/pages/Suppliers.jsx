@@ -10,6 +10,7 @@ import {
 	KeyRound,
 	ChevronDown,
 	ChevronUp,
+	X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
 	createSupplier,
 	deleteSupplier,
 	fetchSuppliers,
+	updateSupplierBalances,
 	updateSupplier,
 } from "@/services/entityData";
 import { fetchPurchases } from "@/services/ordersData";
@@ -73,6 +75,156 @@ function formatMoney(value) {
 	});
 }
 
+function BalanceEditModal({ supplier, negativeBalance, positiveBalance, onClose, onSave }) {
+	const [negativeValue, setNegativeValue] = useState(String(Number(negativeBalance || 0).toFixed(2)));
+	const [positiveValue, setPositiveValue] = useState(String(Number(positiveBalance || 0).toFixed(2)));
+	const [editingNegative, setEditingNegative] = useState(false);
+	const [editingPositive, setEditingPositive] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState("");
+
+	const negativeNumber = Number(negativeValue || 0);
+	const positiveNumber = Number(positiveValue || 0);
+	const negativeLocked = positiveNumber > 0;
+	const positiveLocked = negativeNumber > 0;
+
+	const supplierName = supplier?.personType === "PF" ? supplier?.name : supplier?.companyName;
+
+	const handleSubmit = async (event) => {
+		event.preventDefault();
+		setError("");
+
+		if (negativeNumber < 0 || positiveNumber < 0) {
+			setError("Informe valores iguais ou maiores que zero.");
+			return;
+		}
+		if (negativeNumber > 0 && positiveNumber > 0) {
+			setError("Escolha apenas um tipo de saldo para este fornecedor.");
+			return;
+		}
+
+		setSaving(true);
+		try {
+			await onSave({
+				negativeBalance: negativeNumber || 0,
+				positiveBalance: positiveNumber || 0,
+			});
+		} catch (err) {
+			setError(err?.message || "Nao foi possivel editar o saldo.");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+			<button
+				type="button"
+				aria-label="Fechar modal"
+				onClick={onClose}
+				className="absolute inset-0 bg-[#1e1608]/60 backdrop-blur-[2px]"
+			/>
+
+			<form
+				onSubmit={handleSubmit}
+				className="relative w-full max-w-2xl rounded-3xl border border-[#1e1608]/60 bg-[#fffdf8] shadow-2xl shadow-[#1e1608]/20"
+			>
+				<div className="rounded-t-3xl border-b border-[#d6ab4a]/30 bg-gradient-to-r from-[#1e1608] to-[#2b2010] px-5 py-4 flex items-center justify-between">
+					<div>
+						<h3 className="text-lg font-bold text-[#f5e7c0]">Editar saldo</h3>
+						<p className="text-xs text-[#f5e7c0]/75">{supplierName || "Fornecedor"}</p>
+					</div>
+					<button
+						type="button"
+						onClick={onClose}
+						className="p-1 rounded-md text-[#f5e7c0]/80 hover:bg-[#d6ab4a]/20 hover:text-[#f5e7c0]"
+						aria-label="Fechar modal"
+					>
+						<X className="w-5 h-5" />
+					</button>
+				</div>
+
+				<div className="p-5 space-y-4">
+					{error && (
+						<div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+							{error}
+						</div>
+					)}
+
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+						<div className={`rounded-xl border p-4 ${negativeLocked ? "border-gray-200 bg-gray-50 opacity-70" : "border-red-200 bg-red-50/70"}`}>
+							<div className="flex items-start justify-between gap-3">
+								<div>
+									<p className="text-xs font-semibold uppercase text-red-700">Saldo negativo</p>
+									<p className="mt-1 text-2xl font-bold text-red-700">{formatMoney(negativeNumber)}</p>
+								</div>
+								<Button
+									type="button"
+									variant="outline"
+									disabled={negativeLocked}
+									onClick={() => setEditingNegative((prev) => !prev)}
+									className="h-8 border-red-200 text-red-700 hover:bg-red-100 disabled:opacity-50"
+								>
+									<Edit2 className="w-3.5 h-3.5" /> Editar
+								</Button>
+							</div>
+							<input
+								type="number"
+								step="0.01"
+								min="0"
+								value={negativeValue}
+								disabled={!editingNegative || negativeLocked}
+								onChange={(event) => setNegativeValue(event.target.value)}
+								className="mt-4 h-11 w-full rounded-lg border border-red-200 bg-white px-3 text-red-900 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+							/>
+						</div>
+
+						<div className={`rounded-xl border p-4 ${positiveLocked ? "border-gray-200 bg-gray-50 opacity-70" : "border-emerald-200 bg-emerald-50/70"}`}>
+							<div className="flex items-start justify-between gap-3">
+								<div>
+									<p className="text-xs font-semibold uppercase text-emerald-700">Saldo positivo</p>
+									<p className="mt-1 text-2xl font-bold text-emerald-700">{formatMoney(positiveNumber)}</p>
+								</div>
+								<Button
+									type="button"
+									variant="outline"
+									disabled={positiveLocked}
+									onClick={() => setEditingPositive((prev) => !prev)}
+									className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+								>
+									<Edit2 className="w-3.5 h-3.5" /> Editar
+								</Button>
+							</div>
+							<input
+								type="number"
+								step="0.01"
+								min="0"
+								value={positiveValue}
+								disabled={!editingPositive || positiveLocked}
+								onChange={(event) => setPositiveValue(event.target.value)}
+								className="mt-4 h-11 w-full rounded-lg border border-emerald-200 bg-white px-3 text-emerald-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+							/>
+						</div>
+					</div>
+
+					<p className="text-xs text-gray-600">
+						Use apenas um saldo por vez. Para trocar de positivo para negativo, zere o saldo atual e salve antes de preencher o outro.
+					</p>
+
+					<div className="flex justify-end gap-2 border-t border-[#d6ab4a]/25 pt-4">
+						<Button type="button" variant="cancel" onClick={onClose} disabled={saving}>
+							Cancelar
+						</Button>
+						<Button type="submit" disabled={saving} className="bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white hover:brightness-105 disabled:opacity-60">
+							{saving ? "Salvando..." : "Salvar saldo"}
+						</Button>
+					</div>
+				</div>
+			</form>
+		</div>
+	);
+}
+
 export default function Suppliers() {
 	const navigate = useNavigate();
 	const [suppliers, setSuppliers] = useState([]);
@@ -87,6 +239,7 @@ export default function Suppliers() {
 	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, itemLabel: "", password: "" });
 	const [deleting, setDeleting] = useState(false);
 	const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
+	const [balanceModal, setBalanceModal] = useState({ open: false, supplier: null, negativeBalance: 0, positiveBalance: 0 });
 
 	useEffect(() => {
 		let mounted = true;
@@ -253,6 +406,26 @@ export default function Suppliers() {
 
 	const closeSalesModal = () => {
 		setSalesSupplier(null);
+	};
+
+	const openBalanceModal = (supplier, debtBalance, positiveBalance) => {
+		setBalanceModal({
+			open: true,
+			supplier,
+			negativeBalance: debtBalance,
+			positiveBalance,
+		});
+	};
+
+	const handleSaveBalances = async ({ negativeBalance, positiveBalance }) => {
+		const supplierId = balanceModal.supplier?.id;
+		if (!supplierId) return;
+
+		await updateSupplierBalances(supplierId, { negativeBalance, positiveBalance });
+		const [suppliersData, advancesData] = await Promise.all([fetchSuppliers(), fetchAdvances()]);
+		setSuppliers(suppliersData);
+		setAdvances(advancesData);
+		setBalanceModal({ open: false, supplier: null, negativeBalance: 0, positiveBalance: 0 });
 	};
 
 	const openSaleInOrders = (saleId) => {
@@ -443,9 +616,21 @@ export default function Suppliers() {
 													</div>
 												</div>
 
-												<div>
-													<p className="text-xs text-gray-500">Placa do veiculo</p>
-													<p className="font-medium text-gray-800">{supplier.needsFob ? "Preciso de FOB" : supplier.vehiclePlate || "-"}</p>
+												<div className="md:col-span-2">
+													<div className="flex items-start justify-between gap-2">
+														<div>
+															<p className="text-xs text-gray-500">Placa do veiculo</p>
+															<p className="font-medium text-gray-800">{supplier.needsFob ? "Preciso de FOB" : supplier.vehiclePlate || "-"}</p>
+														</div>
+														<Button
+															type="button"
+															variant="outline"
+															onClick={() => openBalanceModal(supplier, debtBalance, positiveBalance)}
+															className="h-8 shrink-0 border-[#c7a04a] text-[#6a521f] hover:bg-[#f5e7c0]"
+														>
+															<Edit2 className="w-3.5 h-3.5" /> Editar saldo
+														</Button>
+													</div>
 												</div>
 
 												<div className="md:col-span-2">
@@ -488,6 +673,16 @@ export default function Suppliers() {
 					salesSupplier={salesSupplier}
 					onClose={closeSalesModal}
 					onOpenSale={openSaleInOrders}
+				/>
+			)}
+
+			{balanceModal.open && (
+				<BalanceEditModal
+					supplier={balanceModal.supplier}
+					negativeBalance={balanceModal.negativeBalance}
+					positiveBalance={balanceModal.positiveBalance}
+					onClose={() => setBalanceModal({ open: false, supplier: null, negativeBalance: 0, positiveBalance: 0 })}
+					onSave={handleSaveBalances}
 				/>
 			)}
 
