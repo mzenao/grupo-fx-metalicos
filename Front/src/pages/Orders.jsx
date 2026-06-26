@@ -1175,7 +1175,7 @@ export default function Orders() {
 							onSelect={setEmployeeId}
 						/>
 
-						{SupplierId && (
+						{SupplierId && pendingAdvances.length > 0 && (
 							<div className="md:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
 								<label className="flex items-start gap-2.5 cursor-pointer">
 									<input
@@ -1187,9 +1187,7 @@ export default function Orders() {
 									<div className="space-y-0.5 leading-tight">
 										<p className="text-sm font-semibold text-emerald-900">Abater adiantamento / gerar saldo positivo</p>
 										<p className="text-xs text-emerald-800">
-											{pendingAdvances.length > 0
-												? `Existe(m) ${pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.`
-												: "Sem adiantamento pendente. Ao ativar, o valor da compra sera gerado como saldo positivo."}
+											Existe(m) {pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.
 										</p>
 										<p className="text-[11px] text-emerald-700">
 											Saldo devedor disponivel: {formatMoney(totalPendingAdvanceValue)}
