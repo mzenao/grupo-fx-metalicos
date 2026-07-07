@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import Hero from '@/components/landing/Hero';
 import OurMission from '@/components/landing/ourMission';
 import WhoWeAre from '@/components/landing/whoWeAre';
+import SellScrap from '@/components/landing/SellScrap';
 import Contact from '@/components/landing/Contact';
 
 export default function Home() {
@@ -19,9 +20,9 @@ export default function Home() {
         <Hero />
         <OurMission />
         <WhoWeAre />
+        <SellScrap />
         <Contact />
       </main>
     </>
   );
 }
-

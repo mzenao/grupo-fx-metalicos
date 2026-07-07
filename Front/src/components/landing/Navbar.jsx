@@ -119,6 +119,7 @@ export default function Navbar() {
     { label: "Início", id: "hero" },
     { label: "Nossa Missão", id: "mission" },
     { label: "Quem Somos", id: "about" },
+    { label: "Venda sua sucata", id: "sell-scrap" },
     { label: "Contato", id: "contact" },
   ];
 
@@ -132,13 +133,27 @@ export default function Navbar() {
 
     // Se a secao nao existir na pagina atual, voltamos para a home.
     if (location.pathname !== "/") {
-      navigate("/");
+      navigate(`/#${id}`);
     } else {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     setIsMobileMenuOpen(false);
   };
+
+  useEffect(() => {
+    if (location.pathname !== "/" || !location.hash) return;
+
+    const targetId = location.hash.replace("#", "");
+    const scrollTimer = window.setTimeout(() => {
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 80);
+
+    return () => window.clearTimeout(scrollTimer);
+  }, [location.pathname, location.hash]);
 
   return (
     <>

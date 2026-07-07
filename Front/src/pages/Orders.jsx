@@ -9,6 +9,7 @@ import {
 	Calendar,
 	ChevronDown,
 	ChevronUp,
+	KeyRound,
 	Paperclip,
 	Upload,
 	X,
@@ -137,6 +138,27 @@ function formatMoney(value) {
 		currency: "BRL",
 		minimumFractionDigits: 2,
 	});
+}
+
+function formatPixTypeLabel(type) {
+	const normalized = String(type || "").toLowerCase();
+	const labels = {
+		cpf: "CPF",
+		cnpj: "CNPJ",
+		phone: "Telefone",
+		email: "E-mail",
+		random: "Chave aleatoria",
+	};
+	return labels[normalized] || "Chave Pix";
+}
+
+function getSupplierPixInfo(supplier) {
+	if (!supplier) return { typeLabel: "Chave Pix", value: "Fornecedor nao selecionado" };
+
+	return {
+		typeLabel: formatPixTypeLabel(supplier.pixKeyType),
+		value: supplier.pixKeyValue || "Nao informado",
+	};
 }
 
 function SearchSelect({ label, placeholder, options, selectedId, onSelect }) {
@@ -467,6 +489,8 @@ export default function Orders() {
 	}, [suppliers]);
 
 	const selectedSupplier = SupplierId ? suppliersById.get(SupplierId) : null;
+	const selectedSupplierPix = getSupplierPixInfo(selectedSupplier);
+	const hasPendingAdvances = pendingAdvances.length > 0;
 	const totalPendingAdvanceValue = useMemo(() => {
 		return pendingAdvances.reduce((sum, item) => sum + (Number(item.value_remaining) || 0), 0);
 	}, [pendingAdvances]);
@@ -1175,33 +1199,74 @@ export default function Orders() {
 							onSelect={setEmployeeId}
 						/>
 
-						{SupplierId && pendingAdvances.length > 0 && (
-							<div className="md:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
-								<label className="flex items-start gap-2.5 cursor-pointer">
-									<input
-										type="checkbox"
-										checked={applyAdvance}
-										onChange={(e) => setApplyAdvance(e.target.checked)}
-										className="mt-0.5 h-3.5 w-3.5 rounded border-emerald-400 accent-emerald-600 checked:bg-emerald-600 checked:border-emerald-600 focus:ring-emerald-500"
-									/>
-									<div className="space-y-0.5 leading-tight">
-										<p className="text-sm font-semibold text-emerald-900">Abater adiantamento / gerar saldo positivo</p>
-										<p className="text-xs text-emerald-800">
-											Existe(m) {pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.
-										</p>
-										<p className="text-[11px] text-emerald-700">
-											Saldo devedor disponivel: {formatMoney(totalPendingAdvanceValue)}
-											{selectedSupplier?.advanceCreditBalance > 0 ? ` | Saldo positivo atual: ${formatMoney(selectedSupplier.advanceCreditBalance)}` : ""}
-										</p>
-										{advancePreview && (
-											<p className="text-[11px] font-semibold text-emerald-800">
-												{advancePreview.debtAfter > 0
-													? `Apos a compra, ainda deve ${formatMoney(advancePreview.debtAfter)}.`
-													: `Apos a compra, saldo positivo de ${formatMoney(advancePreview.creditAfter)}.`}
-											</p>
+						{SupplierId && (
+							<div className={`md:col-span-2 rounded-lg border px-3 py-2.5 ${
+								hasPendingAdvances
+									? "border-emerald-200 bg-emerald-50/60"
+									: "border-red-200 bg-red-50/70"
+							}`}>
+								<div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)] md:items-stretch">
+									<div className="flex items-start gap-2.5">
+										{hasPendingAdvances && (
+											<input
+												type="checkbox"
+												checked={applyAdvance}
+												onChange={(e) => setApplyAdvance(e.target.checked)}
+												className="mt-0.5 h-3.5 w-3.5 rounded border-emerald-400 accent-emerald-600 checked:bg-emerald-600 checked:border-emerald-600 focus:ring-emerald-500"
+											/>
 										)}
+										<div className="space-y-0.5 leading-tight">
+											<p className={`text-sm font-semibold ${hasPendingAdvances ? "text-emerald-900" : "text-red-900"}`}>
+												{hasPendingAdvances
+													? "Abater adiantamento / gerar saldo positivo"
+													: "Sem adiantamento em aberto"}
+											</p>
+											<p className={`text-xs ${hasPendingAdvances ? "text-emerald-800" : "text-red-800"}`}>
+												{hasPendingAdvances
+													? `Existe(m) ${pendingAdvances.length} adiantamento(s) pendente(s) para este fornecedor.`
+													: "Este fornecedor nao possui adiantamentos pendentes para abater nesta compra."}
+											</p>
+											{hasPendingAdvances && (
+												<p className="text-[11px] text-emerald-700">
+													Saldo devedor disponivel: {formatMoney(totalPendingAdvanceValue)}
+													{selectedSupplier?.advanceCreditBalance > 0 ? ` | Saldo positivo atual: ${formatMoney(selectedSupplier.advanceCreditBalance)}` : ""}
+												</p>
+											)}
+											{hasPendingAdvances && advancePreview && (
+												<p className="text-[11px] font-semibold text-emerald-800">
+													{advancePreview.debtAfter > 0
+														? `Apos a compra, ainda deve ${formatMoney(advancePreview.debtAfter)}.`
+														: `Apos a compra, saldo positivo de ${formatMoney(advancePreview.creditAfter)}.`}
+												</p>
+											)}
+										</div>
 									</div>
-								</label>
+
+									<div className={`rounded-lg border bg-white/80 px-3 py-2 shadow-sm ${
+										hasPendingAdvances ? "border-emerald-200" : "border-red-200"
+									}`}>
+										<div className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+											hasPendingAdvances ? "text-emerald-700" : "text-red-700"
+										}`}>
+											<KeyRound className="h-3.5 w-3.5" />
+											<span>Pix do fornecedor</span>
+										</div>
+										<div className="mt-1.5 flex flex-wrap items-center gap-2">
+											<span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+												hasPendingAdvances
+													? "bg-emerald-100 text-emerald-800"
+													: "bg-red-100 text-red-800"
+											}`}>
+												{selectedSupplierPix.typeLabel}
+											</span>
+											<span className={`break-all text-sm font-semibold ${
+												hasPendingAdvances ? "text-emerald-950" : "text-red-950"
+											}`}>
+												{selectedSupplierPix.value}
+											</span>
+										</div>
+									</div>
+								</div>
 							</div>
 						)}
 

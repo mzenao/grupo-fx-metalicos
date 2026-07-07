@@ -415,7 +415,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 							)}
 
 							<div className="md:col-span-2 space-y-3">
-								<label className="inline-flex items-center gap-2 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/25 px-3 py-2 text-sm font-semibold text-[#4a3918]">
+								<label className="inline-flex items-start gap-2 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/25 px-3 py-2 text-sm font-semibold text-[#4a3918]">
 									<input
 										type="checkbox"
 										checked={Boolean(form.needsFob)}
@@ -429,9 +429,14 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 												extraPlateInput: "",
 											}));
 										}}
-										className="h-4 w-4 rounded border-[#d6ab4a] accent-[#b8891f]"
+										className="mt-0.5 h-4 w-4 rounded border-[#d6ab4a] accent-[#b8891f]"
 									/>
-									Preciso de FOB
+									<span className="leading-tight">
+										<span className="block">Preciso de Caçamba</span>
+										<span className="block text-xs font-medium text-[#7b6024]">
+											Para quem precisa que transporte a sucata.
+										</span>
+									</span>
 								</label>
 
 								<div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
