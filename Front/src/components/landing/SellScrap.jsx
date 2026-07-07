@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { MessageCircle, Scale } from "lucide-react";
 
-const PRICE_PER_KG = 1.3;
 const whatsappNumber = "5521990409260";
 
 const formatCurrency = (value) =>
@@ -17,23 +16,29 @@ const formatWeight = (value) =>
 
 export default function SellScrap() {
 	const [weightInput, setWeightInput] = useState("");
+	const [priceInput, setPriceInput] = useState("");
 
-	const weightInKg = useMemo(() => {
-		const normalized = weightInput.replace(/\./g, "").replace(",", ".");
+	const parseDecimalInput = (value) => {
+		const normalized = value.replace(/\./g, "").replace(",", ".");
 		const parsed = Number.parseFloat(normalized);
 		return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-	}, [weightInput]);
+	};
 
-	const estimatedTotal = weightInKg * PRICE_PER_KG;
+	const weightInKg = useMemo(() => parseDecimalInput(weightInput), [weightInput]);
+	const pricePerKg = useMemo(() => parseDecimalInput(priceInput), [priceInput]);
+
+	const estimatedTotal = weightInKg * pricePerKg;
 	const hasWeight = weightInKg > 0;
-	const whatsappMessage = hasWeight
-		? `Olá, gostaria de vender ${formatWeight(weightInKg)} kg de sucata mista. A simulação no site ficou em ${formatCurrency(estimatedTotal)}.`
+	const hasPrice = pricePerKg > 0;
+	const hasSimulation = hasWeight && hasPrice;
+	const whatsappMessage = hasSimulation
+		? `Olá, gostaria de vender ${formatWeight(weightInKg)} kg de sucata mista por ${formatCurrency(pricePerKg)} por kg. A simulação no site ficou em ${formatCurrency(estimatedTotal)}.`
 		: "Olá, gostaria de fazer uma simulação para vender sucata mista.";
 	const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
 
-	const handleWeightChange = (event) => {
+	const handleDecimalChange = (setter) => (event) => {
 		const nextValue = event.target.value.replace(/[^\d.,]/g, "");
-		setWeightInput(nextValue);
+		setter(nextValue);
 	};
 
 	return (
@@ -48,13 +53,9 @@ export default function SellScrap() {
 							Simule sua venda de sucata mista.
 						</h2>
 						<p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">
-							Digite o peso aproximado na balança e veja uma estimativa instantânea pelo preço atual de referência. A confirmação final acontece no atendimento, após avaliação e pesagem do material.
+							Digite o peso e o preço aproximados na balança e veja uma estimativa instantânea pelo preço escolhido como referência. A confirmação final acontece no atendimento, após avaliação e pesagem do material.
 						</p>
 
-						<div className="mt-7 inline-flex items-center gap-3 rounded-full border border-amber-200 bg-white/75 px-4 py-3 text-sm font-semibold text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
-							<Scale className="h-5 w-5 shrink-0 text-[#b8891f]" />
-							<span className="whitespace-nowrap">{formatCurrency(PRICE_PER_KG)} por kg</span>
-						</div>
 					</div>
 
 					<div className="rounded-[1.75rem] border border-amber-200/70 bg-white/85 p-4 shadow-[0_20px_45px_rgba(30,22,8,0.1)] sm:p-5">
@@ -77,28 +78,42 @@ export default function SellScrap() {
 										<span>kg</span>
 									</div>
 									<div className="mt-2 flex min-w-0 items-end gap-2">
+										<span className="mb-0.5 shrink-0 text-sm font-semibold text-slate-900">kg</span>
 										<input
 											type="text"
 											inputMode="decimal"
 											value={weightInput}
-											onChange={handleWeightChange}
-											placeholder="0"
+											onChange={handleDecimalChange(setWeightInput)}
+											placeholder="Ex: 500"
 											className="min-w-0 flex-1 bg-transparent text-right text-2xl font-semibold text-slate-900 outline-none placeholder:text-slate-400"
 											aria-label="Quantidade de sucata mista em quilos"
 										/>
-										<span className="mb-0.5 shrink-0 text-sm font-semibold text-slate-900">kg</span>
+									</div>
+								</label>
+
+								<label className="flex h-24 min-w-0 flex-col justify-between rounded-2xl border border-amber-200 bg-white p-3 transition focus-within:border-[#b8891f] focus-within:ring-4 focus-within:ring-amber-100">
+									<div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.1em] text-[#8a6417]">
+										<span>Preço/kg</span>
+										<span>R$</span>
+									</div>
+									<div className="mt-2 flex min-w-0 items-end gap-2">
+										<span className="mb-0.5 shrink-0 text-sm font-semibold text-slate-900">R$</span>
+										<input
+											type="text"
+											inputMode="decimal"
+											value={priceInput}
+											onChange={handleDecimalChange(setPriceInput)}
+											placeholder="Ex: 1,30"
+											className="min-w-0 flex-1 bg-transparent text-right text-2xl font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+											aria-label="Valor por quilo da sucata mista"
+										/>
 									</div>
 								</label>
 
 								<div className="flex h-24 min-w-0 flex-col justify-between rounded-2xl border border-amber-200 bg-white p-3">
 									<p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Valor total</p>
-									<p className="mt-2 truncate text-xl font-semibold text-[#8a6417]">{formatCurrency(estimatedTotal)}</p>
-								</div>
-
-								<div className="flex h-24 min-w-0 flex-col justify-between rounded-2xl border border-amber-200 bg-white p-3">
-									<p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Cálculo</p>
-									<p className="mt-2 text-xs font-semibold leading-snug text-slate-700">
-										{hasWeight ? `${formatWeight(weightInKg)} kg x ${formatCurrency(PRICE_PER_KG)}` : "Digite o peso"}
+									<p className="mt-2 truncate text-xl font-semibold text-[#8a6417]">
+										{hasSimulation ? formatCurrency(estimatedTotal) : "R$ "}
 									</p>
 								</div>
 							</div>
@@ -116,7 +131,9 @@ export default function SellScrap() {
 							</div>
 
 							<p className="mt-3 text-xs leading-relaxed text-slate-500">
-								Estimativa sujeita a confirmação após avaliação, pesagem e condições do material.
+								{hasSimulation
+									? `${formatWeight(weightInKg)} kg x ${formatCurrency(pricePerKg)} por kg. Estimativa sujeita a confirmação após avaliação, pesagem e condições do material.`
+									: "Informe o peso e o preço por kg para calcular a estimativa."}
 							</p>
 						</div>
 					</div>

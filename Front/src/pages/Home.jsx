@@ -18,9 +18,9 @@ export default function Home() {
       />
       <main ref={ref} className="flex-1">
         <Hero />
+        <SellScrap />
         <OurMission />
         <WhoWeAre />
-        <SellScrap />
         <Contact />
       </main>
     </>

@@ -117,9 +117,9 @@ export default function Navbar() {
 
   const navItems = [
     { label: "Início", id: "hero" },
+    { label: "Venda sua sucata", id: "sell-scrap" },
     { label: "Nossa Missão", id: "mission" },
     { label: "Quem Somos", id: "about" },
-    { label: "Venda sua sucata", id: "sell-scrap" },
     { label: "Contato", id: "contact" },
   ];
 
