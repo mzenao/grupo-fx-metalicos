@@ -103,7 +103,7 @@ export default function SellScrap() {
 											inputMode="decimal"
 											value={priceInput}
 											onChange={handleDecimalChange(setPriceInput)}
-											placeholder="Ex: 1,30"
+											placeholder="Ex: 1,10"
 											className="min-w-0 flex-1 bg-transparent text-right text-2xl font-semibold text-slate-900 outline-none placeholder:text-slate-400"
 											aria-label="Valor por quilo da sucata mista"
 										/>
