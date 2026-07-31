@@ -1,13 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+	ArrowRight,
 	Calendar,
+	CalendarDays,
 	Scale,
 	DollarSign,
 	Clock3,
 	Receipt,
+	X,
 } from "lucide-react";
 import { fetchPurchases } from "@/services/ordersData";
+
+const getBrasiliaDate = () => {
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: "America/Sao_Paulo",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	}).formatToParts(new Date());
+	const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+	return `${values.year}-${values.month}-${values.day}`;
+};
+
+const getPurchaseDate = (purchase) => String(purchase?.datetime || "").slice(0, 10);
+
+const fmtPeriodDate = (value) => {
+	if (!value) return "";
+	const [year, month, day] = value.split("-");
+	return `${day}/${month}/${year}`;
+};
 
 const fmtMoney = (value) =>
 	Number(value || 0).toLocaleString("pt-BR", {
@@ -24,9 +46,14 @@ const fmtDateTime = (iso) => {
 
 export default function Dashboard() {
 	const navigate = useNavigate();
+	const today = useMemo(() => getBrasiliaDate(), []);
 	const [activeCard, setActiveCard] = useState("resumo-dia");
 	const [showAllMovements, setShowAllMovements] = useState(false);
 	const [purchases, setPurchases] = useState([]);
+	const [periodModalOpen, setPeriodModalOpen] = useState(false);
+	const [period, setPeriod] = useState({ start: today, end: today });
+	const [draftPeriod, setDraftPeriod] = useState({ start: today, end: today });
+	const [periodError, setPeriodError] = useState("");
 
 	useEffect(() => {
 		let mounted = true;
@@ -47,11 +74,45 @@ export default function Dashboard() {
 		navigate(`/orders#${purchaseId}`);
 	};
 
+	const purchasesInPeriod = useMemo(
+		() => purchases.filter((purchase) => {
+			const purchaseDate = getPurchaseDate(purchase);
+			return purchaseDate && purchaseDate >= period.start && purchaseDate <= period.end;
+		}),
+		[purchases, period],
+	);
+
+	const isTodayPeriod = period.start === today && period.end === today;
+	const periodLabel = isTodayPeriod
+		? "Hoje"
+		: period.start === period.end
+			? fmtPeriodDate(period.start)
+			: `${fmtPeriodDate(period.start)} a ${fmtPeriodDate(period.end)}`;
+
+	const openPeriodModal = () => {
+		setDraftPeriod(period);
+		setPeriodError("");
+		setPeriodModalOpen(true);
+	};
+
+	const applyPeriod = () => {
+		if (!draftPeriod.start || !draftPeriod.end) {
+			setPeriodError("Informe as datas de início e fim.");
+			return;
+		}
+		if (draftPeriod.start > draftPeriod.end) {
+			setPeriodError("A data inicial não pode ser posterior à data final.");
+			return;
+		}
+		setPeriod(draftPeriod);
+		setPeriodModalOpen(false);
+	};
+
 	const summary = useMemo(() => {
-		const totalPurchases = purchases.length;
-		const totalWeight = purchases.reduce((sum, p) => sum + (Number(p.weight) || 0), 0);
-		const totalValue = purchases.reduce((sum, p) => sum + (Number(p.value) || 0), 0);
-		const withAttachments = purchases.filter((p) => (p.attachmentNames || []).length > 0).length;
+		const totalPurchases = purchasesInPeriod.length;
+		const totalWeight = purchasesInPeriod.reduce((sum, p) => sum + (Number(p.weight) || 0), 0);
+		const totalValue = purchasesInPeriod.reduce((sum, p) => sum + (Number(p.value) || 0), 0);
+		const withAttachments = purchasesInPeriod.filter((p) => (p.attachmentNames || []).length > 0).length;
 		const pendingAttachments = totalPurchases - withAttachments;
 
 		return {
@@ -61,21 +122,21 @@ export default function Dashboard() {
 			pendingAttachments,
 			avgTicket: totalPurchases > 0 ? totalValue / totalPurchases : 0,
 		};
-	}, [purchases]);
+	}, [purchasesInPeriod]);
 
 	const purchaseGroupCards = [
 		{
 			id: "compras",
-			title: "Compras registradas",
+			title: isTodayPeriod ? "Compras do dia" : "Compras no período",
 			value: summary.totalPurchases,
-			sub: "Total acumulado",
+			sub: periodLabel,
 			icon: Calendar,
 			color: "from-[#b8891f] to-[#d6ab4a]",
 			bg: "bg-amber-50",
 		},
 		{
 			id: "peso",
-			title: "Peso do dia",
+			title: isTodayPeriod ? "Peso do dia" : "Peso no período",
 			value: `${summary.totalWeight.toLocaleString("pt-BR")} kg`,
 			sub: "Entrada total",
 			icon: Scale,
@@ -84,7 +145,7 @@ export default function Dashboard() {
 		},
 		{
 			id: "valor",
-			title: "Valor do dia",
+			title: isTodayPeriod ? "Valor do dia" : "Valor no período",
 			value: fmtMoney(summary.totalValue),
 			sub: `Ticket medio ${fmtMoney(summary.avgTicket)}`,
 			icon: DollarSign,
@@ -106,11 +167,11 @@ export default function Dashboard() {
 	const filteredPurchases = useMemo(() => {
 		switch (activeCard) {
 			case "comprovantes":
-				return purchases.filter((p) => (p.attachmentNames || []).length === 0);
+				return purchasesInPeriod.filter((p) => (p.attachmentNames || []).length === 0);
 			default:
-				return purchases;
+				return purchasesInPeriod;
 		}
-	}, [activeCard, purchases]);
+	}, [activeCard, purchasesInPeriod]);
 
 	useEffect(() => {
 		setShowAllMovements(false);
@@ -121,6 +182,22 @@ export default function Dashboard() {
 
 	return (
 		<div className="space-y-6">
+			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+				<div>
+					<p className="text-sm text-gray-500">Período das métricas</p>
+					<p className="font-semibold text-gray-900">{periodLabel}</p>
+				</div>
+				<button
+					type="button"
+					onClick={openPeriodModal}
+					className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#d6ab4a]/50 bg-white px-4 py-2.5 text-sm font-semibold text-[#6d5315] shadow-sm transition-colors hover:bg-amber-50"
+				>
+					<CalendarDays className="w-4 h-4" />
+					Selecionar Período
+					<ArrowRight className="w-4 h-4" />
+				</button>
+			</div>
+
 			<div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
 				<button
 					type="button"
@@ -233,6 +310,88 @@ export default function Dashboard() {
 					)}
 				</section>
 			</div>
+
+			{periodModalOpen && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+					<button
+						type="button"
+						aria-label="Fechar seleção de período"
+						onClick={() => setPeriodModalOpen(false)}
+						className="absolute inset-0 bg-[#1e1608]/55 backdrop-blur-[2px]"
+					/>
+
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="period-modal-title"
+						className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[#d6ab4a]/40 bg-white shadow-2xl"
+					>
+						<div className="flex items-center justify-between border-b border-amber-100 bg-amber-50/70 px-5 py-4">
+							<div className="flex items-center gap-2">
+								<CalendarDays className="w-5 h-5 text-[#8a6a1a]" />
+								<h2 id="period-modal-title" className="font-bold text-gray-900">Selecionar Período</h2>
+							</div>
+							<button
+								type="button"
+								onClick={() => setPeriodModalOpen(false)}
+								aria-label="Fechar"
+								className="rounded-lg p-1.5 text-gray-500 hover:bg-amber-100 hover:text-gray-800"
+							>
+								<X className="w-5 h-5" />
+							</button>
+						</div>
+
+						<div className="space-y-4 p-5">
+							<div className="grid sm:grid-cols-2 gap-4">
+								<label className="space-y-1.5 text-sm font-medium text-gray-700">
+									<span>Data de início</span>
+									<input
+										type="date"
+										value={draftPeriod.start}
+										onChange={(event) => {
+											setDraftPeriod((current) => ({ ...current, start: event.target.value }));
+											setPeriodError("");
+										}}
+										className="h-11 w-full rounded-lg border border-amber-200 bg-white px-3 outline-none focus:border-[#b8891f] focus:ring-2 focus:ring-[#d6ab4a]/25"
+									/>
+								</label>
+
+								<label className="space-y-1.5 text-sm font-medium text-gray-700">
+									<span>Data de fim</span>
+									<input
+										type="date"
+										value={draftPeriod.end}
+										onChange={(event) => {
+											setDraftPeriod((current) => ({ ...current, end: event.target.value }));
+											setPeriodError("");
+										}}
+										className="h-11 w-full rounded-lg border border-amber-200 bg-white px-3 outline-none focus:border-[#b8891f] focus:ring-2 focus:ring-[#d6ab4a]/25"
+									/>
+								</label>
+							</div>
+
+							{periodError && <p className="text-sm text-red-600">{periodError}</p>}
+
+							<div className="flex justify-end gap-2 pt-1">
+								<button
+									type="button"
+									onClick={() => setPeriodModalOpen(false)}
+									className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+								>
+									Cancelar
+								</button>
+								<button
+									type="button"
+									onClick={applyPeriod}
+									className="rounded-lg bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-105"
+								>
+									Aplicar período
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
