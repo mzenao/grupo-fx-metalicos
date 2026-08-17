@@ -1257,7 +1257,7 @@ export default function Orders() {
 									? "border-emerald-200 bg-emerald-50/60"
 									: "border-red-200 bg-red-50/70"
 							}`}>
-								<div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)] md:items-stretch">
+								<div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)] md:items-start">
 									<div className="flex items-start gap-2.5">
 										{hasPendingAdvances && (
 											<input
@@ -1320,7 +1320,7 @@ export default function Orders() {
 										</div>
 									</div>
 
-									<div className={`rounded-lg border bg-white/80 px-3 py-2 shadow-sm ${
+									<div className={`self-start rounded-lg border bg-white/80 px-3 py-2 shadow-sm ${
 										hasPendingAdvances ? "border-emerald-200" : "border-red-200"
 									}`}>
 										<div className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] ${
