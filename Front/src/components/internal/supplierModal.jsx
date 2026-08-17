@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
-import { Check, Pencil, X } from "lucide-react";
+import { createRef, useMemo, useState } from "react";
+import { AlertTriangle, Check, Pencil, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
 import AddressFieldsCard from "@/components/internal/addressFieldsCard";
 import { emptyAddressFields, mergeAddressFields } from "@/services/addressData";
+import { checkSupplierAvailability } from "@/services/authApi";
 
 const fieldLabelClass = "block text-sm font-medium mb-1 text-[#4a3918]";
 const fieldInputClass = "w-full h-12 px-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/20 text-[#1e1608] placeholder-[#1e1608]/40 focus:outline-none focus:ring-2 focus:ring-[#b8891f]";
@@ -50,6 +51,16 @@ function formatPixValue(pixKeyType, form) {
 
 function normalizePlate(value) {
 	return String(value || "").replace(/\s+/g, "").toUpperCase();
+}
+
+function fieldForConflict(message) {
+	const value = String(message || "").toLowerCase();
+	if (value.includes("cpf")) return "cpf";
+	if (value.includes("cnpj")) return "cnpj";
+	if (value.includes("e-mail") || value.includes("email")) return "email";
+	if (value.includes("telefone")) return "phone";
+	if (value.includes("placa")) return "vehiclePlate";
+	return "email";
 }
 
 function parseVehiclePlatesExtra(value) {
@@ -130,14 +141,46 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 
 	const [form, setForm] = useState(initial);
 	const [saving, setSaving] = useState(false);
+	const [checkingAvailability, setCheckingAvailability] = useState(false);
 	const [error, setError] = useState("");
 	const [isEditingPixKey, setIsEditingPixKey] = useState(false);
 	const [pixKeyDraft, setPixKeyDraft] = useState("");
+	const [invalidField, setInvalidField] = useState("");
+	const [showPixConfirmation, setShowPixConfirmation] = useState(false);
+	const fieldRefs = useMemo(() => Object.fromEntries([
+		"name", "companyName", "cpf", "cnpj", "vehiclePlate", "email", "phone",
+		"pixKeyType", "pixKeyValue", "password", "cep", "rua", "numero", "bairro",
+		"cidade", "estado", "pais",
+	].map((field) => [field, createRef()])), []);
 	const pixValue = formatPixValue(form.pixKeyType, form);
 	const extraPlates = Array.isArray(form.vehiclePlatesExtra) ? form.vehiclePlatesExtra : [];
 	const canAddExtra = extraPlates.length < 3;
 
-	const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+	const set = (key, value) => {
+		setForm((prev) => ({ ...prev, [key]: value }));
+		if (invalidField === key) {
+			setInvalidField("");
+			setError("");
+		}
+	};
+
+	const showFieldError = (field, message) => {
+		setError(message);
+		setInvalidField(field);
+		if (field === "pixKeyValue" && ["phone", "email", "random"].includes(form.pixKeyType)) {
+			setPixKeyDraft(form.pixKeyValue || "");
+			setIsEditingPixKey(true);
+		}
+		window.requestAnimationFrame(() => {
+			const element = fieldRefs[field]?.current;
+			element?.scrollIntoView({ behavior: "smooth", block: "center" });
+			window.setTimeout(() => element?.focus({ preventScroll: true }), 350);
+		});
+	};
+
+	const invalidClass = (field) => invalidField === field
+		? "border-red-400 ring-2 ring-red-200 animate-[pulse_0.5s_ease-in-out_2]"
+		: "";
 
 	const handleAddExtraPlate = () => {
 		if (form.needsFob) return;
@@ -216,40 +259,34 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setError("");
+		setInvalidField("");
 
 		if (form.personType === "PF" && !form.name.trim()) {
-			setError("Nome e obrigatorio para pessoa fisica.");
-			return;
+			return showFieldError("name", "Nome é obrigatório para pessoa física.");
 		}
 
 		if (form.personType === "PJ" && !form.companyName.trim()) {
-			setError("Nome da empresa e obrigatorio para pessoa juridica.");
-			return;
+			return showFieldError("companyName", "Nome da empresa é obrigatório para pessoa jurídica.");
 		}
 
 		if (form.personType === "PF" && !form.cpf.trim()) {
-			setError("CPF e obrigatorio para pessoa fisica.");
-			return;
+			return showFieldError("cpf", "CPF é obrigatório para pessoa física.");
 		}
 
 		if (form.personType === "PF" && !validarCPF(form.cpf)) {
-			setError("CPF invalido.");
-			return;
+			return showFieldError("cpf", "CPF inválido.");
 		}
 
 		if (form.personType === "PJ" && !form.cnpj.trim()) {
-			setError("CNPJ e obrigatorio para pessoa juridica.");
-			return;
+			return showFieldError("cnpj", "CNPJ é obrigatório para pessoa jurídica.");
 		}
 
 		if (form.personType === "PJ" && !validarCNPJ(form.cnpj)) {
-			setError("CNPJ invalido.");
-			return;
+			return showFieldError("cnpj", "CNPJ inválido.");
 		}
 
 		if (!form.needsFob && !form.vehiclePlate.trim()) {
-			setError("Placa do veiculo e obrigatoria.");
-			return;
+			return showFieldError("vehiclePlate", "Placa do veículo é obrigatória.");
 		}
 
 		const normalizedMainPlate = form.needsFob ? "FOB" : normalizePlate(form.vehiclePlate);
@@ -267,43 +304,67 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			return;
 		}
 
-		const requiredAddressFields = ["rua", "numero", "bairro", "cidade", "estado", "pais", "cep"];
-		const missingAddress = requiredAddressFields.find((field) => !String(form[field] || "").trim());
-		if (missingAddress) {
-			setError("Preencha todos os campos obrigatorios do endereco.");
-			return;
-		}
-
 		if (!form.email.trim()) {
-			setError("Email e obrigatorio.");
-			return;
+			return showFieldError("email", "Email é obrigatório.");
 		}
 
 		if (!form.phone.trim()) {
-			setError("Telefone e obrigatorio.");
-			return;
+			return showFieldError("phone", "Telefone é obrigatório.");
 		}
 
 		if (form.pixKeyType === "phone" && !form.pixKeyValue.trim()) {
-			setError("Informe a chave Pix do tipo telefone.");
-			return;
+			return showFieldError("pixKeyValue", "Informe a chave Pix do tipo telefone.");
 		}
 
 		if (!Supplier && (form.password || "").length < 6) {
-			setError("A senha precisa ter no minimo 6 caracteres.");
-			return;
+			return showFieldError("password", "A senha precisa ter no mínimo 6 caracteres.");
 		}
 
 		const allowedPixTypes = form.personType === "PF" ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
 		if (!allowedPixTypes.includes(form.pixKeyType)) {
-			setError("Selecione uma opcao valida para chave Pix.");
-			return;
+			return showFieldError("pixKeyType", "Selecione uma opção válida para chave Pix.");
 		}
 
 		if (["email", "random"].includes(form.pixKeyType) && !form.pixKeyValue.trim()) {
-			setError("Informe a chave Pix para o tipo selecionado.");
+			return showFieldError("pixKeyValue", "Informe a chave Pix para o tipo selecionado.");
+		}
+
+		const requiredAddressFields = ["cep", "rua", "numero", "bairro", "cidade", "estado", "pais"];
+		const missingAddress = requiredAddressFields.find((field) => !String(form[field] || "").trim());
+		if (missingAddress) {
+			return showFieldError(missingAddress, `Preencha o campo ${missingAddress === "cep" ? "CEP" : missingAddress}.`);
+		}
+
+		if (!Supplier) {
+			setCheckingAvailability(true);
+			try {
+				await checkSupplierAvailability({
+					is_pf: form.personType === "PF",
+					cpf: form.personType === "PF" ? form.cpf : null,
+					cnpj: form.personType === "PJ" ? form.cnpj : null,
+					email: form.email,
+					phone: form.phone,
+					vehicle_plate: normalizedMainPlate,
+					needs_fob: Boolean(form.needsFob),
+					vehicle_plates_extra: JSON.stringify(normalizedExtraPlates),
+				});
+				setShowPixConfirmation(true);
+			} catch (err) {
+				showFieldError(fieldForConflict(err?.message), err?.message || "Já existe um usuário com estes dados.");
+			} finally {
+				setCheckingAvailability(false);
+			}
 			return;
 		}
+
+		await saveSupplier(normalizedMainPlate, normalizedExtraPlates);
+	};
+
+	const saveSupplier = async (
+		normalizedMainPlate = form.needsFob ? "FOB" : normalizePlate(form.vehiclePlate),
+		normalizedExtraPlates = form.needsFob ? [] : (form.vehiclePlatesExtra || []).map((plate) => normalizePlate(plate)).filter(Boolean),
+	) => {
+		setShowPixConfirmation(false);
 
 		setSaving(true);
 		try {
@@ -324,9 +385,9 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 					initial={{ opacity: 0, scale: 0.96 }}
 					animate={{ opacity: 1, scale: 1 }}
 					exit={{ opacity: 0, scale: 0.96 }}
-					className="relative bg-[#fffdf8] rounded-3xl border border-[#1e1608]/60 shadow-2xl shadow-[#1e1608]/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+					className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-3xl border border-[#1e1608]/60 bg-[#fffdf8] shadow-2xl shadow-[#1e1608]/20"
 				>
-					<div className="sticky top-0 bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6 z-40">
+					<div className="bg-gradient-to-r from-[#1e1608] to-[#2b2010] rounded-t-3xl border-b border-[#d6ab4a]/30 flex items-center justify-between p-6 z-40">
 						<h2 className="text-xl font-bold text-[#f5e7c0]">{Supplier ? "Editar Fornecedor" : "Novo Fornecedor"}</h2>
 						<button
 							type="button"
@@ -338,7 +399,7 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 						</button>
 					</div>
 
-					<form onSubmit={handleSubmit} className="p-6 space-y-5 bg-[#fffdf8]">
+					<form noValidate onSubmit={handleSubmit} className="modal-scrollbar max-h-[calc(90vh-88px)] space-y-5 overflow-y-auto rounded-b-3xl bg-[#fffdf8] p-6">
 						{error && (
 							<div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
 								{error}
@@ -383,22 +444,24 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 									<div>
 										<label className={fieldLabelClass}>Nome Completo *</label>
 										<input
+											ref={fieldRefs.name}
 											required
 											placeholder="Nome Completo"
 											value={form.name}
 											onChange={(e) => set("name", e.target.value)}
-											className={fieldInputClass}
+											className={`${fieldInputClass} ${invalidClass("name")}`}
 										/>
 									</div>
 
 									<div>
 										<label className={fieldLabelClass}>CPF *</label>
 										<input
+											ref={fieldRefs.cpf}
 											required
 											placeholder="CPF"
 											value={form.cpf}
 											onChange={(e) => set("cpf", formatCpfInput(e.target.value))}
-											className={fieldInputClass}
+											className={`${fieldInputClass} ${invalidClass("cpf")}`}
 										/>
 									</div>
 								</>
@@ -407,22 +470,24 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 									<div>
 										<label className={fieldLabelClass}>Nome da Empresa *</label>
 										<input
+											ref={fieldRefs.companyName}
 											required
 											placeholder="Nome da Empresa"
 											value={form.companyName}
 											onChange={(e) => set("companyName", e.target.value)}
-											className={fieldInputClass}
+											className={`${fieldInputClass} ${invalidClass("companyName")}`}
 										/>
 									</div>
 
 									<div>
 										<label className={fieldLabelClass}>CNPJ *</label>
 										<input
+											ref={fieldRefs.cnpj}
 											required
 											placeholder="CNPJ"
 											value={form.cnpj}
 											onChange={(e) => set("cnpj", formatCnpjInput(e.target.value))}
-											className={fieldInputClass}
+											className={`${fieldInputClass} ${invalidClass("cnpj")}`}
 										/>
 									</div>
 								</>
@@ -457,12 +522,13 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 									<div className="md:col-span-2">
 										<label className={fieldLabelClass}>Placa do Veículo {form.needsFob ? "" : "*"}</label>
 										<input
+											ref={fieldRefs.vehiclePlate}
 											required={!form.needsFob}
 											disabled={form.needsFob}
 											placeholder="Placa do Veículo"
 											value={form.vehiclePlate}
 											onChange={(e) => set("vehiclePlate", normalizePlate(e.target.value))}
-											className={`${fieldInputClass} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500`}
+											className={`${fieldInputClass} ${invalidClass("vehiclePlate")} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500`}
 										/>
 									</div>
 
@@ -511,55 +577,41 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 									</div>
 									<p className="mt-2 text-xs text-[#7b6024]">Máximo de 3 placas adicionais. A placa principal não entra no total das tags.</p>
 								</div>
-								<AddressFieldsCard
-									title="Endereco"
-									required
-									defaultExpanded
-									inputClassNameOverride={fieldInputClass}
-									labelClassName={fieldLabelClass}
-									value={{
-										rua: form.rua,
-										numero: form.numero,
-										bairro: form.bairro,
-										cidade: form.cidade,
-										estado: form.estado,
-										pais: form.pais,
-										cep: form.cep,
-									}}
-									onChange={(nextAddress) => setForm((prev) => ({ ...prev, ...nextAddress }))}
-								/>
 							</div>
 
 							<div>
 								<label className={fieldLabelClass}>Email *</label>
 								<input
+									ref={fieldRefs.email}
 									type="email"
 									required
 									placeholder="Email"
 									value={form.email}
 									onChange={(e) => set("email", e.target.value)}
-									className={fieldInputClass}
+									className={`${fieldInputClass} ${invalidClass("email")}`}
 								/>
 							</div>
 
 							<div>
 								<label className={fieldLabelClass}>Telefone *</label>
 								<input
+									ref={fieldRefs.phone}
 									required
 									placeholder="Telefone"
 									value={form.phone}
 									onChange={(e) => set("phone", e.target.value)}
-									className={fieldInputClass}
+									className={`${fieldInputClass} ${invalidClass("phone")}`}
 								/>
 							</div>
 
 							<div>
 								<label className={fieldLabelClass}>Tipo da chave Pix *</label>
 								<select
+									ref={fieldRefs.pixKeyType}
 									required
 									value={form.pixKeyType}
 									onChange={(e) => handlePixTypeChange(e.target.value)}
-									className={fieldInputClass}
+									className={`${fieldInputClass} ${invalidClass("pixKeyType")}`}
 								>
 									{form.personType === "PF" ? (
 										<>
@@ -583,13 +635,14 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								<label className={fieldLabelClass}>Chave Pix</label>
 								<div className="relative">
 									<input
+										ref={fieldRefs.pixKeyValue}
 										type="text"
 										autoFocus={isEditingPixKey}
 										readOnly={!isEditingPixKey}
 										placeholder={["cpf", "cnpj"].includes(form.pixKeyType) ? "Chave Pix" : "Digite a chave Pix"}
 										value={isEditingPixKey ? pixKeyDraft : pixValue || ""}
 										onChange={(e) => setPixKeyDraft(e.target.value)}
-										className={`${fieldInputClass} ${isEditingPixKey ? "pr-20" : ["phone", "email", "random"].includes(form.pixKeyType) ? "pr-12" : ""}`}
+										className={`${fieldInputClass} ${invalidClass("pixKeyValue")} ${isEditingPixKey ? "pr-20" : ["phone", "email", "random"].includes(form.pixKeyType) ? "pr-12" : ""}`}
 									/>
 									{["phone", "email", "random"].includes(form.pixKeyType) && (
 										<div className="absolute inset-y-0 right-2 flex items-center gap-1">
@@ -610,31 +663,131 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 								<div>
 									<label className={fieldLabelClass}>Senha *</label>
 									<input
+										ref={fieldRefs.password}
 										type="password"
 										required
 										minLength={6}
 										value={form.password}
 										onChange={(e) => set("password", e.target.value)}
 										placeholder="Senha"
-										className={fieldInputClass}
+										className={`${fieldInputClass} ${invalidClass("password")}`}
 									/>
 								</div>
 							)}
+						</div>
+
+						<div className="md:col-span-2">
+							<AddressFieldsCard
+								title="Endereco"
+								required
+								defaultExpanded
+								inputClassNameOverride={fieldInputClass}
+								labelClassName={fieldLabelClass}
+								inputRefs={fieldRefs}
+								invalidField={invalidField}
+								value={{
+									rua: form.rua,
+									numero: form.numero,
+									bairro: form.bairro,
+									cidade: form.cidade,
+									estado: form.estado,
+									pais: form.pais,
+									cep: form.cep,
+								}}
+								onChange={(nextAddress) => {
+									setForm((prev) => ({ ...prev, ...nextAddress }));
+									if (invalidField && Object.prototype.hasOwnProperty.call(nextAddress, invalidField)) {
+										setInvalidField("");
+										setError("");
+									}
+								}}
+							/>
 						</div>
 
 						<div className="flex gap-3 pt-4 border-t border-[#d6ab4a]/25">
 							<Button type="button" variant="cancel" onClick={onClose} className="flex-1 rounded-full transition">
 								Cancelar
 							</Button>
-							<Button type="submit" disabled={saving} className="flex-1 rounded-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white font-semibold hover:from-[#a67917] hover:to-[#c79a39] transition disabled:opacity-60">
-								{saving ? "Salvando..." : Supplier ? "Salvar" : "Criar Conta"}
+							<Button type="submit" disabled={saving || checkingAvailability} className="flex-1 rounded-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white font-semibold hover:from-[#a67917] hover:to-[#c79a39] transition disabled:opacity-60">
+								{checkingAvailability ? "Verificando..." : saving ? "Salvando..." : Supplier ? "Salvar" : "Criar Conta"}
 							</Button>
 						</div>
 					</form>
 				</motion.div>
 			</AnimatePresence>
+
+			<AnimatePresence>
+				{showPixConfirmation && (
+					<motion.div
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						className="absolute inset-0 z-50 flex items-center justify-center bg-[#1e1608]/65 p-4 backdrop-blur-sm"
+					>
+						<motion.div
+							initial={{ opacity: 0, y: 18, scale: 0.96 }}
+							animate={{ opacity: 1, y: 0, scale: 1 }}
+							exit={{ opacity: 0, y: 10, scale: 0.97 }}
+							role="dialog"
+							aria-modal="true"
+							aria-labelledby="internal-pix-confirmation-title"
+							className="w-full max-w-md rounded-2xl border border-[#d6ab4a]/40 bg-[#fffdf8] p-6 shadow-2xl"
+						>
+							<div className="mb-4 flex items-start gap-3">
+								<span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
+									<AlertTriangle className="h-5 w-5" />
+								</span>
+								<div>
+									<h3 id="internal-pix-confirmation-title" className="text-lg font-bold text-[#1e1608]">Confirme os dados Pix</h3>
+									<p className="mt-1 text-sm text-[#7b6024]">Confira com atenção. O pagamento será enviado para esta chave.</p>
+								</div>
+							</div>
+
+							<div className="space-y-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/25 p-4">
+								<div>
+									<p className="text-xs font-semibold uppercase tracking-wide text-[#7b6024]">Tipo da chave</p>
+									<p className="mt-1 font-semibold text-[#1e1608]">{pixTypeLabel(form.pixKeyType)}</p>
+								</div>
+								<div>
+									<p className="text-xs font-semibold uppercase tracking-wide text-[#7b6024]">Chave Pix</p>
+									<p className="mt-1 break-all text-lg font-bold text-[#1e1608]">{pixValue}</p>
+								</div>
+							</div>
+
+							<p className="mt-4 text-center text-sm font-semibold text-[#4a3918]">O tipo e a chave Pix estão corretos?</p>
+							<div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row">
+								<Button
+									type="button"
+									variant="cancel"
+									onClick={() => {
+										setShowPixConfirmation(false);
+										window.setTimeout(() => {
+											fieldRefs.pixKeyType.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+											fieldRefs.pixKeyType.current?.focus();
+										}, 150);
+									}}
+									className="flex-1 rounded-full"
+								>
+									<Pencil className="mr-2 h-4 w-4" /> Editar dados Pix
+								</Button>
+								<Button
+									type="button"
+									onClick={() => saveSupplier()}
+									className="flex-1 rounded-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white"
+								>
+									<Check className="mr-2 h-4 w-4" /> Sim, finalizar
+								</Button>
+							</div>
+						</motion.div>
+					</motion.div>
+				)}
+			</AnimatePresence>
 		</div>
 	);
+}
+
+function pixTypeLabel(type) {
+	return ({ cpf: "CPF", cnpj: "CNPJ", phone: "Telefone", email: "E-mail", random: "Chave aleatória" })[type] || type;
 }
 
 function SupplierPixIconButton({ label, onClick, children, variant = "edit" }) {

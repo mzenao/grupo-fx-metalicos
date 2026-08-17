@@ -315,6 +315,20 @@ def _validate_unique_supplier_fields(
 			raise ValueError("E-mail já cadastrado")
 
 
+def check_supplier_availability(payload: dict) -> None:
+	"""Validate fields that must not coexist in another supplier account."""
+	is_pf = bool(payload.get("is_pf"))
+	plate, extra_plates = _resolve_vehicle_plate_fields(payload)
+	_validate_unique_supplier_fields(
+		cpf=normalize_digits(payload.get("cpf")) if is_pf else None,
+		cnpj=normalize_digits(payload.get("cnpj")) if not is_pf else None,
+		phone=normalize_string(payload.get("phone")),
+		plate=plate,
+		extra_plates=extra_plates,
+		email=normalize_string(payload.get("email")),
+	)
+
+
 def list_suppliers() -> list[dict]:
 	suppliers = Supplier.query.order_by(Supplier.id.desc()).all()
 	return [supplier.to_dict() for supplier in suppliers]

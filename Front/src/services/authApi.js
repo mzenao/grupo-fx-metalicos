@@ -117,3 +117,11 @@ export async function registerSupplierAccount(payload) {
   saveSessionUser(user);
   return user;
 }
+
+export async function checkSupplierAvailability(payload) {
+  const response = await apiRequest("auth/check-supplier-availability", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return Boolean(response?.data?.available);
+}

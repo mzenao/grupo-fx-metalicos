@@ -10,6 +10,7 @@ from app.services.auth_service import (
 	reset_password,
 	update_me,
 )
+from app.services.supplier_service import check_supplier_availability
 from app.utils.response import success_response
 
 
@@ -32,6 +33,13 @@ def register_supplier_route():
 	payload = request.get_json(silent=True) or {}
 	result = register_supplier(payload)
 	return success_response("Supplier account created successfully", result, 201)
+
+
+@auth_bp.post("/check-supplier-availability")
+def check_supplier_availability_route():
+	payload = request.get_json(silent=True) or {}
+	check_supplier_availability(payload)
+	return success_response("Supplier data is available", {"available": True}, 200)
 
 
 @auth_bp.post("/forgot-password")
@@ -73,4 +81,3 @@ def update_me_route():
 	payload = request.get_json(silent=True) or {}
 	updated = update_me(g.current_user, payload)
 	return success_response("Account updated successfully", updated, 200)
-

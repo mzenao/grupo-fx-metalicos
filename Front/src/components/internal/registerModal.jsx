@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
-import { Check, Pencil, X } from "lucide-react";
+import { createRef, useMemo, useState } from "react";
+import { AlertTriangle, Check, Pencil, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
-import { registerSupplierAccount } from "@/services/authApi";
+import { checkSupplierAvailability, registerSupplierAccount } from "@/services/authApi";
 import AddressFieldsCard from "@/components/internal/addressFieldsCard";
 import { emptyAddressFields } from "@/services/addressData";
 
@@ -53,6 +53,16 @@ function normalizePlate(value) {
   return String(value || "").replace(/\s+/g, "").toUpperCase();
 }
 
+function fieldForConflict(message) {
+  const value = String(message || "").toLowerCase();
+  if (value.includes("cpf")) return "cpf";
+  if (value.includes("cnpj")) return "cnpj";
+  if (value.includes("e-mail") || value.includes("email")) return "email";
+  if (value.includes("telefone")) return "phone";
+  if (value.includes("placa")) return "vehiclePlate";
+  return "email";
+}
+
 function parseVehiclePlatesExtra(value) {
   if (Array.isArray(value)) {
     return value.map((plate) => normalizePlate(plate)).filter(Boolean);
@@ -97,13 +107,45 @@ export default function RegisterModal({ onClose, onSuccess }) {
 
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [error, setError] = useState("");
   const [isEditingPixKey, setIsEditingPixKey] = useState(false);
   const [pixKeyDraft, setPixKeyDraft] = useState("");
+  const [invalidField, setInvalidField] = useState("");
+  const [showPixConfirmation, setShowPixConfirmation] = useState(false);
+  const fieldRefs = useMemo(() => Object.fromEntries([
+    "name", "companyName", "cpf", "cnpj", "vehiclePlate", "email", "phone",
+    "pixKeyType", "pixKeyValue", "password", "cep", "rua", "numero", "bairro",
+    "cidade", "estado", "pais",
+  ].map((field) => [field, createRef()])), []);
   const extraPlates = Array.isArray(form.vehiclePlatesExtra) ? form.vehiclePlatesExtra : [];
   const canAddExtra = extraPlates.length < 3;
 
-  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const set = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (invalidField === key) {
+      setInvalidField("");
+      setError("");
+    }
+  };
+
+  const showFieldError = (field, message) => {
+    setError(message);
+    setInvalidField(field);
+    if (field === "pixKeyValue" && ["phone", "email", "random"].includes(form.pixKeyType)) {
+      setPixKeyDraft(form.pixKeyValue || "");
+      setIsEditingPixKey(true);
+    }
+    window.requestAnimationFrame(() => {
+      const element = fieldRefs[field]?.current;
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => element?.focus({ preventScroll: true }), 350);
+    });
+  };
+
+  const invalidClass = (field) => invalidField === field
+    ? "border-red-400 ring-2 ring-red-200 animate-[pulse_0.5s_ease-in-out_2]"
+    : "";
 
   const handleAddExtraPlate = () => {
     if (form.needsFob) return;
@@ -176,40 +218,34 @@ export default function RegisterModal({ onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setInvalidField("");
 
     if (form.personType === "PF" && !form.name.trim()) {
-      setError("Nome é obrigatório para pessoa física.");
-      return;
+      return showFieldError("name", "Nome é obrigatório para pessoa física.");
     }
 
     if (form.personType === "PJ" && !form.companyName.trim()) {
-      setError("Nome da empresa é obrigatório para pessoa jurídica.");
-      return;
+      return showFieldError("companyName", "Nome da empresa é obrigatório para pessoa jurídica.");
     }
 
     if (form.personType === "PF" && !form.cpf.trim()) {
-      setError("CPF é obrigatório para pessoa física.");
-      return;
+      return showFieldError("cpf", "CPF é obrigatório para pessoa física.");
     }
 
     if (form.personType === "PF" && !validarCPF(form.cpf)) {
-      setError("CPF inválido.");
-      return;
+      return showFieldError("cpf", "CPF inválido.");
     }
 
     if (form.personType === "PJ" && !form.cnpj.trim()) {
-      setError("CNPJ é obrigatório para pessoa jurídica.");
-      return;
+      return showFieldError("cnpj", "CNPJ é obrigatório para pessoa jurídica.");
     }
 
     if (form.personType === "PJ" && !validarCNPJ(form.cnpj)) {
-      setError("CNPJ inválido.");
-      return;
+      return showFieldError("cnpj", "CNPJ inválido.");
     }
 
     if (!form.needsFob && !form.vehiclePlate.trim()) {
-      setError("Placa do veículo é obrigatória.");
-      return;
+      return showFieldError("vehiclePlate", "Placa do veículo é obrigatória.");
     }
 
     const normalizedMainPlate = form.needsFob ? "FOB" : normalizePlate(form.vehiclePlate);
@@ -227,43 +263,61 @@ export default function RegisterModal({ onClose, onSuccess }) {
       return;
     }
 
-    const requiredAddressFields = ["rua", "numero", "bairro", "cidade", "estado", "pais", "cep"];
-    const missingAddress = requiredAddressFields.find((field) => !String(form[field] || "").trim());
-    if (missingAddress) {
-      setError("Preencha todos os campos obrigatórios do endereço.");
-      return;
-    }
-
     if (!form.email.trim()) {
-      setError("Email é obrigatório.");
-      return;
+      return showFieldError("email", "Email é obrigatório.");
     }
 
     if (!form.phone.trim()) {
-      setError("Telefone é obrigatório.");
-      return;
+      return showFieldError("phone", "Telefone é obrigatório.");
     }
 
     if (form.pixKeyType === "phone" && !form.pixKeyValue.trim()) {
-      setError("Informe a chave Pix do tipo telefone.");
-      return;
+      return showFieldError("pixKeyValue", "Informe a chave Pix do tipo telefone.");
     }
 
     if (!form.password || form.password.length < 6) {
-      setError("A senha precisa ter no mínimo 6 caracteres.");
-      return;
+      return showFieldError("password", "A senha precisa ter no mínimo 6 caracteres.");
     }
 
     const allowedPixTypes = form.personType === "PF" ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
     if (!allowedPixTypes.includes(form.pixKeyType)) {
-      setError("Selecione uma opção válida para chave Pix.");
-      return;
+      return showFieldError("pixKeyType", "Selecione uma opção válida para chave Pix.");
     }
 
     if (["email", "random"].includes(form.pixKeyType) && !form.pixKeyValue.trim()) {
-      setError("Informe a chave Pix para o tipo selecionado.");
-      return;
+      return showFieldError("pixKeyValue", "Informe a chave Pix para o tipo selecionado.");
     }
+
+    const requiredAddressFields = ["cep", "rua", "numero", "bairro", "cidade", "estado", "pais"];
+    const missingAddress = requiredAddressFields.find((field) => !String(form[field] || "").trim());
+    if (missingAddress) {
+      return showFieldError(missingAddress, `Preencha o campo ${missingAddress === "cep" ? "CEP" : missingAddress}.`);
+    }
+
+    setCheckingAvailability(true);
+    try {
+      await checkSupplierAvailability({
+        is_pf: form.personType === "PF",
+        cpf: form.personType === "PF" ? form.cpf : null,
+        cnpj: form.personType === "PJ" ? form.cnpj : null,
+        email: form.email,
+        phone: form.phone,
+        vehicle_plate: normalizedMainPlate,
+        needs_fob: Boolean(form.needsFob),
+        vehicle_plates_extra: JSON.stringify(normalizedExtraPlates),
+      });
+      setShowPixConfirmation(true);
+    } catch (err) {
+      showFieldError(fieldForConflict(err?.message), err?.message || "Já existe um usuário com estes dados.");
+    } finally {
+      setCheckingAvailability(false);
+    }
+  };
+
+  const createAccount = async () => {
+    setShowPixConfirmation(false);
+    const normalizedMainPlate = form.needsFob ? "FOB" : normalizePlate(form.vehiclePlate);
+    const normalizedExtraPlates = form.needsFob ? [] : (form.vehiclePlatesExtra || []).map((plate) => normalizePlate(plate)).filter(Boolean);
 
     setSaving(true);
     try {
@@ -326,7 +380,7 @@ export default function RegisterModal({ onClose, onSuccess }) {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="modal-scrollbar max-h-[calc(90vh-88px)] space-y-5 overflow-y-auto rounded-b-3xl bg-[#fffdf8] p-6">
+          <form noValidate onSubmit={handleSubmit} className="modal-scrollbar max-h-[calc(90vh-88px)] space-y-5 overflow-y-auto rounded-b-3xl bg-[#fffdf8] p-6">
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                 {error}
@@ -369,11 +423,12 @@ export default function RegisterModal({ onClose, onSuccess }) {
               {form.personType === "PF" && (
                 <Field label="Nome Completo *">
                   <input
+                    ref={fieldRefs.name}
                     type="text"
                     placeholder="Nome Completo"
                     value={form.name}
                     onChange={(e) => set("name", e.target.value)}
-                    className={fieldInputClass}
+                    className={`${fieldInputClass} ${invalidClass("name")}`}
                   />
                 </Field>
               )}
@@ -381,11 +436,12 @@ export default function RegisterModal({ onClose, onSuccess }) {
               {form.personType === "PJ" && (
                 <Field label="Nome da Empresa *">
                   <input
+                    ref={fieldRefs.companyName}
                     type="text"
                     placeholder="Nome da Empresa"
                     value={form.companyName}
                     onChange={(e) => set("companyName", e.target.value)}
-                    className={fieldInputClass}
+                    className={`${fieldInputClass} ${invalidClass("companyName")}`}
                   />
                 </Field>
               )}
@@ -393,11 +449,12 @@ export default function RegisterModal({ onClose, onSuccess }) {
               {form.personType === "PF" && (
                 <Field label="CPF *">
                   <input
+                    ref={fieldRefs.cpf}
                     type="text"
                     placeholder="CPF"
                     value={form.cpf}
                     onChange={(e) => set("cpf", formatCpfInput(e.target.value))}
-                    className={fieldInputClass}
+                    className={`${fieldInputClass} ${invalidClass("cpf")}`}
                   />
                 </Field>
               )}
@@ -405,11 +462,12 @@ export default function RegisterModal({ onClose, onSuccess }) {
               {form.personType === "PJ" && (
                 <Field label="CNPJ *">
                   <input
+                    ref={fieldRefs.cnpj}
                     type="text"
                     placeholder="CNPJ"
                     value={form.cnpj}
                     onChange={(e) => set("cnpj", formatCnpjInput(e.target.value))}
-                    className={fieldInputClass}
+                    className={`${fieldInputClass} ${invalidClass("cnpj")}`}
                   />
                 </Field>
               )}
@@ -443,12 +501,13 @@ export default function RegisterModal({ onClose, onSuccess }) {
                   <div className="md:col-span-2">
                     <Field label={`Placa do Veículo ${form.needsFob ? "" : "*"}`}>
                       <input
+                        ref={fieldRefs.vehiclePlate}
                         type="text"
                         disabled={form.needsFob}
                         placeholder="Placa do Veículo"
                         value={form.vehiclePlate}
                         onChange={(e) => set("vehiclePlate", normalizePlate(e.target.value))}
-                        className={`${fieldInputClass} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500`}
+                        className={`${fieldInputClass} ${invalidClass("vehiclePlate")} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500`}
                       />
                     </Field>
                   </div>
@@ -505,32 +564,35 @@ export default function RegisterModal({ onClose, onSuccess }) {
 
               <Field label="Email *">
                 <input
+                  ref={fieldRefs.email}
                   type="email"
                   placeholder="Email"
                   value={form.email}
                   onChange={(e) => set("email", e.target.value)}
-                  className={fieldInputClass}
+                  className={`${fieldInputClass} ${invalidClass("email")}`}
                 />
               </Field>
 
               <Field label="Telefone *">
                 <input
+                  ref={fieldRefs.phone}
                   type="tel"
                   placeholder="Telefone"
                   value={form.phone}
                   onChange={(e) => set("phone", e.target.value)}
-                  className={fieldInputClass}
+                  className={`${fieldInputClass} ${invalidClass("phone")}`}
                 />
               </Field>
 
               <Field label="Tipo da chave Pix *">
                 <select
+                  ref={fieldRefs.pixKeyType}
                   required
                   value={form.pixKeyType}
                   onChange={(e) => {
                     handlePixTypeChange(e.target.value);
                   }}
-                  className={fieldInputClass}
+                  className={`${fieldInputClass} ${invalidClass("pixKeyType")}`}
                 >
                   {form.personType === "PF" ? (
                     <>
@@ -553,13 +615,14 @@ export default function RegisterModal({ onClose, onSuccess }) {
               <Field label="Chave Pix">
                 <div className="relative">
                   <input
+                    ref={fieldRefs.pixKeyValue}
                     type="text"
                     autoFocus={isEditingPixKey}
                     readOnly={!isEditingPixKey}
                     placeholder={["cpf", "cnpj"].includes(form.pixKeyType) ? "Chave Pix" : "Digite a chave Pix"}
                     value={isEditingPixKey ? pixKeyDraft : pixValue || ""}
                     onChange={(e) => setPixKeyDraft(e.target.value)}
-                    className={`${fieldInputClass} ${isEditingPixKey ? "pr-20" : ["phone", "email", "random"].includes(form.pixKeyType) ? "pr-12" : ""}`}
+                    className={`${fieldInputClass} ${invalidClass("pixKeyValue")} ${isEditingPixKey ? "pr-20" : ["phone", "email", "random"].includes(form.pixKeyType) ? "pr-12" : ""}`}
                   />
                   {["phone", "email", "random"].includes(form.pixKeyType) && (
                     <div className="absolute inset-y-0 right-2 flex items-center gap-1">
@@ -578,11 +641,12 @@ export default function RegisterModal({ onClose, onSuccess }) {
 
               <Field label="Senha *">
                 <input
+                  ref={fieldRefs.password}
                   type="password"
                   placeholder="Senha"
                   value={form.password}
                   onChange={(e) => set("password", e.target.value)}
-                  className={fieldInputClass}
+                  className={`${fieldInputClass} ${invalidClass("password")}`}
                 />
               </Field>
 
@@ -595,6 +659,8 @@ export default function RegisterModal({ onClose, onSuccess }) {
                 defaultExpanded
                 inputClassNameOverride={fieldInputClass}
                 labelClassName={fieldLabelClass}
+                inputRefs={fieldRefs}
+                invalidField={invalidField}
                 value={{
                   rua: form.rua,
                   numero: form.numero,
@@ -609,6 +675,10 @@ export default function RegisterModal({ onClose, onSuccess }) {
                     ...prev,
                     ...nextAddress,
                   }));
+                  if (invalidField && Object.prototype.hasOwnProperty.call(nextAddress, invalidField)) {
+                    setInvalidField("");
+                    setError("");
+                  }
                 }}
               />
             </div>
@@ -624,17 +694,88 @@ export default function RegisterModal({ onClose, onSuccess }) {
               </Button>
               <Button
                 type="submit"
-                disabled={saving}
+                disabled={saving || checkingAvailability}
                 className="flex-1 rounded-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white font-semibold hover:from-[#a67917] hover:to-[#c79a39] transition disabled:opacity-60"
               >
-                {saving ? "Criando..." : "Criar Conta"}
+                {checkingAvailability ? "Verificando..." : saving ? "Criando..." : "Criar Conta"}
               </Button>
             </div>
           </form>
         </motion.div>
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showPixConfirmation && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-[#1e1608]/65 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.97 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="pix-confirmation-title"
+              className="w-full max-w-md rounded-2xl border border-[#d6ab4a]/40 bg-[#fffdf8] p-6 shadow-2xl"
+            >
+              <div className="mb-4 flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 id="pix-confirmation-title" className="text-lg font-bold text-[#1e1608]">Confirme os dados Pix</h3>
+                  <p className="mt-1 text-sm text-[#7b6024]">Confira com atenção. O pagamento será enviado para esta chave.</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-[#d6ab4a]/35 bg-[#f5e7c0]/25 p-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#7b6024]">Tipo da chave</p>
+                  <p className="mt-1 font-semibold text-[#1e1608]">{pixTypeLabel(form.pixKeyType)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#7b6024]">Chave Pix</p>
+                  <p className="mt-1 break-all text-lg font-bold text-[#1e1608]">{pixValue}</p>
+                </div>
+              </div>
+
+              <p className="mt-4 text-center text-sm font-semibold text-[#4a3918]">O tipo e a chave Pix estão corretos?</p>
+              <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="cancel"
+                  onClick={() => {
+                    setShowPixConfirmation(false);
+                    window.setTimeout(() => {
+                      fieldRefs.pixKeyType.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      fieldRefs.pixKeyType.current?.focus();
+                    }, 150);
+                  }}
+                  className="flex-1 rounded-full"
+                >
+                  <Pencil className="mr-2 h-4 w-4" /> Editar dados Pix
+                </Button>
+                <Button
+                  type="button"
+                  onClick={createAccount}
+                  className="flex-1 rounded-full bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white"
+                >
+                  <Check className="mr-2 h-4 w-4" /> Sim, finalizar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
+}
+
+function pixTypeLabel(type) {
+  return ({ cpf: "CPF", cnpj: "CNPJ", phone: "Telefone", email: "E-mail", random: "Chave aleatória" })[type] || type;
 }
 
 function Field({ label, children, className = "" }) {

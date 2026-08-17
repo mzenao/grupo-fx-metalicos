@@ -13,6 +13,8 @@ export default function AddressFieldsCard({
   className = "",
   inputClassNameOverride = "",
   labelClassName = "block text-sm font-medium mb-1 text-[#4a3918]",
+  inputRefs = {},
+  invalidField = "",
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [loadingCep, setLoadingCep] = useState(false);
@@ -35,6 +37,9 @@ export default function AddressFieldsCard({
   };
 
   const resolvedInputClassName = inputClassNameOverride || inputClassName;
+  const classFor = (field, extra = "") => `${resolvedInputClassName} ${extra} ${
+    invalidField === field ? "border-red-400 ring-2 ring-red-200" : ""
+  }`;
 
   const fetchCep = async () => {
     const cepDigits = String(address.cep || "").replace(/\D/g, "");
@@ -82,13 +87,14 @@ export default function AddressFieldsCard({
             <label className={labelClassName}>CEP{required ? " *" : ""}</label>
             <div className="relative">
               <input
+                ref={inputRefs.cep}
                 required={required}
                 type="text"
                 placeholder="00000-000"
                 value={address.cep}
                 onChange={(e) => setField("cep", normalizeCep(e.target.value))}
                 onBlur={fetchCep}
-                className={`${resolvedInputClassName} pr-10`}
+                className={classFor("cep", "pr-10")}
               />
               {loadingCep && <Loader2 className="w-4 h-4 animate-spin text-[#7b6024] absolute right-3 top-1/2 -translate-y-1/2" />}
             </div>
@@ -97,73 +103,79 @@ export default function AddressFieldsCard({
           <div>
             <label className={labelClassName}>Rua{required ? " *" : ""}</label>
             <input
+              ref={inputRefs.rua}
               required={required}
               type="text"
               placeholder="Rua"
               value={address.rua}
               onChange={(e) => setField("rua", e.target.value)}
-              className={resolvedInputClassName}
+              className={classFor("rua")}
             />
           </div>
 
           <div>
             <label className={labelClassName}>Numero{required ? " *" : ""}</label>
             <input
+              ref={inputRefs.numero}
               required={required}
               type="text"
               placeholder="Numero"
               value={address.numero}
               onChange={(e) => setField("numero", e.target.value)}
-              className={resolvedInputClassName}
+              className={classFor("numero")}
             />
           </div>
 
           <div>
             <label className={labelClassName}>Bairro{required ? " *" : ""}</label>
             <input
+              ref={inputRefs.bairro}
               required={required}
               type="text"
               placeholder="Bairro"
               value={address.bairro}
               onChange={(e) => setField("bairro", e.target.value)}
-              className={resolvedInputClassName}
+              className={classFor("bairro")}
             />
           </div>
 
           <div>
             <label className={labelClassName}>Cidade{required ? " *" : ""}</label>
             <input
+              ref={inputRefs.cidade}
               required={required}
               type="text"
               placeholder="Cidade"
               value={address.cidade}
               onChange={(e) => setField("cidade", e.target.value)}
-              className={resolvedInputClassName}
+              className={classFor("cidade")}
             />
           </div>
 
           <div>
             <label className={labelClassName}>Estado{required ? " *" : ""}</label>
             <input
+              ref={inputRefs.estado}
               required={required}
               type="text"
               maxLength={2}
               placeholder="UF"
               value={address.estado}
               onChange={(e) => setField("estado", String(e.target.value || "").toUpperCase())}
-              className={resolvedInputClassName}
+              className={classFor("estado")}
             />
           </div>
 
           <div>
             <label className={labelClassName}>Pais{required ? " *" : ""}</label>
             <input
+              ref={inputRefs.pais}
               required={required}
               type="text"
               placeholder="Pais"
               value={address.pais}
               onChange={(e) => setField("pais", e.target.value)}
-              className={resolvedInputClassName}
+              className={classFor("pais")}
             />
           </div>
         </div>
