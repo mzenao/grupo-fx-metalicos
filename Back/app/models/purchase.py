@@ -47,6 +47,7 @@ class Purchase(db.Model):
 	value_per_kg: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 	impurity_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
 	advance_abatement_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+	advance_applied_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 	advance_remaining_after: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 	advance_credit_after: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 	purchase_datetime: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -86,10 +87,10 @@ class Purchase(db.Model):
 			"value_per_kg": float(self.value_per_kg),
 			"impurity_percentage": float(self.impurity_percentage or 0),
 			"advance_abatement_value": float(self.advance_abatement_value or 0),
+			"advance_applied_value": float(self.advance_applied_value or 0),
 			"advance_remaining_after": float(self.advance_remaining_after or 0),
 			"advance_credit_after": float(self.advance_credit_after or 0),
 			"purchase_datetime": format_brasilia_datetime(self.purchase_datetime),
 			"attachments": [attachment.to_dict() for attachment in self.attachments],
 			"created_at": self.created_at.isoformat(),
 		}
-

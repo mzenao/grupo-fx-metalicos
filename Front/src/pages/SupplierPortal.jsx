@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Scale, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Scale, DollarSign, ChevronDown, ChevronUp, Pencil, X, Check } from "lucide-react";
 import InternalSupplierLayout, { useSectionContext } from "@/layouts/InternalSupplierLayout";
 import { fetchMe, getSessionUser, updateMyAccount } from "@/services/authApi";
 import SuccessModal from "@/components/internal/successModal";
@@ -780,6 +780,7 @@ function AccountPortalWrapper() {
         telefone: "",
         ...emptyAddressFields(),
         pixKeyType: "cpf",
+        pixKeyValue: "",
         senhaAtual: "",
         novaSenha: "",
         confirmarNovaSenha: "",
@@ -806,6 +807,7 @@ function AccountPortalWrapper() {
       telefone: currentSupplier.phone || "",
       ...initialAddress,
       pixKeyType: (currentSupplier.pix_key_type || (isPf ? "cpf" : "cnpj")).toLowerCase(),
+      pixKeyValue: currentSupplier.pix_key_value || "",
       senhaAtual: "",
       novaSenha: "",
       confirmarNovaSenha: "",
@@ -813,6 +815,8 @@ function AccountPortalWrapper() {
   }, [authUser?.email, currentSupplier, isPf]);
 
   const [formData, setFormData] = useState(initialFormData);
+  const [isEditingPixKey, setIsEditingPixKey] = useState(false);
+  const [pixKeyDraft, setPixKeyDraft] = useState("");
 
   useEffect(() => {
     setFormData(initialFormData);
@@ -824,13 +828,32 @@ function AccountPortalWrapper() {
   };
 
   const handlePixTypeChange = (value) => {
-    setFormData((prev) => ({ ...prev, pixKeyType: value }));
+    setFormData((prev) => ({
+      ...prev,
+      pixKeyType: value,
+      pixKeyValue:
+        value === "cpf" || value === "cnpj"
+          ? prev.documento
+          : value === "phone"
+            ? currentSupplier?.pix_key_type === "phone"
+              ? currentSupplier.pix_key_value || prev.telefone
+              : prev.telefone
+            : value === "email"
+              ? currentSupplier?.pix_key_type === "email"
+                ? currentSupplier.pix_key_value || prev.email
+                : prev.email
+              : currentSupplier?.pix_key_type === "random"
+                ? currentSupplier.pix_key_value || ""
+                : "",
+    }));
+    setIsEditingPixKey(false);
+    setPixKeyDraft("");
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const allowedPixTypes = isPf ? ["cpf", "phone", "email"] : ["cnpj", "phone", "email"];
+    const allowedPixTypes = isPf ? ["cpf", "phone", "email", "random"] : ["cnpj", "phone", "email", "random"];
     if (!allowedPixTypes.includes(formData.pixKeyType)) {
       setFeedbackModal({
         open: true,
@@ -891,6 +914,7 @@ function AccountPortalWrapper() {
         pais: formData.pais,
         cep: formData.cep,
         pix_key_type: formData.pixKeyType,
+        pix_key_value: pixValue,
         current_password: formData.senhaAtual,
         new_password: formData.novaSenha,
       });
@@ -925,12 +949,13 @@ function AccountPortalWrapper() {
     if (!currentSupplier) return "";
     return formatPixValue(formData.pixKeyType, {
       ...currentSupplier,
+      pix_key_value: formData.pixKeyValue,
       email: formData.email,
       phone: formData.telefone,
       cpf: isPf ? formData.documento : currentSupplier.cpf,
       cnpj: !isPf ? formData.documento : currentSupplier.cnpj,
     });
-  }, [currentSupplier, formData.documento, formData.email, formData.pixKeyType, formData.telefone, isPf]);
+  }, [currentSupplier, formData.documento, formData.email, formData.pixKeyType, formData.pixKeyValue, formData.telefone, isPf]);
 
   if (loading) {
     return (
@@ -1007,22 +1032,36 @@ function AccountPortalWrapper() {
                 { value: "cpf", label: "CPF" },
                 { value: "phone", label: "Telefone" },
                 { value: "email", label: "Email" },
+                { value: "random", label: "Aleatória" },
               ] : [
                 { value: "cnpj", label: "CNPJ" },
                 { value: "phone", label: "Telefone" },
                 { value: "email", label: "Email" },
+                { value: "random", label: "Aleatória" },
               ]}
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Chave Pix</label>
-            <input
-              type="text"
-              readOnly
-              value={pixValue || ""}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                autoFocus={isEditingPixKey}
+                readOnly={!isEditingPixKey}
+                value={isEditingPixKey ? pixKeyDraft : pixValue || ""}
+                onChange={(event) => setPixKeyDraft(event.target.value)}
+                className={`min-w-0 flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 ${isEditingPixKey ? "bg-white focus:outline-none focus:ring-2 focus:ring-amber-500" : "bg-gray-50"}`}
+              />
+              {["phone", "email", "random"].includes(formData.pixKeyType) && (isEditingPixKey ? (
+                <>
+                  <PixIconButton variant="cancel" label="Cancelar edição" onClick={() => { setIsEditingPixKey(false); setPixKeyDraft(""); }}><X className="h-4 w-4" /></PixIconButton>
+                  <PixIconButton variant="confirm" label="Confirmar chave Pix" onClick={() => { setFormData((prev) => ({ ...prev, pixKeyValue: pixKeyDraft })); setIsEditingPixKey(false); }}><Check className="h-4 w-4" /></PixIconButton>
+                </>
+              ) : (
+                <PixIconButton label="Editar chave Pix" onClick={() => { setPixKeyDraft(pixValue || ""); setIsEditingPixKey(true); }}><Pencil className="h-4 w-4" /></PixIconButton>
+              ))}
+            </div>
           </div>
 
           <div className="rounded-lg bg-white p-0">
@@ -1246,5 +1285,24 @@ function PixTypeSelect({ value, onChange, options }) {
         </div>
       )}
     </div>
+  );
+}
+
+function PixIconButton({ label, onClick, children, variant = "edit" }) {
+  const palette = variant === "confirm"
+    ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+    : variant === "cancel"
+      ? "border-red-200 text-red-600 hover:bg-red-50"
+      : "border-slate-300 text-slate-900 hover:bg-slate-100";
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border transition ${palette}`}
+    >
+      {children}
+    </button>
   );
 }

@@ -155,6 +155,11 @@ def _build_purchase_notification_message(purchase) -> str:
 	date_text = _format_purchase_datetime(purchase.purchase_datetime)
 	materials_summary = _build_purchase_materials_summary(purchase)
 	advance_abatement_value = float(getattr(purchase, "advance_abatement_value", 0) or 0)
+	advance_applied_value = float(getattr(purchase, "advance_applied_value", advance_abatement_value) or 0)
+	paid_value = max(float(purchase.value or 0) - advance_applied_value, 0)
+	generated_value = max(advance_applied_value - advance_abatement_value, 0)
+	advance_value_label = "Valor gerado" if generated_value > 0 else "Valor abatido"
+	advance_value_for_message = generated_value if generated_value > 0 else advance_abatement_value
 	advance_credit_after = float(getattr(purchase, "advance_credit_after", 0) or 0)
 	has_advance_balance_change = advance_abatement_value > 0 or advance_credit_after > 0
 	advance_summary = _get_supplier_advance_summary(getattr(purchase, "supplier_id", None))
@@ -169,11 +174,11 @@ def _build_purchase_notification_message(purchase) -> str:
 		return (
 			f"Prezado(a), {supplier_name}.\n\n"
 			"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
-			f"• Valor pago: R$ {value_text}\n"
+			f"• Valor da compra: R$ {value_text}\n"
 			f"• Valor pago por kg: R$ {_format_brl(purchase.value_per_kg)}\n"
 			f"• Peso total (kg): {_format_weight_kg(purchase.weight)}\n"
 			f"{materials_summary}\n"
-			f"• Valor abatido no adiantamento: R$ {_format_brl(advance_abatement_value)}\n"
+			f"• {advance_value_label} / Valor pago: R$ {_format_brl(advance_value_for_message)} / R$ {_format_brl(paid_value)}\n"
 			f"{credit_line}"
 			f"• Data: {date_text}\n\n"
 			f"• Você possui {advance_summary['open_count']} adiantamento(s) em aberto.\n"
@@ -289,6 +294,7 @@ def create_purchase_with_attachments_route():
 		"value": request.form.get("value"),
 		"purchase_datetime": request.form.get("purchase_datetime"),
 		"apply_advance": request.form.get("apply_advance"),
+		"advance_value": request.form.get("advance_value"),
 	}
 	files = request.files.getlist("files")
 	purchase = create_purchase_with_attachments(payload, files)

@@ -150,10 +150,15 @@ def create_purchase(payload: dict) -> Purchase:
 	impurity_percentage = _parse_impurity_percentage(payload.get("impurity_percentage"))
 
 	advance_info = None
+	advance_value = Decimal("0.00")
 	if _is_truthy(payload.get("apply_advance")):
+		raw_advance_value = payload.get("advance_value")
+		advance_value = value if raw_advance_value in (None, "") else to_decimal(raw_advance_value)
+		if advance_value <= 0 or advance_value > value:
+			raise ValueError("Advance value must be greater than zero and cannot exceed purchase value")
 		advance_info = apply_pending_advance(
 			supplier_id=supplier_id,
-			purchase_value=value,
+			purchase_value=advance_value,
 			advance_id=None,
 			allow_positive_balance=True,
 		)
@@ -173,6 +178,7 @@ def create_purchase(payload: dict) -> Purchase:
 		value_per_kg=value_per_kg,
 		impurity_percentage=impurity_percentage,
 		advance_abatement_value=advance_info["advance_abatement_value"] if advance_info else Decimal("0.00"),
+		advance_applied_value=advance_value,
 		advance_remaining_after=advance_info["advance_remaining_after"] if advance_info else Decimal("0.00"),
 		advance_credit_after=advance_info["advance_credit_after"] if advance_info else Decimal("0.00"),
 		purchase_datetime=parse_iso_datetime(payload.get("purchase_datetime")),
@@ -208,10 +214,15 @@ def create_purchase_with_attachments(payload: dict, files: list) -> Purchase:
 	impurity_percentage = _parse_impurity_percentage(payload.get("impurity_percentage"))
 
 	advance_info = None
+	advance_value = Decimal("0.00")
 	if _is_truthy(payload.get("apply_advance")):
+		raw_advance_value = payload.get("advance_value")
+		advance_value = value if raw_advance_value in (None, "") else to_decimal(raw_advance_value)
+		if advance_value <= 0 or advance_value > value:
+			raise ValueError("Advance value must be greater than zero and cannot exceed purchase value")
 		advance_info = apply_pending_advance(
 			supplier_id=supplier_id,
-			purchase_value=value,
+			purchase_value=advance_value,
 			advance_id=None,
 			allow_positive_balance=True,
 		)
@@ -229,6 +240,7 @@ def create_purchase_with_attachments(payload: dict, files: list) -> Purchase:
 		value_per_kg=_calculate_value_per_kg(value=value, weight=weight),
 		impurity_percentage=impurity_percentage,
 		advance_abatement_value=advance_info["advance_abatement_value"] if advance_info else Decimal("0.00"),
+		advance_applied_value=advance_value,
 		advance_remaining_after=advance_info["advance_remaining_after"] if advance_info else Decimal("0.00"),
 		advance_credit_after=advance_info["advance_credit_after"] if advance_info else Decimal("0.00"),
 		purchase_datetime=parse_iso_datetime(payload.get("purchase_datetime")),
@@ -299,4 +311,3 @@ def delete_purchase(purchase_id: int) -> None:
 	purchase = get_purchase(purchase_id)
 	db.session.delete(purchase)
 	db.session.commit()
-

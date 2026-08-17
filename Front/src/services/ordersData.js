@@ -32,6 +32,7 @@ function mapPurchaseFromApi(item, refs) {
     materialsExtra: extraMaterials,
     advanceId: item.advance_id ?? null,
     advanceAbatementValue: String(item.advance_abatement_value ?? "0"),
+    advanceAppliedValue: String(item.advance_applied_value ?? item.advance_abatement_value ?? "0"),
     advanceRemainingAfter: String(item.advance_remaining_after ?? "0"),
     advanceCreditAfter: String(item.advance_credit_after ?? "0"),
     weight: String(item.weight ?? ""),
@@ -93,6 +94,7 @@ export async function createPurchaseWithAttachments({ purchasePayload, files }) 
   formData.append("purchase_datetime", String(purchasePayload.purchase_datetime));
   if (purchasePayload.apply_advance) {
     formData.append("apply_advance", "true");
+	formData.append("advance_value", String(purchasePayload.advance_value));
   }
 
   for (const file of files || []) {

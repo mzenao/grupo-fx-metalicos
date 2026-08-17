@@ -13,6 +13,8 @@ import {
 	Paperclip,
 	Upload,
 	X,
+	Check,
+	Pencil,
 	Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -375,6 +377,10 @@ export default function Orders() {
 	const [suppliers, setSuppliers] = useState([]);
 	const [pendingAdvances, setPendingAdvances] = useState([]);
 	const [applyAdvance, setApplyAdvance] = useState(false);
+	const [advanceValue, setAdvanceValue] = useState("");
+	const [advanceValueDraft, setAdvanceValueDraft] = useState("");
+	const [isEditingAdvanceValue, setIsEditingAdvanceValue] = useState(false);
+	const [isAdvanceValueCustomized, setIsAdvanceValueCustomized] = useState(false);
 	const [employeesOptions, setEmployeesOptions] = useState([]);
 	const [materialTypeOptions, setMaterialTypeOptions] = useState([]);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -439,12 +445,18 @@ export default function Orders() {
 		if (!SupplierId) {
 			setPendingAdvances([]);
 			setApplyAdvance(false);
+			setAdvanceValue("");
+			setIsEditingAdvanceValue(false);
+			setIsAdvanceValueCustomized(false);
 			return () => {
 				mounted = false;
 			};
 		}
 
 		setApplyAdvance(false);
+		setAdvanceValue("");
+		setIsEditingAdvanceValue(false);
+		setIsAdvanceValueCustomized(false);
 
 		fetchPendingAdvancesForSupplier(SupplierId)
 			.then((data) => {
@@ -464,6 +476,12 @@ export default function Orders() {
 			mounted = false;
 		};
 	}, [SupplierId]);
+
+	useEffect(() => {
+		if (applyAdvance && !isAdvanceValueCustomized) {
+			setAdvanceValue(totalValue || "");
+		}
+	}, [applyAdvance, isAdvanceValueCustomized, totalValue]);
 
 	const supplierOptions = useMemo(() => {
 		return suppliers.map((supplier) => ({
@@ -498,14 +516,38 @@ export default function Orders() {
 		if (!applyAdvance) return null;
 
 		const purchaseValue = Number(totalValue) || 0;
+		const valueToApply = Number(advanceValue) || 0;
 		const currentCredit = Number(selectedSupplier?.advanceCreditBalance || 0);
-		const debtAfter = Math.max(totalPendingAdvanceValue - purchaseValue, 0);
+		const abatementValue = Math.min(totalPendingAdvanceValue, valueToApply);
+		const paidValue = Math.max(purchaseValue - valueToApply, 0);
+		const debtAfter = Math.max(totalPendingAdvanceValue - valueToApply, 0);
 		const creditAfter = debtAfter > 0
 			? currentCredit
-			: currentCredit + Math.max(purchaseValue - totalPendingAdvanceValue, 0);
+			: currentCredit + Math.max(valueToApply - totalPendingAdvanceValue, 0);
 
-		return { debtAfter, creditAfter };
-	}, [applyAdvance, selectedSupplier, totalPendingAdvanceValue, totalValue]);
+		return { abatementValue, paidValue, debtAfter, creditAfter };
+	}, [advanceValue, applyAdvance, selectedSupplier, totalPendingAdvanceValue, totalValue]);
+
+	const handleApplyAdvanceChange = (checked) => {
+		setApplyAdvance(checked);
+		setAdvanceValue(checked ? totalValue : "");
+		setAdvanceValueDraft("");
+		setIsEditingAdvanceValue(false);
+		setIsAdvanceValueCustomized(false);
+	};
+
+	const handleConfirmAdvanceValue = () => {
+		const nextValue = Number(advanceValueDraft);
+		const purchaseValue = Number(totalValue);
+		if (!Number.isFinite(nextValue) || nextValue <= 0 || nextValue > purchaseValue) {
+			setError("O valor aplicado ao adiantamento deve ser maior que zero e não pode superar o valor da compra.");
+			return;
+		}
+		setAdvanceValue(advanceValueDraft);
+		setIsEditingAdvanceValue(false);
+		setIsAdvanceValueCustomized(true);
+		setError("");
+	};
 
 	const handleExtraMaterialWeightChange = (nextWeightValue) => {
 		setExtraMaterialWeight(nextWeightValue);
@@ -1091,6 +1133,11 @@ export default function Orders() {
 			return;
 		}
 
+		if (applyAdvance && (!advanceValue || Number(advanceValue) <= 0 || Number(advanceValue) > Number(totalValue))) {
+			setError("O valor aplicado ao adiantamento deve ser maior que zero e não pode superar o valor da compra.");
+			return;
+		}
+
 		if (!datetime) {
 			setError("Informe dia e hora da compra.");
 			return;
@@ -1114,6 +1161,7 @@ export default function Orders() {
 				value: totalValue,
 				purchase_datetime: formatDateTimeForApi(datetime),
 					apply_advance: applyAdvance,
+					advance_value: applyAdvance ? advanceValue : undefined,
 				},
 				files: attachments,
 			});
@@ -1138,6 +1186,10 @@ export default function Orders() {
 			setAttachments([]);
 			setPendingAdvances([]);
 			setApplyAdvance(false);
+			setAdvanceValue("");
+			setAdvanceValueDraft("");
+			setIsEditingAdvanceValue(false);
+			setIsAdvanceValueCustomized(false);
 			setIsCreateOpen(false);
 		} catch (err) {
 			setError(err?.message || "Erro ao salvar compra.");
@@ -1211,7 +1263,7 @@ export default function Orders() {
 											<input
 												type="checkbox"
 												checked={applyAdvance}
-												onChange={(e) => setApplyAdvance(e.target.checked)}
+												onChange={(e) => handleApplyAdvanceChange(e.target.checked)}
 												className="mt-0.5 h-3.5 w-3.5 rounded border-emerald-400 accent-emerald-600 checked:bg-emerald-600 checked:border-emerald-600 focus:ring-emerald-500"
 											/>
 										)}
@@ -1233,11 +1285,37 @@ export default function Orders() {
 												</p>
 											)}
 											{hasPendingAdvances && advancePreview && (
-												<p className="text-[11px] font-semibold text-emerald-800">
-													{advancePreview.debtAfter > 0
-														? `Apos a compra, ainda deve ${formatMoney(advancePreview.debtAfter)}.`
-														: `Apos a compra, saldo positivo de ${formatMoney(advancePreview.creditAfter)}.`}
-												</p>
+												<div className="space-y-1 pt-1">
+													<div className="relative max-w-xs">
+														<input
+															type="number"
+															min="0.01"
+															max={totalValue || undefined}
+															step="0.01"
+															autoFocus={isEditingAdvanceValue}
+															readOnly={!isEditingAdvanceValue}
+															placeholder="Valor à ser abatido"
+															value={isEditingAdvanceValue ? advanceValueDraft : advanceValue}
+															onChange={(event) => setAdvanceValueDraft(event.target.value)}
+															className={`h-9 w-full rounded-lg border border-emerald-200 bg-white px-3 text-sm text-slate-800 outline-none ${isEditingAdvanceValue ? "pr-20 focus:ring-2 focus:ring-emerald-200" : "pr-11"}`}
+														/>
+														<div className="absolute inset-y-0 right-1 flex items-center gap-0.5">
+															{isEditingAdvanceValue ? (
+																<>
+																	<AdvanceValueIconButton variant="cancel" label="Cancelar edição" onClick={() => { setAdvanceValueDraft(""); setIsEditingAdvanceValue(false); }}><X className="h-4 w-4" /></AdvanceValueIconButton>
+																	<AdvanceValueIconButton variant="confirm" label="Confirmar valor" onClick={handleConfirmAdvanceValue}><Check className="h-4 w-4" /></AdvanceValueIconButton>
+																</>
+															) : (
+																<AdvanceValueIconButton label="Editar valor aplicado" onClick={() => { setAdvanceValueDraft(advanceValue); setIsEditingAdvanceValue(true); }}><Pencil className="h-4 w-4" /></AdvanceValueIconButton>
+															)}
+														</div>
+													</div>
+													<p className="text-[11px] font-semibold text-emerald-800">
+														Valor abatido: {formatMoney(advancePreview.abatementValue)} / Valor pago: {formatMoney(advancePreview.paidValue)}. {advancePreview.debtAfter > 0
+															? `Após a compra, ainda deve ${formatMoney(advancePreview.debtAfter)}.`
+															: `Após a compra, saldo positivo de ${formatMoney(advancePreview.creditAfter)}.`}
+													</p>
+												</div>
 											)}
 										</div>
 									</div>
@@ -1517,7 +1595,7 @@ export default function Orders() {
 										<p><span className="text-gray-500">Impureza:</span> {Number(purchase.impurityPercentage || 0).toLocaleString("pt-BR")}%</p>
 										<p><span className="text-gray-500">Valor total:</span> {Number(purchase.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
 										{Number(purchase.advanceAbatementValue || 0) > 0 && (
-											<p><span className="text-gray-500">Abatido:</span> {formatMoney(purchase.advanceAbatementValue)}</p>
+											<p><span className="text-gray-500">Valor abatido / valor pago:</span> {formatMoney(purchase.advanceAbatementValue)} / {formatMoney(Math.max(Number(purchase.value || 0) - Number(purchase.advanceAppliedValue || 0), 0))}</p>
 										)}
 										{Number(purchase.advanceCreditAfter || 0) > 0 && (
 											<p><span className="text-gray-500">Saldo positivo:</span> {formatMoney(purchase.advanceCreditAfter)}</p>
@@ -1807,5 +1885,19 @@ export default function Orders() {
 				loading={deletingPurchase}
 			/>
 		</div>
+	);
+}
+
+function AdvanceValueIconButton({ label, onClick, children, variant = "edit" }) {
+	const palette = variant === "confirm"
+		? "text-emerald-700 hover:bg-emerald-50"
+		: variant === "cancel"
+			? "text-red-600 hover:bg-red-50"
+			: "text-slate-900 hover:bg-slate-100";
+
+	return (
+		<button type="button" aria-label={label} title={label} onClick={onClick} className={`grid h-8 w-8 place-items-center rounded-lg transition ${palette}`}>
+			{children}
+		</button>
 	);
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Save, UserRound, Building2 } from "lucide-react";
+import { Save, UserRound, Building2, Pencil, X, Check } from "lucide-react";
 import { fetchMe, getSessionUser, updateMyAccount } from "@/services/authApi";
 import SuccessModal from "@/components/internal/successModal";
 import ErrorModal from "@/components/internal/errorModal";
@@ -27,7 +27,7 @@ function formatPixValue(pixKeyType, supplier) {
 		return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
 	}
 
-	if (type === "phone") return supplier.phone || "";
+	if (type === "phone") return supplier.pix_key_value || supplier.phone || "";
 	if (type === "email") return supplier.pix_key_value || "";
 	if (type === "random") return supplier.pix_key_value || "";
 	return "";
@@ -37,6 +37,8 @@ export default function Account() {
 	const [authUser, setAuthUser] = useState(() => getSessionUser());
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const [isEditingPixKey, setIsEditingPixKey] = useState(false);
+	const [pixKeyDraft, setPixKeyDraft] = useState("");
 	const [feedbackModal, setFeedbackModal] = useState({
 		open: false,
 		title: "",
@@ -123,6 +125,30 @@ export default function Account() {
 		setFormData((prev) => ({ ...prev, [name]: value }));
 	};
 
+	const handlePixTypeChange = (event) => {
+		const nextType = event.target.value;
+		setFormData((prev) => ({
+			...prev,
+			pixKeyType: nextType,
+			pixKeyValue:
+				nextType === "cpf" || nextType === "cnpj"
+					? prev.documento
+					: nextType === "phone"
+						? currentSupplier?.pix_key_type === "phone"
+							? currentSupplier.pix_key_value || prev.telefone
+							: prev.telefone
+						: nextType === "email"
+							? currentSupplier?.pix_key_type === "email"
+								? currentSupplier.pix_key_value || prev.email
+								: prev.email
+							: currentSupplier?.pix_key_type === "random"
+								? currentSupplier.pix_key_value || ""
+								: "",
+		}));
+		setIsEditingPixKey(false);
+		setPixKeyDraft("");
+	};
+
 	const handleSubmit = async (event) => {
 		event.preventDefault();
 
@@ -187,7 +213,7 @@ export default function Account() {
 				pais: formData.pais,
 				cep: formData.cep,
 				pix_key_type: formData.pixKeyType,
-				pix_key_value: formData.pixKeyValue,
+				pix_key_value: pixValue,
 				current_password: formData.senhaAtual,
 				new_password: formData.novaSenha,
 			});
@@ -312,13 +338,7 @@ export default function Account() {
 								<select
 									name="pixKeyType"
 									value={formData.pixKeyType}
-									onChange={(event) => {
-										handleChange(event);
-										const nextType = event.target.value;
-										if (!["email", "random"].includes(nextType)) {
-											setFormData((prev) => ({ ...prev, pixKeyValue: "" }));
-										}
-									}}
+									onChange={handlePixTypeChange}
 								>
 									{isPf ? (
 										<>
@@ -337,14 +357,26 @@ export default function Account() {
 									)}
 								</select>
 							</label>
-							<InputField
-								label="Chave Pix"
-								name="pixKeyValue"
-								value={pixValue || ""}
-								onChange={handleChange}
-								readOnly={!(["email", "random"].includes(formData.pixKeyType))}
-								className="md:col-span-2"
-							/>
+							<label className="flex flex-col gap-2 md:col-span-2">
+								<span className="text-sm font-medium text-slate-700">Chave Pix</span>
+								<div className="flex items-center gap-2">
+									<input
+										autoFocus={isEditingPixKey}
+										value={isEditingPixKey ? pixKeyDraft : pixValue || ""}
+										onChange={(event) => setPixKeyDraft(event.target.value)}
+										readOnly={!isEditingPixKey}
+										className={`h-11 min-w-0 flex-1 rounded-xl border border-amber-100 px-3 text-slate-800 outline-none ${isEditingPixKey ? "bg-white focus:border-[#b8891f] focus:ring-2 focus:ring-amber-200" : "bg-slate-50"}`}
+									/>
+									{["phone", "email", "random"].includes(formData.pixKeyType) && (isEditingPixKey ? (
+										<>
+											<IconButton variant="cancel" label="Cancelar edição" onClick={() => { setIsEditingPixKey(false); setPixKeyDraft(""); }}><X className="h-4 w-4" /></IconButton>
+											<IconButton variant="confirm" label="Confirmar chave Pix" onClick={() => { setFormData((prev) => ({ ...prev, pixKeyValue: pixKeyDraft })); setIsEditingPixKey(false); }}><Check className="h-4 w-4" /></IconButton>
+										</>
+									) : (
+										<IconButton label="Editar chave Pix" onClick={() => { setPixKeyDraft(pixValue || ""); setIsEditingPixKey(true); }}><Pencil className="h-4 w-4" /></IconButton>
+									))}
+								</div>
+							</label>
 							<div className="md:col-span-2">
 								<div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4">
 									<h3 className="text-sm font-semibold text-slate-900">Campos de Endereco</h3>
@@ -436,3 +468,7 @@ function InputField({ label, name, value, onChange, type = "text", className = "
 	);
 }
 
+function IconButton({ label, onClick, children, variant = "edit" }) {
+	const palette = variant === "confirm" ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : variant === "cancel" ? "border-red-200 text-red-600 hover:bg-red-50" : "border-slate-300 text-slate-900 hover:bg-slate-100";
+	return <button type="button" aria-label={label} title={label} onClick={onClick} className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border transition ${palette}`}>{children}</button>;
+}

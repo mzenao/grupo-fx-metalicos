@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { Check, Pencil, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { validarCPF, validarCNPJ } from "@/services/validators";
@@ -131,6 +131,8 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 	const [form, setForm] = useState(initial);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
+	const [isEditingPixKey, setIsEditingPixKey] = useState(false);
+	const [pixKeyDraft, setPixKeyDraft] = useState("");
 	const pixValue = formatPixValue(form.pixKeyType, form);
 	const extraPlates = Array.isArray(form.vehiclePlatesExtra) ? form.vehiclePlatesExtra : [];
 	const canAddExtra = extraPlates.length < 3;
@@ -182,6 +184,8 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			companyName: nextType === "PJ" ? prev.companyName : "",
 			cnpj: nextType === "PJ" ? prev.cnpj : "",
 		}));
+		setIsEditingPixKey(false);
+		setPixKeyDraft("");
 	};
 
 	const handlePixTypeChange = (nextType) => {
@@ -189,14 +193,24 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 			...prev,
 			pixKeyType: nextType,
 			pixKeyValue:
-				nextType === "phone" && !prev.pixKeyValue
-					? prev.phone || ""
-					: nextType === "cpf"
+				nextType === "phone"
+					? Supplier?.pixKeyType === "phone"
+						? Supplier.pixKeyValue || prev.phone
+						: prev.phone || ""
+					: nextType === "email"
+						? Supplier?.pixKeyType === "email"
+							? Supplier.pixKeyValue || prev.email
+							: prev.email || ""
+						: nextType === "cpf"
 						? prev.cpf || ""
 						: nextType === "cnpj"
 							? prev.cnpj || ""
-							: prev.pixKeyValue,
+							: Supplier?.pixKeyType === "random"
+								? Supplier.pixKeyValue || ""
+								: "",
 		}));
+		setIsEditingPixKey(false);
+		setPixKeyDraft("");
 	};
 
 	const handleSubmit = async (e) => {
@@ -567,14 +581,29 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 
 							<div>
 								<label className={fieldLabelClass}>Chave Pix</label>
-								<input
-									type="text"
-									readOnly={form.pixKeyType === "cpf" || form.pixKeyType === "cnpj"}
-									placeholder={form.pixKeyType === "cpf" ? "Chave Pix" : "Digite a chave Pix"}
-									value={pixValue || ""}
-									onChange={(e) => set("pixKeyValue", e.target.value)}
-									className={fieldInputClass}
-								/>
+								<div className="relative">
+									<input
+										type="text"
+										autoFocus={isEditingPixKey}
+										readOnly={!isEditingPixKey}
+										placeholder={["cpf", "cnpj"].includes(form.pixKeyType) ? "Chave Pix" : "Digite a chave Pix"}
+										value={isEditingPixKey ? pixKeyDraft : pixValue || ""}
+										onChange={(e) => setPixKeyDraft(e.target.value)}
+										className={`${fieldInputClass} ${isEditingPixKey ? "pr-20" : ["phone", "email", "random"].includes(form.pixKeyType) ? "pr-12" : ""}`}
+									/>
+									{["phone", "email", "random"].includes(form.pixKeyType) && (
+										<div className="absolute inset-y-0 right-2 flex items-center gap-1">
+											{isEditingPixKey ? (
+												<>
+													<SupplierPixIconButton variant="cancel" label="Cancelar edição" onClick={() => { setIsEditingPixKey(false); setPixKeyDraft(""); }}><X className="h-4 w-4" /></SupplierPixIconButton>
+													<SupplierPixIconButton variant="confirm" label="Confirmar chave Pix" onClick={() => { set("pixKeyValue", pixKeyDraft); setIsEditingPixKey(false); }}><Check className="h-4 w-4" /></SupplierPixIconButton>
+												</>
+											) : (
+												<SupplierPixIconButton label="Editar chave Pix" onClick={() => { setPixKeyDraft(pixValue || ""); setIsEditingPixKey(true); }}><Pencil className="h-4 w-4" /></SupplierPixIconButton>
+											)}
+										</div>
+									)}
+								</div>
 							</div>
 
 							{!Supplier && (
@@ -605,5 +634,19 @@ export default function SupplierModal({ Supplier, onClose, onSave }) {
 				</motion.div>
 			</AnimatePresence>
 		</div>
+	);
+}
+
+function SupplierPixIconButton({ label, onClick, children, variant = "edit" }) {
+	const palette = variant === "confirm"
+		? "text-emerald-700 hover:bg-emerald-50"
+		: variant === "cancel"
+			? "text-red-600 hover:bg-red-50"
+			: "text-slate-900 hover:bg-slate-100";
+
+	return (
+		<button type="button" aria-label={label} title={label} onClick={onClick} className={`grid h-8 w-8 place-items-center rounded-lg transition ${palette}`}>
+			{children}
+		</button>
 	);
 }
