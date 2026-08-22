@@ -96,12 +96,11 @@ def _material_details(name: str, weight, impurity, paid_value, value_per_kg=None
 
 def _format_material_line(details: dict) -> str:
 	return (
-		f"• {details['name']}:\n"
+		f"* {details['name']}:\n"
 		f"  - Peso bruto: {_format_weight_kg(details['gross_weight'])}\n"
 		f"  - Impureza: {_format_percentage(details['impurity'])}%\n"
 		f"  - Peso líquido: {_format_weight_kg(details['net_weight'])}\n"
 		f"  - Valor por kg: R$ {_format_brl(details['value_per_kg'])}\n"
-		f"  - Desconto por impureza: R$ {_format_brl(details['discount'])}\n"
 		f"  - Valor líquido: R$ {_format_brl(details['paid_value'])}"
 	)
 
@@ -141,7 +140,7 @@ def _get_extra_materials(raw_extra: str | None) -> list[str]:
 	return [str(item).strip() for item in decoded if str(item).strip()]
 
 
-def _build_purchase_materials_summary(purchase) -> tuple[str, float, float]:
+def _build_purchase_materials_summary(purchase) -> tuple[str, float]:
 	main_material = purchase.material_type.label if purchase.material_type else "Material principal"
 	main_details = _material_details(
 		main_material,
@@ -157,9 +156,24 @@ def _build_purchase_materials_summary(purchase) -> tuple[str, float, float]:
 			details.append(extra_details)
 
 	lines = [_format_material_line(item) for item in details]
+	total_gross_weight = sum(item["gross_weight"] for item in details)
+	total_net_weight = sum(item["net_weight"] for item in details)
 	total_paid = sum(item["paid_value"] for item in details)
-	total_discount = sum(item["discount"] for item in details)
-	return "Materiais da compra:\n" + "\n\n".join(lines), total_paid, total_discount
+	weighted_impurity = (
+		(1 - total_net_weight / total_gross_weight) * 100
+		if total_gross_weight > 0
+		else 0
+	)
+	average_value_per_kg = total_paid / total_net_weight if total_net_weight > 0 else 0
+	lines.append(_format_material_line({
+		"name": "Totais",
+		"gross_weight": total_gross_weight,
+		"impurity": weighted_impurity,
+		"net_weight": total_net_weight,
+		"value_per_kg": average_value_per_kg,
+		"paid_value": total_paid,
+	}))
+	return "Materiais da compra:\n" + "\n\n".join(lines), total_paid
 
 
 def _build_portal_access_line() -> str:
@@ -200,7 +214,7 @@ def _build_purchase_notification_message(purchase) -> str:
 		supplier_name = supplier.name if supplier.is_pf else (supplier.company_name or supplier.name)
 
 	date_text = _format_purchase_datetime(purchase.purchase_datetime)
-	materials_summary, materials_total, impurity_discount_total = _build_purchase_materials_summary(purchase)
+	materials_summary, materials_total = _build_purchase_materials_summary(purchase)
 	advance_abatement_value = float(getattr(purchase, "advance_abatement_value", 0) or 0)
 	advance_applied_value = float(getattr(purchase, "advance_applied_value", advance_abatement_value) or 0)
 	paid_value = max(materials_total - advance_applied_value, 0)
@@ -237,8 +251,6 @@ def _build_purchase_notification_message(purchase) -> str:
 		f"Prezado(a), {supplier_name}.\n\n"
 		"O Grupo FX Metálicos informa que a operação foi concluída com sucesso.\n\n"
 		f"{materials_summary}\n\n"
-		f"• Desconto total por impureza: R$ {_format_brl(impurity_discount_total)}\n"
-		f"• Valor total dos materiais: R$ {_format_brl(materials_total)}\n"
 		f"{advance_lines}"
 		f"• Data: {date_text}\n\n"
 		"Arquivos referentes à transação:\n"
