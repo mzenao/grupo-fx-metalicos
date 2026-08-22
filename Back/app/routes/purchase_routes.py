@@ -47,8 +47,9 @@ def _format_weight_kg(value) -> str:
 		number = float(value)
 	except (TypeError, ValueError):
 		number = 0.0
-	formatted = f"{number:,.3f}"
-	return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+	formatted = f"{number:,.2f}".rstrip("0").rstrip(".")
+	localized = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+	return f"{localized}KG"
 
 
 def _parse_decimal_from_text(value: str) -> float | None:
@@ -63,14 +64,52 @@ def _parse_decimal_from_text(value: str) -> float | None:
 		return None
 
 
-def _format_material_line(name: str, weight, paid_value) -> str:
-	return f"• {name}: {_format_weight_kg(weight)} kg | Valor pago: R$ {_format_brl(paid_value)}"
+def _format_percentage(value) -> str:
+	try:
+		number = float(value)
+	except (TypeError, ValueError):
+		number = 0.0
+	formatted = f"{number:,.2f}".rstrip("0").rstrip(".")
+	return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _parse_extra_material_line(raw_material: str) -> str:
+def _material_details(name: str, weight, impurity, paid_value, value_per_kg=None) -> dict:
+	gross_weight = max(float(weight or 0), 0)
+	impurity_percentage = max(0.0, min(float(impurity or 0), 100.0))
+	net_weight = gross_weight * (1 - impurity_percentage / 100)
+	paid = max(float(paid_value or 0), 0)
+	quoted_value_per_kg = float(value_per_kg or 0)
+	if quoted_value_per_kg <= 0 and net_weight > 0:
+		quoted_value_per_kg = paid / net_weight
+	gross_value = gross_weight * quoted_value_per_kg
+	discount = max(gross_value - paid, 0)
+	return {
+		"name": name,
+		"gross_weight": gross_weight,
+		"impurity": impurity_percentage,
+		"net_weight": net_weight,
+		"value_per_kg": quoted_value_per_kg,
+		"discount": discount,
+		"paid_value": paid,
+	}
+
+
+def _format_material_line(details: dict) -> str:
+	return (
+		f"• {details['name']}:\n"
+		f"  - Peso bruto: {_format_weight_kg(details['gross_weight'])}\n"
+		f"  - Impureza: {_format_percentage(details['impurity'])}%\n"
+		f"  - Peso líquido: {_format_weight_kg(details['net_weight'])}\n"
+		f"  - Valor por kg: R$ {_format_brl(details['value_per_kg'])}\n"
+		f"  - Desconto por impureza: R$ {_format_brl(details['discount'])}\n"
+		f"  - Valor líquido: R$ {_format_brl(details['paid_value'])}"
+	)
+
+
+def _parse_extra_material(raw_material: str) -> dict | None:
 	parts = [part.strip() for part in str(raw_material or "").split(" - ") if part.strip()]
 	if not parts:
-		return ""
+		return None
 
 	name = parts[0]
 	weight = _parse_decimal_from_text(parts[1]) if len(parts) > 1 else None
@@ -79,14 +118,14 @@ def _parse_extra_material_line(raw_material: str) -> str:
 	total_value = _parse_decimal_from_text(parts[4]) if len(parts) > 4 else None
 
 	if weight is None:
-		return f"• {name}"
+		return _material_details(name, 0, impurity, total_value or 0, value_per_kg)
 
 	if total_value is None:
 		if value_per_kg is None:
-			return f"• {name}"
+			return _material_details(name, weight, impurity, 0, 0)
 		net_weight = weight * (1 - max(0, min(impurity or 0, 100)) / 100)
 		total_value = net_weight * value_per_kg
-	return _format_material_line(name, weight, total_value)
+	return _material_details(name, weight, impurity, total_value, value_per_kg)
 
 
 def _get_extra_materials(raw_extra: str | None) -> list[str]:
@@ -102,20 +141,29 @@ def _get_extra_materials(raw_extra: str | None) -> list[str]:
 	return [str(item).strip() for item in decoded if str(item).strip()]
 
 
-def _build_purchase_materials_summary(purchase) -> str:
+def _build_purchase_materials_summary(purchase) -> tuple[str, float, float]:
 	main_material = purchase.material_type.label if purchase.material_type else "Material principal"
-	lines = [_format_material_line(main_material, purchase.weight, purchase.value)]
+	main_details = _material_details(
+		main_material,
+		purchase.weight,
+		getattr(purchase, "impurity_percentage", 0),
+		purchase.value,
+	)
+	details = [main_details]
 
 	for extra_material in _get_extra_materials(getattr(purchase, "material_types_extra", None)):
-		line = _parse_extra_material_line(extra_material)
-		if line:
-			lines.append(line)
+		extra_details = _parse_extra_material(extra_material)
+		if extra_details:
+			details.append(extra_details)
 
-	return "Materiais da compra:\n" + "\n".join(lines)
+	lines = [_format_material_line(item) for item in details]
+	total_paid = sum(item["paid_value"] for item in details)
+	total_discount = sum(item["discount"] for item in details)
+	return "Materiais da compra:\n" + "\n\n".join(lines), total_paid, total_discount
 
 
 def _build_portal_access_line() -> str:
-	return f"Você pode acessar as informacoes da sua venda em nosso site: {PORTAL_URL}"
+	return f"Você pode acessar as informações da sua venda em nosso site: {PORTAL_URL}"
 
 
 def _get_supplier_advance_summary(supplier_id: int | None) -> dict:
@@ -151,61 +199,52 @@ def _build_purchase_notification_message(purchase) -> str:
 	if supplier:
 		supplier_name = supplier.name if supplier.is_pf else (supplier.company_name or supplier.name)
 
-	value_text = _format_brl(purchase.value)
 	date_text = _format_purchase_datetime(purchase.purchase_datetime)
-	materials_summary = _build_purchase_materials_summary(purchase)
+	materials_summary, materials_total, impurity_discount_total = _build_purchase_materials_summary(purchase)
 	advance_abatement_value = float(getattr(purchase, "advance_abatement_value", 0) or 0)
 	advance_applied_value = float(getattr(purchase, "advance_applied_value", advance_abatement_value) or 0)
-	paid_value = max(float(purchase.value or 0) - advance_applied_value, 0)
+	paid_value = max(materials_total - advance_applied_value, 0)
 	generated_value = max(advance_applied_value - advance_abatement_value, 0)
-	advance_value_label = "Valor gerado" if generated_value > 0 else "Valor abatido"
-	advance_value_for_message = generated_value if generated_value > 0 else advance_abatement_value
 	advance_credit_after = float(getattr(purchase, "advance_credit_after", 0) or 0)
-	has_advance_balance_change = advance_abatement_value > 0 or advance_credit_after > 0
+	has_advance_balance_change = advance_applied_value > 0 or advance_abatement_value > 0 or generated_value > 0
 	advance_summary = _get_supplier_advance_summary(getattr(purchase, "supplier_id", None))
-	balance_line = (
-		f"- Saldo positivo atual: R$ {_format_brl(advance_summary['positive_balance'])}\n"
-		if advance_summary["total_debt"] <= 0 and advance_summary["positive_balance"] > 0
-		else f"- Saldo devedor restante: R$ {_format_brl(advance_summary['total_debt'])}\n"
-	)
-	credit_line = f"- Saldo positivo gerado/atual: R$ {_format_brl(advance_credit_after)}\n" if advance_credit_after > 0 else ""
-
+	if advance_summary["total_debt"] > 0:
+		balance_line = f"• Saldo devedor restante: R$ {_format_brl(advance_summary['total_debt'])}\n"
+	elif advance_credit_after <= 0 and advance_summary["positive_balance"] > 0:
+		balance_line = f"• Saldo positivo atual: R$ {_format_brl(advance_summary['positive_balance'])}\n"
+	else:
+		balance_line = ""
+	advance_lines = ""
 	if has_advance_balance_change:
-		return (
-			f"Prezado(a), {supplier_name}.\n\n"
-			"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
-			f"• Valor da compra: R$ {value_text}\n"
-			f"• Valor pago por kg: R$ {_format_brl(purchase.value_per_kg)}\n"
-			f"• Peso total (kg): {_format_weight_kg(purchase.weight)}\n"
-			f"{materials_summary}\n"
-			f"• {advance_value_label} / Valor pago: R$ {_format_brl(advance_value_for_message)} / R$ {_format_brl(paid_value)}\n"
-			f"{credit_line}"
-			f"• Data: {date_text}\n\n"
-			f"• Você possui {advance_summary['open_count']} adiantamento(s) em aberto.\n"
-			
-			f"{balance_line}\n"
-			"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
-			"• Comprovante de pagamento\n"
-			"• Ticket da balanca\n\n"
-			f"{_build_portal_access_line()}\n\n"
-			"Em caso de duvidas, permanecemos a disposicao.\n\n"
-			"Atenciosamente,\n"
-			"FX Metalicos"
+		advance_lines = (
+			f"• Valor abatido de adiantamentos: R$ {_format_brl(advance_abatement_value)}\n"
+			f"• Saldo positivo gerado nesta compra: R$ {_format_brl(generated_value)}\n"
+			f"• Valor pago após adiantamentos: R$ {_format_brl(paid_value)}\n"
+			f"• Adiantamentos em aberto: {advance_summary['open_count']}\n"
+			f"{balance_line}"
 		)
+		if advance_credit_after > 0:
+			advance_lines += f"• Saldo positivo após a compra: R$ {_format_brl(advance_credit_after)}\n"
+
+	attachment_names = [
+		str(getattr(attachment, "file_name", "") or "").strip()
+		for attachment in getattr(purchase, "attachments", [])
+	]
+	attachment_names = [name for name in attachment_names if name]
+	attachments_summary = "\n".join(f"• {name}" for name in attachment_names) or "• Comprovante anexado"
 
 	return (
 		f"Prezado(a), {supplier_name}.\n\n"
-		"Grupo FX Metalicos informa que a operacao foi concluida com sucesso.\n\n"
-		f"• Valor pago: R$ {value_text}\n"
-		f"• Valor pago por kg: R$ {_format_brl(purchase.value_per_kg)}\n"
-		f"• Peso total (kg): {_format_weight_kg(purchase.weight)}\n"
-		f"{materials_summary}\n"
+		"O Grupo FX Metálicos informa que a operação foi concluída com sucesso.\n\n"
+		f"{materials_summary}\n\n"
+		f"• Desconto total por impureza: R$ {_format_brl(impurity_discount_total)}\n"
+		f"• Valor total dos materiais: R$ {_format_brl(materials_total)}\n"
+		f"{advance_lines}"
 		f"• Data: {date_text}\n\n"
-		"Segue abaixo o(s) comprovante(s) referente(s) a transacao realizada:\n"
-		"• Comprovante de pagamento\n"
-		"• Ticket da balanca\n\n"
+		"Arquivos referentes à transação:\n"
+		f"{attachments_summary}\n\n"
 		f"{_build_portal_access_line()}\n\n"
-		"Em caso de duvidas, permanecemos a disposicao.\n\n"
+		"Em caso de dúvidas, permanecemos à disposição.\n\n"
 		"Atenciosamente,\n"
 		"FX Metálicos"
 	)
