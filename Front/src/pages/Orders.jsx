@@ -23,11 +23,13 @@ import ErrorModal from "@/components/internal/errorModal";
 import ConfirmDeleteModal from "@/components/internal/confirmDeleteModal";
 import {
 	createPurchaseWithAttachments,
+	deletePurchaseAttachment,
 	deletePurchase,
 	fetchMaterialTypes,
 	fetchPurchases,
 	sendPurchaseComprovantes,
 	updatePurchase,
+	uploadAttachment,
 } from "@/services/ordersData";
 import {
 	fetchEmployees,
@@ -403,10 +405,14 @@ export default function Orders() {
 	const [editImpurityPercentage, setEditImpurityPercentage] = useState("");
 	const [editDatetime, setEditDatetime] = useState(null);
 	const [editAttachments, setEditAttachments] = useState([]);
+	const [editNewAttachments, setEditNewAttachments] = useState([]);
 	const [editDragActive, setEditDragActive] = useState(false);
 	const [editError, setEditError] = useState("");
+	const [savingEdit, setSavingEdit] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, itemLabel: "", password: "" });
 	const [deletingPurchase, setDeletingPurchase] = useState(false);
+	const [confirmAttachmentDelete, setConfirmAttachmentDelete] = useState({ open: false, attachment: null, password: "" });
+	const [deletingAttachment, setDeletingAttachment] = useState(false);
 	const [infoModal, setInfoModal] = useState({ open: false, title: "", message: "" });
 	const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
 	const [sendingPurchaseId, setSendingPurchaseId] = useState(null);
@@ -774,7 +780,6 @@ export default function Orders() {
 		if (!purchase?.id) return;
 
 		const supplierName = formatPurchaseSupplierName(purchase, suppliersById);
-		const attachmentCount = purchase.attachments?.length || 0;
 
 		if (!purchase.attachments?.length) {
 			setErrorModal({
@@ -788,16 +793,21 @@ export default function Orders() {
 		setSendingPurchaseId(purchase.id);
 		try {
 			const sendResult = await sendPurchaseComprovantes(purchase.id);
-			const sentByWhatsapp = Boolean(sendResult?.text_sent);
+			const sentByWhatsapp = Boolean(sendResult?.whatsapp_sent);
 			const sentByEmail = Boolean(sendResult?.email_sent);
 			const sentByBoth = sentByWhatsapp && sentByEmail;
 			const emailError = sendResult?.email_error;
+			const sentAttachmentCount = Number(sendResult?.attachments_sent || 0);
+			const refreshedPurchases = await fetchPurchases();
+			setPurchases(refreshedPurchases);
 
 			if (sentByBoth) {
 				setInfoModal({
 					open: true,
 					title: "Comprovantes enviados com sucesso",
-					message: `${attachmentCount} comprovante(s) da compra #${purchase.id} do fornecedor ${supplierName} enviados com sucesso por WhatsApp e Email.`,
+					message: sentAttachmentCount > 0
+						? `${sentAttachmentCount} novo(s) comprovante(s) da compra #${purchase.id} do fornecedor ${supplierName} enviados com sucesso por WhatsApp e Email.`
+						: `Todos os comprovantes da compra #${purchase.id} já haviam sido enviados.`,
 				});
 				return;
 			}
@@ -930,7 +940,8 @@ export default function Orders() {
 		setEditTotalValue(purchase.value || "");
 		setEditImpurityPercentage(purchase.impurityPercentage || "");
 		setEditDatetime(safeDate);
-		setEditAttachments([...(purchase.attachmentNames || [])]);
+		setEditAttachments([...(purchase.attachments || [])]);
+		setEditNewAttachments([]);
 		setEditError("");
 		setIsEditOpen(true);
 	};
@@ -1007,19 +1018,44 @@ export default function Orders() {
 		const files = Array.from(fileList || []);
 		if (files.length === 0) return;
 
-		setEditAttachments((prev) => {
-			const existing = new Set(prev);
-			const nextNames = files.map((file) => file.name).filter((name) => !existing.has(name));
-			return [...prev, ...nextNames];
+		setEditNewAttachments((prev) => {
+			const existing = new Set([
+				...editAttachments.map((attachment) => attachment.file_name),
+				...prev.map((file) => file.name),
+			]);
+			const newFiles = files.filter((file) => !existing.has(file.name));
+			return [...prev, ...newFiles];
 		});
 	};
 
 	const removeEditAttachment = (index) => {
-		setEditAttachments((prev) => prev.filter((_, i) => i !== index));
+		setEditNewAttachments((prev) => prev.filter((_, i) => i !== index));
+	};
+
+	const handleDeleteAttachmentConfirm = async () => {
+		const attachment = confirmAttachmentDelete.attachment;
+		if (!attachment?.id || !String(confirmAttachmentDelete.password || "").trim()) return;
+
+		setDeletingAttachment(true);
+		try {
+			await deletePurchaseAttachment(attachment.id, confirmAttachmentDelete.password);
+			setEditAttachments((prev) => prev.filter((item) => item.id !== attachment.id));
+			setPurchases(await fetchPurchases());
+			setConfirmAttachmentDelete({ open: false, attachment: null, password: "" });
+		} catch (err) {
+			setErrorModal({
+				open: true,
+				title: "Erro ao remover comprovante",
+				message: err?.message || "Não foi possível remover o comprovante.",
+			});
+		} finally {
+			setDeletingAttachment(false);
+		}
 	};
 
 	const handleEditSubmit = async (e) => {
 		e.preventDefault();
+		if (savingEdit) return;
 		setEditError("");
 
 		if (!editingPurchaseId) {
@@ -1067,11 +1103,12 @@ export default function Orders() {
 			return;
 		}
 
-		if (editAttachments.length === 0) {
+		if (editAttachments.length + editNewAttachments.length === 0) {
 			setEditError("Anexe pelo menos um comprovante (pagamento ou ticket da balanca).");
 			return;
 		}
 
+		setSavingEdit(true);
 		try {
 			await updatePurchase(editingPurchaseId, {
 				supplier_id: editSupplierId,
@@ -1083,13 +1120,19 @@ export default function Orders() {
 				value: editTotalValue,
 				purchase_datetime: formatDateTimeForApi(editDatetime),
 			});
+			for (const file of editNewAttachments) {
+				await uploadAttachment({ purchaseId: editingPurchaseId, file });
+			}
 
 			const refreshedPurchases = await fetchPurchases();
 			setPurchases(refreshedPurchases);
 			setIsEditOpen(false);
 			setEditingPurchaseId(null);
+			setEditNewAttachments([]);
 		} catch (err) {
 			setEditError(err?.message || "Erro ao atualizar compra.");
+		} finally {
+			setSavingEdit(false);
 		}
 	};
 
@@ -1781,31 +1824,46 @@ export default function Orders() {
 													/>
 												</div>
 
-												{editAttachments.length > 0 && (
-													<div className="mt-3 flex flex-wrap gap-2">
-														{editAttachments.map((fileName, index) => (
-															<span
-																key={`${fileName}-${index}`}
+								{editAttachments.length > 0 && (
+									<div className="mt-3 flex flex-wrap gap-2">
+										{editAttachments.map((attachment) => (
+											<span
+																key={attachment.id}
 																className="inline-flex items-center gap-2 bg-white border border-amber-200 rounded-full px-3 py-1.5 text-xs text-gray-700"
 															>
 																<Paperclip className="w-3 h-3 text-[#b8891f]" />
-																{fileName}
+																{attachment.file_name}
 																<button
 																	type="button"
-																	onClick={() => removeEditAttachment(index)}
+																	onClick={() => setConfirmAttachmentDelete({ open: true, attachment, password: "" })}
 																	className="text-gray-400 hover:text-red-500"
+																	aria-label={`Remover ${attachment.file_name}`}
 																>
 																	<X className="w-3 h-3" />
 																</button>
-															</span>
-														))}
-													</div>
-												)}
+											</span>
+										))}
+									</div>
+								)}
+
+								{editNewAttachments.length > 0 && (
+									<div className="mt-3 flex flex-wrap gap-2">
+										{editNewAttachments.map((file, index) => (
+											<span key={`${file.name}-${index}`} className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1.5 text-xs text-gray-700">
+												<Paperclip className="w-3 h-3 text-emerald-700" />
+												{file.name}
+												<button type="button" onClick={() => removeEditAttachment(index)} className="text-gray-400 hover:text-red-500">
+													<X className="w-3 h-3" />
+												</button>
+											</span>
+										))}
+									</div>
+								)}
 											</div>
 
 											<div className="flex flex-wrap gap-3 pt-2">
-												<Button type="submit" className="bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white hover:brightness-105">
-													Salvar compra
+								<Button type="submit" disabled={savingEdit} className="bg-gradient-to-r from-[#b8891f] to-[#d6ab4a] text-white hover:brightness-105 disabled:opacity-60">
+									{savingEdit ? "Salvando..." : "Salvar compra"}
 												</Button>
 
 												<Button
@@ -1883,6 +1941,18 @@ export default function Orders() {
 				onCancel={() => setConfirmDelete({ open: false, id: null, itemLabel: "", password: "" })}
 				onConfirm={handleDeletePurchaseConfirm}
 				loading={deletingPurchase}
+			/>
+
+			<ConfirmDeleteModal
+				open={confirmAttachmentDelete.open}
+				title="Excluir comprovante"
+				message="Tem certeza que deseja excluir este comprovante? Ele também deixará de aparecer para o vendedor."
+				itemLabel={confirmAttachmentDelete.attachment?.file_name || ""}
+				password={confirmAttachmentDelete.password}
+				onPasswordChange={(password) => setConfirmAttachmentDelete((prev) => ({ ...prev, password }))}
+				onCancel={() => setConfirmAttachmentDelete({ open: false, attachment: null, password: "" })}
+				onConfirm={handleDeleteAttachmentConfirm}
+				loading={deletingAttachment}
 			/>
 		</div>
 	);

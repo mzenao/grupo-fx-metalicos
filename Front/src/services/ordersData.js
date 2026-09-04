@@ -145,6 +145,13 @@ export async function uploadAttachment({ purchaseId, file, attachmentType }) {
   return response?.data;
 }
 
+export async function deletePurchaseAttachment(attachmentId, currentPassword) {
+  await apiRequest(`attachments/${attachmentId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ current_password: currentPassword }),
+  });
+}
+
 export async function resolvePurchaseAttachmentPreviewUrl(attachment) {
   const directUrl = attachment?.file_url || attachment?.file_path || "";
   if (/^https?:\/\//i.test(directUrl)) {

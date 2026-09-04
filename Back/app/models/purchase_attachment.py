@@ -22,6 +22,8 @@ class PurchaseAttachment(db.Model):
 	file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 	file_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
 	created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+	whatsapp_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+	email_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 	purchase = relationship("Purchase", back_populates="attachments")
 
@@ -42,5 +44,6 @@ class PurchaseAttachment(db.Model):
 			"file_url": self._build_file_url(),
 			"file_type": self.file_type,
 			"created_at": self.created_at.isoformat(),
+			"whatsapp_sent_at": self.whatsapp_sent_at.isoformat() if self.whatsapp_sent_at else None,
+			"email_sent_at": self.email_sent_at.isoformat() if self.email_sent_at else None,
 		}
-

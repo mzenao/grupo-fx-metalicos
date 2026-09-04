@@ -1,10 +1,12 @@
 import json
 import re
+from datetime import datetime
 
 from flask import Blueprint, g, request
 
 from app.middlewares.auth_middleware import login_required
 from app.middlewares.role_middleware import roles_required
+from app.extensions import db
 from app.models.advance import Advance
 from app.models.supplier import Supplier
 from app.services.purchase_service import (
@@ -286,9 +288,9 @@ def _get_purchase_supplier_email(purchase) -> str | None:
 	return getattr(supplier.user, "email", None) or supplier.to_dict().get("email")
 
 
-def _build_email_attachments(purchase) -> list[dict]:
+def _build_email_attachments(source_attachments) -> list[dict]:
 	attachments = []
-	for attachment in purchase.attachments:
+	for attachment in source_attachments:
 		resolved_source = resolve_attachment_source(attachment.file_path)
 		if not resolved_source:
 			continue
@@ -386,19 +388,24 @@ def send_purchase_comprovantes_route(purchase_id: int):
 	resend = ResendService()
 	message = _build_purchase_notification_message(purchase)
 	supplier_email = _get_purchase_supplier_email(purchase)
+	is_first_send = purchase.receipts_notified_at is None
+	whatsapp_pending = [item for item in purchase.attachments if item.whatsapp_sent_at is None]
+	email_pending = [item for item in purchase.attachments if item.email_sent_at is None]
 
 	results = []
-	
-	# Send main notification message first
-	results.append(
-		zapi.send_text_message(
-			phone=supplier_phone,
-			message=message,
+
+	# The full purchase message is sent only once. Later sends contain only new files.
+	if is_first_send:
+		results.append(
+			zapi.send_text_message(
+				phone=supplier_phone,
+				message=message,
+			)
 		)
-	)
-	
-	# Send all attachments without caption
-	for attachment in purchase.attachments:
+		purchase.receipts_notified_at = datetime.utcnow()
+		db.session.commit()
+
+	for attachment in whatsapp_pending:
 		resolved_source = resolve_attachment_source(attachment.file_path)
 		results.append(
 			zapi.send_document_message(
@@ -408,29 +415,40 @@ def send_purchase_comprovantes_route(purchase_id: int):
 				caption=None,
 			)
 		)
+		attachment.whatsapp_sent_at = datetime.utcnow()
+		db.session.commit()
 
-	email_sent = False
+	email_sent = not email_pending
 	email_error = None
-	if supplier_email:
+	if supplier_email and email_pending:
 		try:
-			email_attachments = _build_email_attachments(purchase)
+			email_attachments = _build_email_attachments(email_pending)
 			if not email_attachments:
 				raise ValueError("Nenhum comprovante resolvido para envio por e-mail")
 			resend.send_email_with_attachments(
 				to_email=supplier_email,
 				subject=_build_purchase_receipt_subject(purchase),
-				body_text=message,
+				# Resend rejects an empty body. A zero-width space satisfies validation
+				# without showing a new message to the supplier.
+				body_text=message if is_first_send else "\u200b",
 				attachments=email_attachments,
 			)
+			for attachment in email_pending:
+				attachment.email_sent_at = datetime.utcnow()
+			db.session.commit()
 			email_sent = True
 		except Exception as exc:
 			email_error = str(exc)
+	elif not supplier_email:
+		email_sent = False
 
 	return success_response(
 		"Comprovantes enviados com sucesso",
 		{
 			"sent": len(results),
-			"text_sent": True,
+			"attachments_sent": len(whatsapp_pending),
+			"whatsapp_sent": True,
+			"text_sent": is_first_send,
 			"email_sent": email_sent,
 			"email_error": email_error,
 		},

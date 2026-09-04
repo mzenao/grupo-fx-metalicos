@@ -52,6 +52,7 @@ class Purchase(db.Model):
 	advance_credit_after: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 	purchase_datetime: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 	created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+	receipts_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 	supplier = relationship("Supplier", back_populates="purchases")
 	employee = relationship("Employee", back_populates="purchases")
@@ -92,5 +93,6 @@ class Purchase(db.Model):
 			"advance_credit_after": float(self.advance_credit_after or 0),
 			"purchase_datetime": format_brasilia_datetime(self.purchase_datetime),
 			"attachments": [attachment.to_dict() for attachment in self.attachments],
+			"receipts_notified_at": self.receipts_notified_at.isoformat() if self.receipts_notified_at else None,
 			"created_at": self.created_at.isoformat(),
 		}
