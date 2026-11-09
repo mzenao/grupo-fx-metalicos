@@ -7,6 +7,8 @@ import Advances from "./pages/Advances.jsx";
 import Orders from "./pages/Orders.jsx";
 import Sells from "./pages/Sells.jsx";
 import Suppliers from "./pages/Suppliers.jsx";
+import SupplierHistory from "./pages/SupplierHistory.jsx";
+import SupplierHistoryDetail from "./pages/SupplierHistoryDetail.jsx";
 import Account from "./pages/Account.jsx";
 import SupplierPortal from "./pages/SupplierPortal.jsx";
 import InternalLayout from "./layout.jsx";
@@ -160,6 +162,15 @@ function App() {
       />
 
       {/* Rota interna extra */}
+      <Route
+        path="/supplier-history"
+        element={<RoleProtectedRoute allowedRoles={["admin", "employee"]}><InternalLayout><SupplierHistory /></InternalLayout></RoleProtectedRoute>}
+      />
+      <Route
+        path="/supplier-history/:supplierId"
+        element={<RoleProtectedRoute allowedRoles={["admin", "employee"]}><InternalLayout><SupplierHistoryDetail /></InternalLayout></RoleProtectedRoute>}
+      />
+
       <Route
         path="/internal"
         element={

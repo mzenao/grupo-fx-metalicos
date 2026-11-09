@@ -11,6 +11,7 @@ import {
 	ContactRound,
 	ShoppingCart,
 	HandCoins,
+	History,
 } from "lucide-react";
 import SystemNotificationsBell from "@/components/internal/systemNotificationsBell.jsx";
 
@@ -19,6 +20,7 @@ const navItems = [
 	{ name: "Orders", icon: ShoppingCart, label: "Compras", to: "/orders" },
 	{ name: "Advances", icon: HandCoins, label: "Adiantamentos", to: "/adiantamentos" },
 	{ name: "Suppliers", icon: ContactRound, label: "Fornecedores", to: "/suppliers" },
+	{ name: "SupplierHistory", icon: History, label: "Histórico de fornecedores", to: "/supplier-history" },
     { name: "Employees", icon: Users, label: "Funcionarios", to: "/employees" },
 ];
 

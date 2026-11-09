@@ -12,6 +12,7 @@ from app.services.supplier_service import (
 )
 from app.utils.response import success_response
 from app.utils.security import verify_password
+from app.services.supplier_history_service import get_supplier_history
 
 
 supplier_bp = Blueprint("suppliers", __name__)
@@ -41,6 +42,13 @@ def list_suppliers_route():
 @roles_required("admin", "employee", "supplier")
 def get_supplier_route(supplier_id: int):
 	return success_response("Supplier fetched successfully", get_supplier(supplier_id).to_dict())
+
+
+@supplier_bp.get("/<int:supplier_id>/history")
+@login_required
+@roles_required("admin", "employee")
+def get_supplier_history_route(supplier_id: int):
+	return success_response("Supplier history fetched successfully", get_supplier_history(supplier_id, request.args))
 
 
 @supplier_bp.post("")
