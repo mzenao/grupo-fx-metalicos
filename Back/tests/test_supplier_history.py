@@ -144,3 +144,36 @@ class SupplierHistoryTests(unittest.TestCase):
         self.assertEqual(purchase["advance_abatement_value"], 100)
         self.assertTrue(purchase["datetime"].endswith("-03:00"))
         self.assertNotIn("password_hash", str(data))
+
+    def test_charts_keep_each_sale_and_its_registered_unit_price(self):
+        purchase = db.session.get(Purchase, 2)
+        purchase.value_per_kg = 5
+        purchase.value = 1000
+        free_purchase = self.purchase(5, datetime(2026, 11, 6), 10, 0)
+        free_purchase.value_per_kg = 0
+        db.session.add(free_purchase)
+        db.session.commit()
+        self.assertEqual(self.data()["chart_series"]["sales"], [
+            {"id": 1, "datetime": "2026-11-04T00:00:00-03:00", "value": 300.10, "value_per_kg": 3},
+            {"id": 2, "datetime": "2026-11-04T23:59:59-03:00", "value": 1000, "value_per_kg": 5},
+            {"id": 3, "datetime": "2026-11-05T00:00:00-03:00", "value": 150, "value_per_kg": 3},
+            {"id": 5, "datetime": "2026-11-06T00:00:00-03:00", "value": 0, "value_per_kg": 0},
+        ])
+
+    def test_chart_records_respect_filters_and_are_not_limited_to_history_page(self):
+        data = self.data("?start=2026-11-04&end=2026-11-04")
+        self.assertEqual([point["id"] for point in data["chart_series"]["sales"]], [1, 2])
+        self.assertEqual(self.data()["chart_series"]["advances"], [
+            {"id": 1, "datetime": "2026-10-30T10:00:00-03:00", "value": 1000},
+            {"id": 2, "datetime": "2026-11-02T10:00:00-03:00", "value": 500},
+        ])
+        self.assertEqual(self.data("?type=advance")["chart_series"]["sales"], [])
+        self.assertEqual(self.data("?status=pendente")["chart_series"]["advances"][0]["id"], 1)
+        self.assertEqual(len(self.data("?status=pendente")["chart_series"]["advances"]), 1)
+        self.assertEqual(self.data(supplier=3)["chart_series"], {"sales": [], "advances": []})
+        self.assertEqual(self.data("?page=99")["chart_series"], self.data()["chart_series"])
+
+    def test_sales_with_the_same_timestamp_remain_separate_points(self):
+        db.session.get(Purchase, 2).purchase_datetime = datetime(2026, 11, 4)
+        db.session.commit()
+        self.assertEqual([point["id"] for point in self.data()["chart_series"]["sales"]], [1, 2, 3])

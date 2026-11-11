@@ -62,6 +62,41 @@ test("clear filters resets unapplied changes and validation on an unfiltered URL
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
+test("each sale and advance has a point with its own hover details", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/supplier-history/1");
+  const chart = page.getByRole("region", { name: "Vendas do fornecedor", exact: true });
+  await expect(chart).toBeVisible();
+  const plot = chart.getByRole("group", { name: "Gráfico de vendas" });
+  await expect(plot.locator("circle[data-record-id]")).toHaveCount(3);
+  await plot.locator('circle[data-record-id="1"]').hover();
+  await expect(chart.getByRole("tooltip")).toContainText("Venda #1");
+  await expect(chart.getByRole("tooltip")).toContainText("300,10");
+  await expect(chart.getByRole("tooltip")).toContainText("3,00/kg");
+  await plot.locator('circle[data-record-id="2"]').hover();
+  await expect(chart.getByRole("tooltip")).toContainText("Venda #2");
+  await expect(chart.getByRole("tooltip")).toContainText("600,20");
+  await plot.focus();
+  await page.keyboard.press("Home");
+  await expect(chart.getByRole("tooltip")).toContainText("Venda #1");
+  await page.keyboard.press("End");
+  await expect(chart.getByRole("tooltip")).toContainText("150,00");
+  await chart.getByText("Ver valores do gráfico", { exact: true }).click();
+  await expect(chart.getByRole("table")).toContainText("300,10");
+  const advances = page.getByRole("region", { name: "Adiantamentos registrados", exact: true });
+  await expect(advances.locator("circle[data-record-id]")).toHaveCount(2);
+  await advances.locator('circle[data-record-id="1"]').hover();
+  await expect(advances.getByRole("tooltip")).toContainText("Adiantamento #1");
+  await expect(advances.getByRole("tooltip")).toContainText("1.000,00");
+  await expect(advances.getByRole("tooltip")).not.toContainText("/kg");
+  const position = await chart.boundingBox();
+  const advancePosition = await advances.boundingBox();
+  expect(Math.abs(position.y - advancePosition.y)).toBeLessThan(2);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await chart.screenshot({ path: "/tmp/fx-sales-line-mobile.png", animations: "disabled" });
+  expect(await plot.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
 test("employee can read an empty supplier and invalid periods stay actionable", async ({ page }) => {
   await signIn(page, "employee");
   await page.goto("/supplier-history/3");

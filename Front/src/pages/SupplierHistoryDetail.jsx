@@ -75,7 +75,7 @@ export default function SupplierHistoryDetail() {
               <Metric title="Abatimentos" value={money(data.summary.abatement_value)} subtitle="Vinculados às compras do filtro" icon={Wallet} />
             </div>
           </section>
-          <HistoryCharts series={data.series} />
+          <HistoryCharts series={data.chart_series} />
           <HistoryMovements key={`${supplierId}-${query}`} movements={data.movements} pagination={data.pagination} onPageChange={page => {
             const next = new URLSearchParams(params); next.set("page", page); changeFilters(next);
           }} />

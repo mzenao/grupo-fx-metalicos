@@ -110,6 +110,20 @@ def get_supplier_history(supplier_id, params):
         "abatement_value": float(_total(purchases, "advance_abatement_value")),
     }
 
+    chart_series = {
+        "sales": [{
+            "id": purchase.id,
+            "datetime": format_brasilia_datetime(purchase.purchase_datetime),
+            "value": float(purchase.value),
+            "value_per_kg": float(purchase.value_per_kg),
+        } for purchase in sorted(purchases, key=lambda item: (item.purchase_datetime, item.id))],
+        "advances": [{
+            "id": advance.id,
+            "datetime": format_brasilia_datetime(advance.advance_datetime),
+            "value": float(advance.value_total),
+        } for advance in sorted(advances, key=lambda item: (item.advance_datetime, item.id))],
+    }
+
     monthly = {}
     records = []
     for record_kind, items, date_field, value_field in (
@@ -133,6 +147,7 @@ def get_supplier_history(supplier_id, params):
         "supplier": supplier.to_dict(),
         "balances": {"positive": float(supplier.advance_credit_balance or ZERO), "negative": float(debt)},
         "summary": summary,
+        "chart_series": chart_series,
         "series": [{"month": month, **{key: float(value) for key, value in values.items()}}
                    for month, values in sorted(monthly.items())],
         "movements": [_movement(record_kind, record) for _, record_kind, _, record in visible],
